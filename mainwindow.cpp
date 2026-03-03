@@ -10,8 +10,11 @@ MainWindow::MainWindow(QWidget *parent)
     , chatMessages({{"Chat 1", {"Привет", "Это чат 1"}},
                     {"Chat 2", {"Привет", "Это чат 2"}},
                     {"Chat 3", {"Привет", "Это чат 3"}}})
+    , currentChatName()
 {
     ui->setupUi(this);
+
+    //TODO: Эту хуйню вынести куда то в отдельный файл а может и все css стили в по файлам растаскать
     ui->chatsView->setStyleSheet(
         "QListView {"
         " background-color:#FFF8DC;"
@@ -34,6 +37,7 @@ MainWindow::MainWindow(QWidget *parent)
     chatsListModel->setStringList({"Chat 1", "Chat 2", "Chat 3"});
     ui->chatsView->setModel(chatsListModel);
     ui->messagesView->setModel(messagesListModel);
+    ui->AuthAndAppWidget->setCurrentWidget(ui->pageAuth); // Показывать окно регистрации сначала
 }
 
 MainWindow::~MainWindow()
@@ -47,14 +51,16 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatIndex)
 {
     if (chatIndex.isValid())
     {
-        QString chatName = chatIndex.data().toString(); // Название чата
-        ui->chatName->setText(chatName);
-        auto chatIt = chatMessages.constFind(chatName); // Итератор на список сообщений (QStringList) для чата с названием chatName
-        if (chatIt != chatMessages.constEnd()) {
+        QString selectedChatName = chatIndex.data().toString(); // Название выбранного чата
+        auto chatIt = chatMessages.constFind(selectedChatName); // Итератор на список сообщений (QStringList) для чата с названием chatName
+        if (chatIt != chatMessages.constEnd())
+        {
+            currentChatName = selectedChatName;
+            ui->chatName->setText(currentChatName);
             messagesListModel->setStringList(chatIt.value());
-        } else {
+        } else
             messagesListModel->setStringList({});
-        }
+
 #ifdef QT_DEBUG
         qDebug() << chatIndex.data();
 #endif
@@ -62,13 +68,13 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatIndex)
 }
 
 
-void MainWindow::on_sendMessage_clicked()
+void MainWindow::on_sendMessageBtn_clicked()
 {
     QString msgToSend = ui->messageInput->text();
-    bool condToSendMsg = !msgToSend.isEmpty() && chatMessages.constFind(ui->chatName->text()) != chatMessages.constEnd(); // Условия для отправки сообщения
+    bool condToSendMsg = !msgToSend.isEmpty() && chatMessages.constFind(currentChatName) != chatMessages.constEnd(); // Условия для отправки сообщения
     if (condToSendMsg)
     {
-        auto chatIt = chatMessages.find(ui->chatName->text()); // Итератор на список сообщений (QStringList) для чата с названием chatName
+        auto chatIt = chatMessages.find(currentChatName); // Итератор на список сообщений (QStringList) для чата с названием chatName
         chatIt.value().append(msgToSend);
         messagesListModel->setStringList(chatIt.value());
         ui->messageInput->clear();
@@ -78,6 +84,29 @@ void MainWindow::on_sendMessage_clicked()
     {
         ui->messageInput->clear();
         return;
+    }
+
+}
+
+
+void MainWindow::on_registrationBtn_clicked()
+{
+    QString login  = ui->login->text();
+    QString password = ui->password->text();
+    QString passwordConfirm = ui->passwordConfirm->text();
+    // Условия для регистрации
+    bool registrationCond = (!login.isEmpty() && !password.isEmpty() && (login.size() >= 3) && (password.size() >=6) && (password == passwordConfirm));
+    if (registrationCond)
+    {
+        ui->succesRegistrationLabel->setStyleSheet("color: green;");
+        ui->succesRegistrationLabel->setText("Регистрация прошла успешно!");
+        ui->AuthAndAppWidget->setCurrentWidget(ui->pageApp);
+    }
+    else
+    {
+        ui->succesRegistrationLabel->setStyleSheet("color: red;");
+        //TODO: расписать детальней все случаи
+        ui->succesRegistrationLabel->setText("Ошибка регистрации");
     }
 
 }

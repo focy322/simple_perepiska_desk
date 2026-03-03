@@ -27,14 +27,27 @@ private slots:
       */
     void on_chatsView_clicked(const QModelIndex &chatIndex);
 
-    void on_sendMessage_clicked();
+    /**
+      * При нажатии на кнопку отправки сообщения добавляет строку из messageInput в хранилище сообщений
+      *
+      */
+    void on_sendMessageBtn_clicked();
+
+    // TODO: нормальное описание
+    /**
+      * При нажатии на кнопку "Зарегистрироваться" происходит регистрация
+      *
+      */
+    void on_registrationBtn_clicked();
+
+    // TODO: добавить кнопку revealPassword для обоих полей с паролями на pressed() и released()
 
 private:
     Ui::MainWindow *ui;
     QStringListModel *chatsListModel;          //!< Модель для списков чатов для отображения
     QStringListModel *messagesListModel;       //!< Модель для сообщений для конкретного чата
     QHash<QString, QStringList> chatMessages;  //!< Хранилище сообщений по чатам
-    // TODO: добавить currentChatId/currentChatName как отдельное поле класса (а не брать из текста chatName)
+    QString currentChatName;                   //!< Название текущего открытого чата
 
 };
 #endif // MAINWINDOW_H
