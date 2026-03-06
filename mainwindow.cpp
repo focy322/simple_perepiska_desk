@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include <QDebug>
+#include <QTimer>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -11,8 +12,10 @@ MainWindow::MainWindow(QWidget *parent)
                     {"Chat 2", {"Привет", "Это чат 2"}},
                     {"Chat 3", {"Привет", "Это чат 3"}}})
     , currentChatName()
+    , logOutBtn(new QPushButton("Выход", nullptr))
 {
     ui->setupUi(this);
+    setUpLogOutBtn();
 
     //TODO: Эту хуйню вынести куда то в отдельный файл а может и все css стили в по файлам растаскать
     ui->chatsView->setStyleSheet(
@@ -34,10 +37,13 @@ MainWindow::MainWindow(QWidget *parent)
         " background-color:#F4A460;"
         " color:black;"
         " }");
+
     chatsListModel->setStringList({"Chat 1", "Chat 2", "Chat 3"});
     ui->chatsView->setModel(chatsListModel);
     ui->messagesView->setModel(messagesListModel);
-    ui->AuthAndAppWidget->setCurrentWidget(ui->pageAuth); // Показывать окно регистрации сначала
+    ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);// Показывать окно входа сначала
+    ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);// Показывать окно входа сначала
+
 }
 
 MainWindow::~MainWindow()
@@ -65,6 +71,10 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatIndex)
         qDebug() << chatIndex.data();
 #endif
     }
+    else
+    {
+        // По сути он невалидным быть не может поэтому хз что тут добавить
+    }
 }
 
 
@@ -91,16 +101,16 @@ void MainWindow::on_sendMessageBtn_clicked()
 
 void MainWindow::on_registrationBtn_clicked()
 {
-    QString login  = ui->login->text();
-    QString password = ui->password->text();
-    QString passwordConfirm = ui->passwordConfirm->text();
+    QString login  = ui->registrationLogin->text();
+    QString password = ui->registrationPassword->text();
+    QString passwordConfirm = ui->registrationPasswordConfirm->text();
     // Условия для регистрации
     bool registrationCond = (!login.isEmpty() && !password.isEmpty() && (login.size() >= 3) && (password.size() >=6) && (password == passwordConfirm));
     if (registrationCond)
     {
         ui->succesRegistrationLabel->setStyleSheet("color: green;");
         ui->succesRegistrationLabel->setText("Регистрация прошла успешно!");
-        ui->AuthAndAppWidget->setCurrentWidget(ui->pageApp);
+        ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
     }
     else
     {
@@ -111,3 +121,106 @@ void MainWindow::on_registrationBtn_clicked()
 
 }
 
+void MainWindow::on_logInBtn_clicked()
+{
+    QString login  = ui->logInLogIn->text();
+    QString password = ui->logInPassword->text();
+    // Условия для входа
+    bool registrationCond = (!login.isEmpty() && !password.isEmpty() && (login.size() >= 3) && (password.size() >=6));
+    if (registrationCond)
+    {
+        ui->succesLogInLabel->setStyleSheet("color: green;");
+        ui->succesLogInLabel->setText("Успешный вход!");
+        ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
+    }
+    else
+    {
+        ui->succesLogInLabel->setStyleSheet("color: red;");
+        //TODO: расписать детальней все случаи
+        ui->succesLogInLabel->setText("Ошибка входа");
+    }
+
+}
+
+void MainWindow::on_revealRegistrationPasswordBtn_pressed()
+{
+    ui->registrationPassword->setEchoMode(QLineEdit::EchoMode::Normal);
+}
+
+
+void MainWindow::on_revealRegistrationPasswordBtn_released()
+{
+    ui->registrationPassword->setEchoMode(QLineEdit::EchoMode::Password);
+}
+
+
+void MainWindow::on_revealRegistrationPasswordConfirmBtn_pressed()
+{
+    ui->registrationPasswordConfirm->setEchoMode(QLineEdit::EchoMode::Normal);
+}
+
+
+void MainWindow::on_revealRegistrationPasswordConfirmBtn_released()
+{
+    ui->registrationPasswordConfirm->setEchoMode(QLineEdit::EchoMode::Password);
+}
+
+
+void MainWindow::on_revealLogInPasswordBtn_pressed()
+{
+    ui->logInPassword->setEchoMode(QLineEdit::EchoMode::Normal);
+}
+
+
+void MainWindow::on_revealLogInPasswordBtn_released()
+{
+    ui->logInPassword->setEchoMode(QLineEdit::EchoMode::Password);
+}
+
+
+void MainWindow::on_switchToLogInBtn_clicked()
+{
+    ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);
+}
+
+
+void MainWindow::on_switchToRegistrationBtn_clicked()
+{
+    ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageRegistration);
+}
+
+void MainWindow::setUpLogOutBtn()
+{
+
+    logOutBtn->setParent(ui->pageApp);
+    logOutBtn->setFixedSize(90, 30); // Размеры кнопки (может в namespace вынести? хз)
+    logOutBtn->raise(); // Поднять по Z
+    logOutBtn->show();
+    positionLogoutButton();
+    connect(logOutBtn, &QPushButton::clicked, this, &MainWindow::on_logOutBtn_clicked);
+}
+
+void MainWindow::positionLogoutButton()
+{
+    const int margin = 8;
+
+    const QRect r = this->rect(); // Габариты MainWindow
+
+    // В левый нижний угол
+    const int x = margin;
+    const int y = r.height() - logOutBtn->height() - margin;
+
+    logOutBtn->move(x, y);
+}
+
+void MainWindow::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
+    positionLogoutButton();
+}
+
+void MainWindow::on_logOutBtn_clicked()
+{
+    ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);
+    ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);
+}
