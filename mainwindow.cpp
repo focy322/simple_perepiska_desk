@@ -1,7 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include <QDebug>
-#include <QTimer>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -13,6 +12,7 @@ MainWindow::MainWindow(QWidget *parent)
                     {"Chat 3", {"Привет", "Это чат 3"}}})
     , currentChatName()
     , logOutBtn(new QPushButton("Выход", nullptr))
+    , authController(new AuthController(this))
 {
     ui->setupUi(this);
     setUpLogOutBtn();
@@ -44,6 +44,50 @@ MainWindow::MainWindow(QWidget *parent)
     ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);// Показывать окно входа сначала
     ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);// Показывать окно входа сначала
 
+
+    connect(authController, &AuthController::registrationFinished, this, [this](const AuthResult &res){
+        if (res.ok)
+        {
+            ui->succesRegistrationLabel->setStyleSheet("color: green;");
+            ui->succesRegistrationLabel->setText(res.message);
+            ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
+            ui->succesRegistrationLabel->clear();
+            ui->registrationLogin->clear();
+            ui->registrationPassword->clear();
+            ui->registrationPasswordConfirm->clear();
+        }
+        else
+        {
+            ui->succesRegistrationLabel->setStyleSheet("color: red;");
+            ui->succesRegistrationLabel->setText(res.message);
+        }});
+    connect(authController, &AuthController::logInFinished, this, [this](const AuthResult &res){
+        if (res.ok)
+        {
+            ui->succesLogInLabel->setStyleSheet("color: green;");
+            ui->succesLogInLabel->setText(res.message);
+            ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
+            ui->succesLogInLabel->clear();
+            ui->logInLogIn->clear();
+            ui->logInPassword->clear();
+        }
+        else
+        {
+            ui->succesLogInLabel->setStyleSheet("color: red;");
+            ui->succesLogInLabel->setText(res.message);
+        }
+    });
+    connect(authController, &AuthController::loggedOut, this, [this](const AuthResult &res){
+        if (res.ok)
+        {
+            ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);
+            ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);
+        }
+        else
+        {
+            // хз че тут будет
+        }
+    });
 }
 
 MainWindow::~MainWindow()
@@ -104,20 +148,9 @@ void MainWindow::on_registrationBtn_clicked()
     QString login  = ui->registrationLogin->text();
     QString password = ui->registrationPassword->text();
     QString passwordConfirm = ui->registrationPasswordConfirm->text();
-    // Условия для регистрации
-    bool registrationCond = (!login.isEmpty() && !password.isEmpty() && (login.size() >= 3) && (password.size() >=6) && (password == passwordConfirm));
-    if (registrationCond)
-    {
-        ui->succesRegistrationLabel->setStyleSheet("color: green;");
-        ui->succesRegistrationLabel->setText("Регистрация прошла успешно!");
-        ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
-    }
-    else
-    {
-        ui->succesRegistrationLabel->setStyleSheet("color: red;");
-        //TODO: расписать детальней все случаи
-        ui->succesRegistrationLabel->setText("Ошибка регистрации");
-    }
+
+    //какой то AuthResult тут и в зависимости от него че то творится тут
+    authController->requestRegistration(login, password, passwordConfirm);
 
 }
 
@@ -125,20 +158,8 @@ void MainWindow::on_logInBtn_clicked()
 {
     QString login  = ui->logInLogIn->text();
     QString password = ui->logInPassword->text();
-    // Условия для входа
-    bool registrationCond = (!login.isEmpty() && !password.isEmpty() && (login.size() >= 3) && (password.size() >=6));
-    if (registrationCond)
-    {
-        ui->succesLogInLabel->setStyleSheet("color: green;");
-        ui->succesLogInLabel->setText("Успешный вход!");
-        ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
-    }
-    else
-    {
-        ui->succesLogInLabel->setStyleSheet("color: red;");
-        //TODO: расписать детальней все случаи
-        ui->succesLogInLabel->setText("Ошибка входа");
-    }
+    //какой то AuthResult тут и в зависимости от него че то творится тут
+    authController->requestLogIn(login, password);
 
 }
 
@@ -221,6 +242,7 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 
 void MainWindow::on_logOutBtn_clicked()
 {
-    ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);
-    ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);
+    // пока logout'а нет
+    authController->requestLogOut();
+
 }

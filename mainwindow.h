@@ -4,7 +4,7 @@
 #include <QPushButton>
 #include <QMainWindow>
 #include <QStringListModel>
-
+#include "authcontroller.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -84,6 +84,7 @@ private:
     QHash<QString, QStringList> chatMessages;  //!< Хранилище сообщений по чатам
     QString currentChatName;                   //!< Название текущего открытого чата
     QPushButton *logOutBtn;                    //!< Кнопка выхода из аккаунта
+    AuthController *authController;            //!< Принимает запросы от UI, дергает AuthService, возвращает результат через сигналы.
 
     /**
       * Инициализация кнопки "Выход"
