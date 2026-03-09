@@ -45,7 +45,7 @@ signals:
 
     void registrationFinished(const AuthResult &res);
     void logInFinished(const AuthResult &res);
-    void loggedOut(const AuthResult &res);
+    void logOutFinished(const AuthResult &res);
 };
 
 #endif // AUTHCONTROLLER_H

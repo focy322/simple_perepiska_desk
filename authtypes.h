@@ -4,7 +4,7 @@
 
 enum AUTH_ERRORS
 {
-    None,
+    NoError,
     EmptyLogin,
     EmptyPassword,
     EmptyPasswordConfirm,
@@ -21,7 +21,7 @@ inline QString messageForError(AUTH_ERRORS error)
 {
     switch (error)
     {
-    case AUTH_ERRORS::None:                 return "Успех!"; break;
+    case AUTH_ERRORS::NoError:                 return "Успех!"; break;
     case AUTH_ERRORS::EmptyLogin:           return "Введите логин"; break;
     case AUTH_ERRORS::EmptyPassword:        return "Введите пароль"; break;
     case AUTH_ERRORS::EmptyPasswordConfirm: return "Подтвердите пароль"; break;
@@ -34,10 +34,11 @@ inline QString messageForError(AUTH_ERRORS error)
     return "Неизвестная ошибка";
 }
 
+
 struct AuthResult
 {
     bool ok = false;
-    AUTH_ERRORS error = AUTH_ERRORS::None;
+    AUTH_ERRORS error = AUTH_ERRORS::NoError;
     QString message;
 };
 

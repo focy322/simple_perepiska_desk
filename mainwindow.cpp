@@ -75,9 +75,11 @@ MainWindow::MainWindow(QWidget *parent)
         {
             ui->succesLogInLabel->setStyleSheet("color: red;");
             ui->succesLogInLabel->setText(res.message);
+            ui->chatName->setText("Выберите чат");
+            currentChatName = "";
         }
     });
-    connect(authController, &AuthController::loggedOut, this, [this](const AuthResult &res){
+    connect(authController, &AuthController::logOutFinished, this, [this](const AuthResult &res){
         if (res.ok)
         {
             ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);
