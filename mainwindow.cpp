@@ -45,51 +45,13 @@ MainWindow::MainWindow(QWidget *parent)
     ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);// Показывать окно входа сначала
 
 
-    connect(authController, &AuthController::registrationFinished, this, [this](const AuthResult &res){
-        if (res.ok)
-        {
-            ui->succesRegistrationLabel->setStyleSheet("color: green;");
-            ui->succesRegistrationLabel->setText(res.message);
-            ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
-            ui->succesRegistrationLabel->clear();
-            ui->registrationLogin->clear();
-            ui->registrationPassword->clear();
-            ui->registrationPasswordConfirm->clear();
-        }
-        else
-        {
-            ui->succesRegistrationLabel->setStyleSheet("color: red;");
-            ui->succesRegistrationLabel->setText(res.message);
-        }});
-    connect(authController, &AuthController::logInFinished, this, [this](const AuthResult &res){
-        if (res.ok)
-        {
-            ui->succesLogInLabel->setStyleSheet("color: green;");
-            ui->succesLogInLabel->setText(res.message);
-            ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
-            ui->succesLogInLabel->clear();
-            ui->logInLogIn->clear();
-            ui->logInPassword->clear();
-        }
-        else
-        {
-            ui->succesLogInLabel->setStyleSheet("color: red;");
-            ui->succesLogInLabel->setText(res.message);
-            ui->chatName->setText("Выберите чат");
-            currentChatName = "";
-        }
-    });
-    connect(authController, &AuthController::logOutFinished, this, [this](const AuthResult &res){
-        if (res.ok)
-        {
-            ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);
-            ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);
-        }
-        else
-        {
-            // хз че тут будет
-        }
-    });
+    connect(authController, &AuthController::registrationFinished, this, &MainWindow::on_registrationFinished);
+    connect(authController, &AuthController::logInFinished, this, &MainWindow::on_logInFinished);
+    connect(authController, &AuthController::logOutFinished, this, &MainWindow::on_logOutFinished);
+    connect(authController, &AuthController::registrationInProgress, this, &MainWindow::on_registrationInProgress);
+    connect(authController, &AuthController::logInProgress, this, &MainWindow::on_logInProgress);
+    connect(authController, &AuthController::logOutInProgress, this, &MainWindow::on_logOutInProgress);
+
 }
 
 MainWindow::~MainWindow()
@@ -151,7 +113,6 @@ void MainWindow::on_registrationBtn_clicked()
     QString password = ui->registrationPassword->text();
     QString passwordConfirm = ui->registrationPasswordConfirm->text();
 
-    //какой то AuthResult тут и в зависимости от него че то творится тут
     authController->requestRegistration(login, password, passwordConfirm);
 
 }
@@ -160,7 +121,7 @@ void MainWindow::on_logInBtn_clicked()
 {
     QString login  = ui->logInLogIn->text();
     QString password = ui->logInPassword->text();
-    //какой то AuthResult тут и в зависимости от него че то творится тут
+
     authController->requestLogIn(login, password);
 
 }
@@ -227,7 +188,8 @@ void MainWindow::positionLogoutButton()
 {
     const int margin = 8;
 
-    const QRect r = this->rect(); // Габариты MainWindow
+    // Габариты MainWindow (Почему то через appPage не выходит (походу геометрия до конца не формируется к моменту вызова функции))
+    const QRect r = this->rect();
 
     // В левый нижний угол
     const int x = margin;
@@ -247,4 +209,80 @@ void MainWindow::on_logOutBtn_clicked()
     // пока logout'а нет
     authController->requestLogOut();
 
+}
+
+void MainWindow::on_registrationFinished(const AuthResult &res)
+{
+    if (res.ok)
+    {
+        ui->succesRegistrationLabel->setStyleSheet("color: green;");
+        ui->succesRegistrationLabel->setText(res.message);
+        ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
+        ui->succesRegistrationLabel->clear();
+        ui->registrationLogin->clear();
+        ui->registrationPassword->clear();
+        ui->registrationPasswordConfirm->clear();
+    }
+    else
+    {
+        ui->succesRegistrationLabel->setStyleSheet("color: red;");
+        ui->succesRegistrationLabel->setText(res.message);
+    }
+    ui->registrationBtn->setEnabled(true);
+    ui->switchToLogInBtn->setEnabled(true);
+}
+
+void MainWindow::on_logInFinished(const AuthResult &res)
+{
+    if (res.ok)
+    {
+        ui->succesLogInLabel->setStyleSheet("color: green;");
+        ui->succesLogInLabel->setText(res.message);
+        ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
+        ui->succesLogInLabel->clear();
+        ui->logInLogIn->clear();
+        ui->logInPassword->clear();
+    }
+    else
+    {
+        ui->succesLogInLabel->setStyleSheet("color: red;");
+        ui->succesLogInLabel->setText(res.message);
+        ui->chatName->setText("Выберите чат");
+        currentChatName = "";
+    }
+    ui->logInBtn->setEnabled(true);
+    ui->switchToRegistrationBtn->setEnabled(true);
+}
+
+void MainWindow::on_logOutFinished(const AuthResult &res)
+{
+    if (res.ok)
+    {
+        // TODO: Очистить пользовательские данные и поля
+        ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);
+        ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);
+    }
+    else
+    {
+        // TODO: Сообщение об ошибке
+    }
+}
+
+void MainWindow::on_registrationInProgress()
+{
+    // Заморозка кнопок на время регистрации
+    ui->registrationBtn->setEnabled(false);
+    ui->switchToLogInBtn->setEnabled(false);
+}
+
+void MainWindow::on_logInProgress()
+{
+    // Заморозка кнопок на время авторизации
+    ui->logInBtn->setEnabled(false);
+    ui->switchToRegistrationBtn->setEnabled(false);
+}
+
+void MainWindow::on_logOutInProgress()
+{
+    //TODO: Реализация
 }

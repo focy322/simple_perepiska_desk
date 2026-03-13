@@ -13,52 +13,33 @@ AuthService::AuthService(QObject *parent)
 
 void AuthService::registerUser(const QString &login, const QString &password, const QString &passwordConfirm)
 {
-    if (login.isEmpty())
+    auto res = validateRegistration(login, password, passwordConfirm);
+    if (!res.ok)
     {
-        emit registrationFinished(AuthResult{false, AUTH_ERRORS::EmptyLogin, messageForError(AUTH_ERRORS::EmptyLogin)});
-        return;
-    }
-    if (login.size() < 3)
-    {
-        emit registrationFinished(AuthResult{false, AUTH_ERRORS::ShortLogin, messageForError(AUTH_ERRORS::ShortLogin)});
-        return;
-    }
-    if (password.isEmpty())
-    {
-        emit registrationFinished(AuthResult{false, AUTH_ERRORS::EmptyPassword, messageForError(AUTH_ERRORS::EmptyPassword)});
-        return;
-    }
-    if (password.size() < 6)
-    {
-        emit registrationFinished(AuthResult{false, AUTH_ERRORS::ShortPassword, messageForError(AUTH_ERRORS::ShortPassword)});
-        return;
-    }
-    if (passwordConfirm.isEmpty())
-    {
-        emit registrationFinished(AuthResult{false, AUTH_ERRORS::EmptyPasswordConfirm, messageForError(AUTH_ERRORS::EmptyPasswordConfirm)});
-        return;
-    }
-    if (password != passwordConfirm)
-    {
-        emit registrationFinished(AuthResult{false, AUTH_ERRORS::PasswordMismatch, messageForError(AUTH_ERRORS::PasswordMismatch)});
+        emit registrationFinished(res);
         return;
     }
 
+
+    // TODO: Как боб поменяет API-шку под нее перестроить реализацию обращения к ней
     QUrl url(baseUrl + registerUrl);
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json"); // Поставить JSON-заголовок
-    QJsonObject obj
+
+    QJsonObject obj // Вид тела запроса для регистрации
     {
         {"username", login},
         {"password", password},
     };
+
     QByteArray body = QJsonDocument(obj).toJson(QJsonDocument::Compact);
     QNetworkReply * reply = network->post(req, body);
+    emit registrationInProgress();
     connect(reply, &QNetworkReply::finished, this, [this, reply](){
         if (reply->error() != QNetworkReply::NoError)
         {
             // TODO: Определение конкретной ошибки
-            AuthResult res{false, AUTH_ERRORS::ErrorsCount, messageForError(AUTH_ERRORS::ErrorsCount)};
+            AuthResult res{false, AUTH_ERRORS::UNKNOWN_ERROR, messageForError(AUTH_ERRORS::UNKNOWN_ERROR)};
             emit registrationFinished(res);
             reply->deleteLater();
             return;
@@ -69,7 +50,7 @@ void AuthService::registerUser(const QString &login, const QString &password, co
         if (pe.error || !doc.isObject())
         {
             // TODO: Определение конкретной ошибки
-            AuthResult res{false, AUTH_ERRORS::ErrorsCount, messageForError(AUTH_ERRORS::ErrorsCount)};
+            AuthResult res{false, AUTH_ERRORS::UNKNOWN_ERROR, messageForError(AUTH_ERRORS::UNKNOWN_ERROR)};
             emit registrationFinished(res);
             reply->deleteLater();
             return;
@@ -78,12 +59,12 @@ void AuthService::registerUser(const QString &login, const QString &password, co
         if (httpCode == 200)
         {
             // TODO: Определение конкретной ошибки
-            AuthResult res{true, AUTH_ERRORS::NoError, messageForError(AUTH_ERRORS::NoError)};
+            AuthResult res{true, AUTH_ERRORS::NO_ERROR, messageForError(AUTH_ERRORS::NO_ERROR)};
             emit registrationFinished(res);
             reply->deleteLater();
             return;
         }
-        AuthResult res{false, AUTH_ERRORS::ErrorsCount, messageForError(AUTH_ERRORS::ErrorsCount)};
+        AuthResult res{false, AUTH_ERRORS::UNKNOWN_ERROR, messageForError(AUTH_ERRORS::UNKNOWN_ERROR)};
         emit registrationFinished(res);
         reply->deleteLater();
         return;
@@ -94,34 +75,24 @@ void AuthService::registerUser(const QString &login, const QString &password, co
 
 void AuthService::logIn(const QString &login, const QString &password)
 {
-    if (login.isEmpty())
+
+    const AuthResult& res = validateLogIn(login, password);
+    if (!res.ok)
     {
-        emit logInFinished(AuthResult{false, AUTH_ERRORS::EmptyLogin, messageForError(AUTH_ERRORS::EmptyLogin)});
+        emit logInFinished(res);
         return;
     }
-    if (login.size() < 3)
-    {
-        emit logInFinished(AuthResult{false, AUTH_ERRORS::ShortLogin, messageForError(AUTH_ERRORS::ShortLogin)});
-        return;
-    }
-    if (password.isEmpty())
-    {
-        emit logInFinished(AuthResult{false, AUTH_ERRORS::EmptyPassword, messageForError(AUTH_ERRORS::EmptyPassword)});
-        return;
-    }
-    if (password.size() < 6)
-    {
-        emit logInFinished(AuthResult{false, AUTH_ERRORS::ShortPassword, messageForError(AUTH_ERRORS::ShortPassword)});
-        return;
-    }
-    // тут к апишке обращение надо
-    emit logInFinished(AuthResult{true, AUTH_ERRORS::NoError, messageForError(AUTH_ERRORS::NoError)});
+    // TODO: обращение к API (но el bob там пока что то мутит)
+    //emit logInProgress();
+    emit logInFinished(AuthResult{true, AUTH_ERRORS::NO_ERROR, messageForError(AUTH_ERRORS::NO_ERROR)});
     return;
 }
 
 
 void AuthService::logOut()
 {
-    emit logOutFinished(AuthResult{true, AUTH_ERRORS::NoError, messageForError(AUTH_ERRORS::NoError)});
+    // TODO: Реализовать обращение к API-шке (её пока нет)
+    //emit logOutInProgress();
+    emit logOutFinished(AuthResult{true, AUTH_ERRORS::NO_ERROR, messageForError(AUTH_ERRORS::NO_ERROR)});
     return;
 }

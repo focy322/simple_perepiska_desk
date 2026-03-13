@@ -42,10 +42,13 @@ private:
     AuthService *authService; // Содержит правила регистрации/входа и работу с данными пользователей, без UI-зависимостей.
 
 signals:
-
-    void registrationFinished(const AuthResult &res);
-    void logInFinished(const AuthResult &res);
-    void logOutFinished(const AuthResult &res);
+    // Сигналы прокидываются от AuthService в MainWindow
+    void registrationFinished(const AuthResult &res); //!< Сигнал о завершении регистрации (может быть как успешным так и нет)
+    void logInFinished(const AuthResult &res);        //!< Сигнал о завершении авторизации (может быть как успешным так и нет)
+    void logOutFinished(const AuthResult &res);       //!< Сигнал о завершении выхода из аккаунта (может быть как успешным так и нет)
+    void registrationInProgress();                    //!< Сигнал о том что регистрация в процессе и нужно заморозить кнопки
+    void logInProgress();                             //!< Сигнал о том что авторизация в процессе и нужно заморозить кнопки
+    void logOutInProgress();                          //!< Сигнал о том что выход из аккаунта в процессе и нужно заморозить кнопки
 };
 
 #endif // AUTHCONTROLLER_H

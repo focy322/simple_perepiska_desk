@@ -69,9 +69,6 @@ private slots:
 
     void on_revealLogInPasswordBtn_released();
 
-    void on_logOutBtn_clicked();
-
-
     void on_switchToLogInBtn_clicked();
 
     void on_switchToRegistrationBtn_clicked();
@@ -85,17 +82,67 @@ private:
     QString currentChatName;                   //!< Название текущего открытого чата
     QPushButton *logOutBtn;                    //!< Кнопка выхода из аккаунта
     AuthController *authController;            //!< Принимает запросы от UI, дергает AuthService, возвращает результат через сигналы.
+    bool isAuthorized;                         //!< Флаг авторизации пользователя
+    QString currentUsername;                   //!< Имя пользователя
+    uint currentUserId;                        //!< Id пользователя
 
     /**
       * Инициализация кнопки "Выход"
       *
       */
     void setUpLogOutBtn();
+
     /**
       * При resiz'е окна меняет положение кнопки "Выход"
       *
       */
     void positionLogoutButton();
 
+    /**
+      * Вызывается при получении сигнала о завершении регистрации
+      * При успехе перебрасывает на основное окно приложения попутно очищая поля ввода логина и пароля
+      * При неудаче выводит сообщение об ошибке
+      *
+      */
+    void on_registrationFinished(const AuthResult &res);
+
+    /**
+      * Вызывается при получении сигнала о завершении авторизации
+      * При успехе перебрасывает на основное окно приложения попутно очищая поля ввода логина и пароля
+      * При неудаче выводит сообщение об ошибке
+      *
+      */
+    void on_logInFinished(const AuthResult &res);
+
+    /**
+      * Вызывается при получении сигнала о завершении выхода из аккаунта
+      * При успехе перебрасывает на окно регистрации попутно подчищая за собой все пользовательские данные(чаты, названия чатов и т.д)
+      * При неудаче пока хз что
+      *
+      */
+    void on_logOutFinished(const AuthResult &res);
+
+    /**
+      * Вызывается при получении сигнала о том что начался процесс регистрации
+      * Замораживает кнопки на веремя регистрации
+      *
+      */
+    void on_registrationInProgress();
+
+    /**
+      * Вызывается при получении сигнала о том что начался процесс авторизации
+      * Замораживает кнопки на веремя регистрации
+      *
+      */
+    void on_logInProgress();
+
+    /**
+      * Вызывается при получении сигнала о том что начался процесс выходп из аккаунта
+      * Что то происходит
+      *
+      */
+    void on_logOutInProgress();
+
+    void on_logOutBtn_clicked();
 };
 #endif // MAINWINDOW_H

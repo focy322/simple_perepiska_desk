@@ -2,45 +2,35 @@
 #define AUTHTYPES_H
 #include <QString>
 
+// TODO: номера ошибок от запросов
 enum AUTH_ERRORS
 {
-    NoError,
-    EmptyLogin,
-    EmptyPassword,
-    EmptyPasswordConfirm,
-    ShortLogin,
-    ShortPassword,
-    PasswordMismatch,
-    LoginAlreadyExists,
-    ErrorsCount,
+    NO_ERROR,
+    UNKNOWN_ERROR,
+    EMPTY_LOGIN,
+    EMPTY_PASSWORD,
+    EMPTY_PASSWORD_CONFIRM,
+    SHORT_LOGIN,
+    SHORT_PASSWORD,
+    PASSWORD_MISMATCH,
+    LOGIN_ALREADY_EXISTS,
+    ERRORS_COUNTS,                          //!< Кол-во ошибок
     //чета еще
 
 };
 
-inline QString messageForError(AUTH_ERRORS error)
-{
-    switch (error)
-    {
-    case AUTH_ERRORS::NoError:                 return "Успех!"; break;
-    case AUTH_ERRORS::EmptyLogin:           return "Введите логин"; break;
-    case AUTH_ERRORS::EmptyPassword:        return "Введите пароль"; break;
-    case AUTH_ERRORS::EmptyPasswordConfirm: return "Подтвердите пароль"; break;
-    case AUTH_ERRORS::ShortLogin:           return "Минимальный размер логина 3 символа!"; break;
-    case AUTH_ERRORS::ShortPassword:        return "Минимальный размер пароля 6 символов!"; break;
-    case AUTH_ERRORS::PasswordMismatch:     return "Пароли не совпадают!"; break;
-    case AUTH_ERRORS::LoginAlreadyExists:   return "Логин уже занят!"; break;
-    case AUTH_ERRORS::ErrorsCount:          break;
-    }
-    return "Неизвестная ошибка";
-}
-
+QString messageForError(AUTH_ERRORS error);
 
 struct AuthResult
 {
     bool ok = false;
-    AUTH_ERRORS error = AUTH_ERRORS::NoError;
+    AUTH_ERRORS error = AUTH_ERRORS::NO_ERROR;
     QString message;
 };
+
+const AuthResult validateRegistration(const QString &login, const QString &password, const QString &passwordConfirm);
+
+const AuthResult validateLogIn(const QString &login, const QString &password);
 
 
 

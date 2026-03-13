@@ -38,14 +38,17 @@ public:
     void logOut();
 
 private:
-    QNetworkAccessManager *network;
-    QString baseUrl;
-    QString registerUrl;
-    QString logInUrl;
+    QNetworkAccessManager *network; //!< Указатель на объект для работы с запросами
+    QString baseUrl;                //!< Базовый адрес API
+    QString registerUrl;            //!< Адрес для регистрации
+    QString logInUrl;               //!< Адрес для авторизации
 signals:
-    void registrationFinished(const AuthResult &res);
-    void logInFinished(const AuthResult &res);
-    void logOutFinished(const AuthResult &res);
+    void registrationFinished(const AuthResult &res); //!< Сигнал о завершении регистрации (может быть как успешным так и нет)
+    void logInFinished(const AuthResult &res);        //!< Сигнал о завершении авторизации (может быть как успешным так и нет)
+    void logOutFinished(const AuthResult &res);       //!< Сигнал о завершении выхода из аккаунта (может быть как успешным так и нет)
+    void registrationInProgress();                    //!< Сигнал о том что регистрация в процессе и нужно заморозить кнопки
+    void logInProgress();                             //!< Сигнал о том что авторизация в процессе и нужно заморозить кнопки
+    void logOutInProgress();                          //!< Сигнал о том что выход из аккаунта в процессе и нужно заморозить кнопки
 };
 
 #endif // AUTHSERVICE_H

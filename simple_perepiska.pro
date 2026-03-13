@@ -11,6 +11,7 @@ CONFIG += c++17
 SOURCES += \
     authcontroller.cpp \
     authservice.cpp \
+    authtypes.cpp \
     main.cpp \
     mainwindow.cpp
 
