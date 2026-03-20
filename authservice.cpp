@@ -1,9 +1,12 @@
 #include "authservice.h"
+#include <QSysInfo>
+#include <fstream>
+#include <QUrlQuery>
 
 AuthService::AuthService(QObject *parent)
     : QObject{parent}
     , network(new QNetworkAccessManager(this))
-    , baseUrl("https://simplemessenger-00tn.onrender.com")
+    , baseUrl("https://messenger-3yfw.onrender.com")
     , registerUrl("/api/users/")
     , logInUrl("/api/auth/token")
 {
@@ -20,11 +23,12 @@ void AuthService::registerUser(const QString &login, const QString &password, co
         return;
     }
 
-
-    // TODO: Как боб поменяет API-шку под нее перестроить реализацию обращения к ней
     QUrl url(baseUrl + registerUrl);
     QNetworkRequest req(url);
-    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json"); // Поставить JSON-заголовок
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    // Данные о системе
+    QString ua = QString("Simple_Perepiska_lol_kek/0.01 (%1; %2)").arg(QSysInfo::prettyProductName(), QSysInfo::currentCpuArchitecture());
+    req.setHeader(QNetworkRequest::UserAgentHeader, ua);
 
     QJsonObject obj // Вид тела запроса для регистрации
     {
@@ -33,10 +37,16 @@ void AuthService::registerUser(const QString &login, const QString &password, co
     };
 
     QByteArray body = QJsonDocument(obj).toJson(QJsonDocument::Compact);
+#ifdef QT_DEBUG
+    qDebug() << body;
+#endif
+
     QNetworkReply * reply = network->post(req, body);
     emit registrationInProgress();
     connect(reply, &QNetworkReply::finished, this, [this, reply](){
-        if (reply->error() != QNetworkReply::NoError)
+        auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        // TODO: обработка ошибок httpCode
+        if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
             // TODO: Определение конкретной ошибки
             AuthResult res{false, AUTH_ERRORS::UNKNOWN_ERROR, messageForError(AUTH_ERRORS::UNKNOWN_ERROR)};
@@ -55,10 +65,24 @@ void AuthService::registerUser(const QString &login, const QString &password, co
             reply->deleteLater();
             return;
         }
-        auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if (httpCode == 200)
+        // TODO: ошибки от 400 до 499
+        if (httpCode == 400)
         {
-            // TODO: Определение конкретной ошибки
+            AuthResult res{false, AUTH_ERRORS::LOGIN_ALREADY_EXISTS, messageForError(AUTH_ERRORS::LOGIN_ALREADY_EXISTS)};
+            emit registrationFinished(res);
+            reply->deleteLater();
+            return;
+        }
+        if (httpCode == 200 || httpCode == 201)
+        {
+            std::fstream accessToken("accessToken.txt", std::ios_base::trunc | std::ios_base::out);
+            QString accToken = doc.object()["token"].toObject()["access_token"].toString();
+            accessToken.write(accToken.toStdString().c_str(), accToken.size());
+
+            std::fstream refreshToken("refreshToken.txt", std::ios_base::trunc | std::ios_base::out);
+            QString refToken = doc.object()["token"].toObject()["refresh_token"].toString();
+            refreshToken.write(refToken.toStdString().c_str(), refToken.size());
+
             AuthResult res{true, AUTH_ERRORS::NO_ERROR, messageForError(AUTH_ERRORS::NO_ERROR)};
             emit registrationFinished(res);
             reply->deleteLater();
@@ -82,10 +106,74 @@ void AuthService::logIn(const QString &login, const QString &password)
         emit logInFinished(res);
         return;
     }
-    // TODO: обращение к API (но el bob там пока что то мутит)
-    //emit logInProgress();
-    emit logInFinished(AuthResult{true, AUTH_ERRORS::NO_ERROR, messageForError(AUTH_ERRORS::NO_ERROR)});
-    return;
+
+    QUrl url(baseUrl + logInUrl);
+    QNetworkRequest req(url);
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded"); // Поставить JSON-заголовок
+    QString ua = QString("Simple_Perepiska_lol_kek/0.01 (%1; %2)").arg(QSysInfo::prettyProductName(), QSysInfo::currentCpuArchitecture());
+    req.setHeader(QNetworkRequest::UserAgentHeader, ua);
+
+    QUrlQuery form; // Форма для запроса Авторизации
+    form.addQueryItem("username", login);
+    form.addQueryItem("password", password);
+
+    QByteArray body = form.query(QUrl::FullyEncoded).toUtf8();
+#ifdef QT_DEBUG
+    qDebug() << body;
+#endif
+
+    QNetworkReply * reply = network->post(req, body);
+    emit logInProgress();
+    connect(reply, &QNetworkReply::finished, this, [this, reply](){
+        auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        // TODO: обработка ошибок httpCode
+        if (reply->error() != QNetworkReply::NoError && httpCode == 0)
+        {
+            // TODO: Определение конкретной ошибки
+            AuthResult res{false, AUTH_ERRORS::UNKNOWN_ERROR, messageForError(AUTH_ERRORS::UNKNOWN_ERROR)};
+            emit logInFinished(res);
+            reply->deleteLater();
+            return;
+        }
+        QByteArray raw = reply->readAll();
+        QJsonParseError pe;
+        QJsonDocument doc = QJsonDocument::fromJson(raw, &pe);
+        if (pe.error || !doc.isObject())
+        {
+            // TODO: Определение конкретной ошибки
+            AuthResult res{false, AUTH_ERRORS::UNKNOWN_ERROR, messageForError(AUTH_ERRORS::UNKNOWN_ERROR)};
+            emit logInFinished(res);
+            reply->deleteLater();
+            return;
+        }
+        // TODO: ошибки от 400 до 499
+        if (httpCode == 422)
+        {
+            qDebug() << doc;
+            AuthResult res{false, AUTH_ERRORS::UNKNOWN_ERROR, messageForError(AUTH_ERRORS::UNKNOWN_ERROR)};
+            emit logInFinished(res);
+            reply->deleteLater();
+            return;
+        }
+        if (httpCode == 200 || httpCode == 201)
+        {
+            std::fstream accessToken("accessToken.txt", std::ios_base::trunc | std::ios_base::out);
+            QString accToken = doc.object()["access_token"].toString();
+            accessToken.write(accToken.toStdString().c_str(), accToken.size());
+
+            std::fstream refreshToken("refreshToken.txt", std::ios_base::trunc | std::ios_base::out);
+            QString refToken = doc.object()["refresh_token"].toString();
+            refreshToken.write(refToken.toStdString().c_str(), refToken.size());
+            AuthResult res{true, AUTH_ERRORS::NO_ERROR, messageForError(AUTH_ERRORS::NO_ERROR)};
+            emit logInFinished(res);
+            reply->deleteLater();
+            return;
+        }
+        AuthResult res{false, AUTH_ERRORS::UNKNOWN_ERROR, messageForError(AUTH_ERRORS::UNKNOWN_ERROR)};
+        emit logInFinished(res);
+        reply->deleteLater();
+        return;
+    } );
 }
 
 

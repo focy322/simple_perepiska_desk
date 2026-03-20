@@ -15,7 +15,7 @@ enum AUTH_ERRORS
     PASSWORD_MISMATCH,
     LOGIN_ALREADY_EXISTS,
     ERRORS_COUNTS,                          //!< Кол-во ошибок
-    //чета еще
+    // TODO: чета еще
 
 };
 
