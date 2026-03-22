@@ -1,7 +1,8 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include <QDebug>
-
+#include <QFile>
+#include <fstream>
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -13,7 +14,24 @@ MainWindow::MainWindow(QWidget *parent)
     , currentChatName()
     , logOutBtn(new QPushButton("Выход", nullptr))
     , authController(new AuthController(this))
+    , isAuthorized(false)
+    , currentUsername("")
+    , currentUserId(ULONG_LONG_MAX)
+    , userInfoController(new UserInfoController(this))
+    , accessToken("")
+    , refreshToken("")
 {
+    connect(authController, &AuthController::registrationFinished, this, &MainWindow::on_registrationFinished);
+    connect(authController, &AuthController::logInFinished, this, &MainWindow::on_logInFinished);
+    connect(authController, &AuthController::logOutFinished, this, &MainWindow::on_logOutFinished);
+    connect(authController, &AuthController::registrationInProgress, this, &MainWindow::on_registrationInProgress);
+    connect(authController, &AuthController::logInProgress, this, &MainWindow::on_logInProgress);
+    connect(authController, &AuthController::logOutInProgress, this, &MainWindow::on_logOutInProgress);
+    connect(authController, &AuthController::RefreshAccessTokenInProgress, this, &MainWindow::on_RefreshAccessTokenInProgress);
+    connect(authController, &AuthController::RefreshAccessTokenFinished, this, &MainWindow::on_RefreshAccessTokenFinished);
+    connect(userInfoController, &UserInfoController::getMyUserInfoInProgress, this, &MainWindow::on_getMyUserInfoInProgress);
+    connect(userInfoController, &UserInfoController::getMyUserInfoFinished, this, &MainWindow::on_getMyUserInfoFinished);
+
     ui->setupUi(this);
     setUpLogOutBtn();
 
@@ -41,16 +59,19 @@ MainWindow::MainWindow(QWidget *parent)
     chatsListModel->setStringList({"Chat 1", "Chat 2", "Chat 3"});
     ui->chatsView->setModel(chatsListModel);
     ui->messagesView->setModel(messagesListModel);
-    ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);// Показывать окно входа сначала
-    ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);// Показывать окно входа сначала
+    if (!checkAuthorization())
+    {
+        ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);// Показывать окно входа сначала
+        ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);// Показывать окно входа сначала
+    }
+    else
+    {
+        // вытащить инфу о пользователе
+        getMyInfo();
+        ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
+    }
 
 
-    connect(authController, &AuthController::registrationFinished, this, &MainWindow::on_registrationFinished);
-    connect(authController, &AuthController::logInFinished, this, &MainWindow::on_logInFinished);
-    connect(authController, &AuthController::logOutFinished, this, &MainWindow::on_logOutFinished);
-    connect(authController, &AuthController::registrationInProgress, this, &MainWindow::on_registrationInProgress);
-    connect(authController, &AuthController::logInProgress, this, &MainWindow::on_logInProgress);
-    connect(authController, &AuthController::logOutInProgress, this, &MainWindow::on_logOutInProgress);
 
 }
 
@@ -198,6 +219,46 @@ void MainWindow::positionLogoutButton()
     logOutBtn->move(x, y);
 }
 
+bool MainWindow::checkAuthorization()
+{
+    QFile file("refreshToken.txt");
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        // файл не открылся
+        isAuthorized = false;
+        return isAuthorized;
+    }
+
+    refreshToken = QString::fromUtf8(file.readAll()).trimmed();
+    file.close();
+    // Event loop для синхронного ожидания
+    QEventLoop loop;
+
+    // Отключаем старый обработчик на время
+    disconnect(authController, &AuthController::RefreshAccessTokenFinished, this, &MainWindow::on_RefreshAccessTokenFinished);
+
+    // Подключаем сигнал к лямбде
+    auto connection = connect(authController, &AuthController::RefreshAccessTokenFinished, this, [&](const AuthResult &res, const QString &accToken, const QString &refToken) {
+        isAuthorized = res.ok;
+        accessToken = accToken;
+        refreshToken = refToken;
+        loop.quit();
+    });
+
+    authController->requestRefreshAccessToken(refreshToken);
+    loop.exec(); // Ждем здесь
+
+    disconnect(connection); // Отключаем временную связь
+
+    // Переподключаем старый обработчик
+    connect(authController, &AuthController::RefreshAccessTokenFinished, this, &MainWindow::on_RefreshAccessTokenFinished);
+    return isAuthorized;
+}
+
+void MainWindow::getMyInfo()
+{
+    userInfoController->requestMyUserInfo(accessToken);
+}
+
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
@@ -211,7 +272,51 @@ void MainWindow::on_logOutBtn_clicked()
 
 }
 
-void MainWindow::on_registrationFinished(const AuthResult &res)
+void MainWindow::on_RefreshAccessTokenInProgress()
+{
+
+}
+
+void MainWindow::on_RefreshAccessTokenFinished(const AuthResult &res, const QString &accToken, const QString &refToken)
+{
+    if (res.ok)
+    {
+        accessToken = accToken;
+        refreshToken = refToken;
+    }
+    else
+    {
+#ifdef QT_DEBUG
+        qDebug() << "on_RefreshAccessTokenFinished = false";
+#endif
+    }
+}
+
+void MainWindow::on_getMyUserInfoInProgress()
+{
+
+}
+
+void MainWindow::on_getMyUserInfoFinished(const AuthResult &res, const QString &username, unsigned long long userId)
+{
+    if (res.ok)
+    {
+        currentUsername = username;
+        currentUserId = userId;
+#ifdef QT_DEBUG
+        qDebug() << "currentUsername" << currentUsername;
+        qDebug() << "currentUserId" << currentUserId;
+#endif
+    }
+    else
+    {
+#ifdef QT_DEBUG
+        qDebug() << "on_getMyUserInfoFinished = false";
+#endif
+    }
+}
+
+void MainWindow::on_registrationFinished(const AuthResult &res, const QString &accToken, const QString &refToken)
 {
     if (res.ok)
     {
@@ -222,6 +327,10 @@ void MainWindow::on_registrationFinished(const AuthResult &res)
         ui->registrationLogin->clear();
         ui->registrationPassword->clear();
         ui->registrationPasswordConfirm->clear();
+        accessToken = accToken;
+        refreshToken = refToken;
+        isAuthorized = true;
+        getMyInfo();
     }
     else
     {
@@ -232,7 +341,7 @@ void MainWindow::on_registrationFinished(const AuthResult &res)
     ui->switchToLogInBtn->setEnabled(true);
 }
 
-void MainWindow::on_logInFinished(const AuthResult &res)
+void MainWindow::on_logInFinished(const AuthResult &res, const QString &accToken, const QString &refToken)
 {
     if (res.ok)
     {
@@ -242,6 +351,10 @@ void MainWindow::on_logInFinished(const AuthResult &res)
         ui->succesLogInLabel->clear();
         ui->logInLogIn->clear();
         ui->logInPassword->clear();
+        accessToken = accToken;
+        refreshToken = refToken;
+        isAuthorized = true;
+        getMyInfo();
     }
     else
     {

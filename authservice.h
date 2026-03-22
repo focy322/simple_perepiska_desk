@@ -1,6 +1,6 @@
 #ifndef AUTHSERVICE_H
 #define AUTHSERVICE_H
-#include "authtypes.h"
+#include "errortypes.h"
 #include <QObject>
 #include <QtNetwork/QNetworkAccessManager>
 #include <QtNetwork/QNetworkReply>
@@ -20,7 +20,7 @@ public:
       * @param passwordConfirm - Введенное подтверждение пароля
       * @return
       */
-    void registerUser(const QString &login, const QString &password, const QString &passwordConfirm);
+    void registerUser(const QString &login, const QString &password);
 
     /**
       * Выполняет запрос на авторизацию
@@ -32,23 +32,34 @@ public:
 
     /**
       * Пока нема
-
+      *
       * @return
       */
     void logOut();
+
+
+    /**
+      * Обновление токенов авторизации
+      *
+      * @return запись в токен-файлы новых токенов
+      */
+    void refreshAccessToken(const QString &refToken);
 
 private:
     QNetworkAccessManager *network; //!< Указатель на объект для работы с запросами
     QString baseUrl;                //!< Базовый адрес API
     QString registerUrl;            //!< Адрес для регистрации
     QString logInUrl;               //!< Адрес для авторизации
+    QString refreshAccessTokenUrl;
 signals:
-    void registrationFinished(const AuthResult &res); //!< Сигнал о завершении регистрации (может быть как успешным так и нет)
-    void logInFinished(const AuthResult &res);        //!< Сигнал о завершении авторизации (может быть как успешным так и нет)
+    void registrationFinished(const AuthResult &res, const QString &accToken = "", const QString &refToken = ""); //!< Сигнал о завершении регистрации (может быть как успешным так и нет)
+    void logInFinished(const AuthResult &res, const QString &accToken = "", const QString &refToken = "");        //!< Сигнал о завершении авторизации (может быть как успешным так и нет)
     void logOutFinished(const AuthResult &res);       //!< Сигнал о завершении выхода из аккаунта (может быть как успешным так и нет)
     void registrationInProgress();                    //!< Сигнал о том что регистрация в процессе и нужно заморозить кнопки
     void logInProgress();                             //!< Сигнал о том что авторизация в процессе и нужно заморозить кнопки
     void logOutInProgress();                          //!< Сигнал о том что выход из аккаунта в процессе и нужно заморозить кнопки
+    void refreshAccessTokenInProgress();
+    void refreshAccessTokenFinished(const AuthResult &res, const QString &accToken = "", const QString &refToken = "");
 };
 
 #endif // AUTHSERVICE_H

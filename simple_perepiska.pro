@@ -11,15 +11,19 @@ CONFIG += c++17
 SOURCES += \
     authcontroller.cpp \
     authservice.cpp \
-    authtypes.cpp \
+    errortypes.cpp \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    userinfocontroller.cpp \
+    userinfoservice.cpp
 
 HEADERS += \
     authcontroller.h \
     authservice.h \
-    authtypes.h \
-    mainwindow.h
+    errortypes.h \
+    mainwindow.h \
+    userinfocontroller.h \
+    userinfoservice.h
 
 FORMS += \
     mainwindow.ui

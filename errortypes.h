@@ -1,9 +1,9 @@
-#ifndef AUTHTYPES_H
-#define AUTHTYPES_H
+#ifndef ERRORTYPES_H
+#define ERRORTYPES_H
 #include <QString>
 
 // TODO: номера ошибок от запросов
-enum AUTH_ERRORS
+enum ERROR_TYPES
 {
     NO_ERROR,
     UNKNOWN_ERROR,
@@ -19,23 +19,23 @@ enum AUTH_ERRORS
 
 };
 
-QString messageForError(AUTH_ERRORS error);
+QString messageForError(ERROR_TYPES error);
 
 struct AuthResult
 {
     bool ok = false;
-    AUTH_ERRORS error = AUTH_ERRORS::NO_ERROR;
+    ERROR_TYPES error = ERROR_TYPES::NO_ERROR;
     QString message;
 };
 
-const AuthResult validateRegistration(const QString &login, const QString &password, const QString &passwordConfirm);
+AuthResult validateRegistration(const QString &login, const QString &password, const QString &passwordConfirm);
 
-const AuthResult validateLogIn(const QString &login, const QString &password);
-
-
+AuthResult validateLogIn(const QString &login, const QString &password);
 
 
 
 
-#endif // AUTHTYPES_H
+
+
+#endif // ERRORTYPES_H
 

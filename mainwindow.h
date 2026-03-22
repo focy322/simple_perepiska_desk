@@ -5,6 +5,7 @@
 #include <QMainWindow>
 #include <QStringListModel>
 #include "authcontroller.h"
+#include "userinfocontroller.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -73,38 +74,13 @@ private slots:
 
     void on_switchToRegistrationBtn_clicked();
 
-
-private:
-    Ui::MainWindow *ui;
-    QStringListModel *chatsListModel;          //!< Модель для списков чатов для отображения
-    QStringListModel *messagesListModel;       //!< Модель для сообщений для конкретного чата
-    QHash<QString, QStringList> chatMessages;  //!< Хранилище сообщений по чатам
-    QString currentChatName;                   //!< Название текущего открытого чата
-    QPushButton *logOutBtn;                    //!< Кнопка выхода из аккаунта
-    AuthController *authController;            //!< Принимает запросы от UI, дергает AuthService, возвращает результат через сигналы.
-    bool isAuthorized;                         //!< Флаг авторизации пользователя
-    QString currentUsername;                   //!< Имя пользователя
-    uint currentUserId;                        //!< Id пользователя
-
-    /**
-      * Инициализация кнопки "Выход"
-      *
-      */
-    void setUpLogOutBtn();
-
-    /**
-      * При resiz'е окна меняет положение кнопки "Выход"
-      *
-      */
-    void positionLogoutButton();
-
     /**
       * Вызывается при получении сигнала о завершении регистрации
       * При успехе перебрасывает на основное окно приложения попутно очищая поля ввода логина и пароля
       * При неудаче выводит сообщение об ошибке
       *
       */
-    void on_registrationFinished(const AuthResult &res);
+    void on_registrationFinished(const AuthResult &res, const QString &accToken, const QString &refToken);
 
     /**
       * Вызывается при получении сигнала о завершении авторизации
@@ -112,7 +88,7 @@ private:
       * При неудаче выводит сообщение об ошибке
       *
       */
-    void on_logInFinished(const AuthResult &res);
+    void on_logInFinished(const AuthResult &res, const QString &accToken, const QString &refToken);
 
     /**
       * Вызывается при получении сигнала о завершении выхода из аккаунта
@@ -144,5 +120,44 @@ private:
     void on_logOutInProgress();
 
     void on_logOutBtn_clicked();
+
+    void on_RefreshAccessTokenInProgress();
+
+    void on_RefreshAccessTokenFinished(const AuthResult &res, const QString &accToken, const QString &refToken);
+
+    void on_getMyUserInfoInProgress();
+
+    void on_getMyUserInfoFinished(const AuthResult &res, const QString &username, unsigned long long userId);
+
+private:
+    Ui::MainWindow *ui;
+    QStringListModel *chatsListModel;          //!< Модель для списков чатов для отображения
+    QStringListModel *messagesListModel;       //!< Модель для сообщений для конкретного чата
+    QHash<QString, QStringList> chatMessages;  //!< Хранилище сообщений по чатам
+    QString currentChatName;                   //!< Название текущего открытого чата
+    QPushButton *logOutBtn;                    //!< Кнопка выхода из аккаунта
+    AuthController *authController;            //!< Принимает запросы от UI, дергает AuthService, возвращает результат через сигналы.
+    bool isAuthorized;                         //!< Флаг авторизации пользователя
+    QString currentUsername;                   //!< Имя пользователя
+    unsigned long long currentUserId;          //!< Id пользователя
+    UserInfoController *userInfoController;    //!< Принимает запросы от UI, дергает UserInfoService, возвращает результат через сигналы.
+    QString accessToken;
+    QString refreshToken;
+
+    /**
+      * Инициализация кнопки "Выход"
+      *
+      */
+    void setUpLogOutBtn();
+
+    /**
+      * При resiz'е окна меняет положение кнопки "Выход"
+      *
+      */
+    void positionLogoutButton();
+
+    bool checkAuthorization();
+
+    void getMyInfo();
 };
 #endif // MAINWINDOW_H

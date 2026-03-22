@@ -11,6 +11,10 @@ AuthController::AuthController(QObject *parent)
     connect(authService, &AuthService::registrationInProgress, this, &AuthController::registrationInProgress);
     connect(authService, &AuthService::logInProgress, this, &AuthController::logInProgress);
     connect(authService, &AuthService::logOutInProgress, this, &AuthController::logOutInProgress);
+    connect(authService, &AuthService::refreshAccessTokenInProgress, this, &AuthController::RefreshAccessTokenInProgress);
+    connect(authService, &AuthService::refreshAccessTokenFinished, this, &AuthController::RefreshAccessTokenFinished);
+
+
 }
 
 void AuthController::requestRegistration(const QString &login, const QString &password, const QString &passwordConfirm)
@@ -19,7 +23,7 @@ void AuthController::requestRegistration(const QString &login, const QString &pa
     // Проверка входных на соответсвие бизнес-правилам
     auto res = validateRegistration(login, password, passwordConfirm);
     if (res.ok)
-        authService->registerUser(login, password, passwordConfirm);
+        authService->registerUser(login, password);
     else
         emit registrationFinished(res);
 }
@@ -39,4 +43,9 @@ void AuthController::requestLogIn(const QString &login, const QString &password)
 void AuthController::requestLogOut()
 {
     authService->logOut();
+}
+
+void AuthController::requestRefreshAccessToken(const QString &refToken)
+{
+    authService->refreshAccessToken(refToken);
 }
