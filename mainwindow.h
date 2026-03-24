@@ -156,8 +156,10 @@ private:
       */
     void positionLogoutButton();
 
-    bool checkAuthorization();
+    void tryAuthorize();
 
     void getMyInfo();
+
+    void checkAuthorization(const AuthResult &res, const QString &accToken, const QString &refToken);
 };
 #endif // MAINWINDOW_H

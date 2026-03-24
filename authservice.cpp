@@ -10,6 +10,7 @@ AuthService::AuthService(QObject *parent)
     , registerUrl("/api/users/")
     , logInUrl("/api/auth/token")
     , refreshAccessTokenUrl("/api/auth/token/refresh")
+    , logOutUrl("/api/auth/token/revoke")
 {
 
 }
@@ -165,12 +166,50 @@ void AuthService::logIn(const QString &login, const QString &password)
 }
 
 
-void AuthService::logOut()
+void AuthService::logOut(const QString &refToken)
 {
-    // TODO: Реализовать обращение к API-шке (её пока нет)
-    //emit logOutInProgress();
-    emit logOutFinished(AuthResult{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)});
-    return;
+    emit logOutInProgress();
+    QUrl url(baseUrl + logOutUrl);
+    QNetworkRequest req(url);
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    // Отправляем просто строку в JSON формате
+    QByteArray body = "\"" + refToken.toUtf8() + "\"";
+#ifdef QT_DEBUG
+    qDebug() << "RefreshToken" << body;
+#endif
+
+    QNetworkReply * reply = network->post(req, body);
+    connect(reply, &QNetworkReply::finished, this, [this, reply](){
+        auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (reply->error() != QNetworkReply::NoError && httpCode == 0)
+        {
+            AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            emit logOutFinished(res);
+            reply->deleteLater();
+            return;
+        }
+        QByteArray raw = reply->readAll();
+        QJsonParseError pe;
+        QJsonDocument doc = QJsonDocument::fromJson(raw, &pe);
+        if (pe.error || !doc.isObject())
+        {
+            AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            emit logOutFinished(res);
+            reply->deleteLater();
+            return;
+        }
+        if (httpCode == 200 || httpCode == 201)
+        {
+            AuthResult res{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)};
+            emit logOutFinished(res);
+            reply->deleteLater();
+            return;
+        }
+        AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+        emit logOutFinished(res);
+        reply->deleteLater();
+    });
 }
 
 // TODO: Реализация

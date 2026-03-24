@@ -40,9 +40,9 @@ void AuthController::requestLogIn(const QString &login, const QString &password)
 
 }
 
-void AuthController::requestLogOut()
+void AuthController::requestLogOut(const QString &refToken)
 {
-    authService->logOut();
+    authService->logOut(refToken);
 }
 
 void AuthController::requestRefreshAccessToken(const QString &refToken)

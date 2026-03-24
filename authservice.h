@@ -35,7 +35,7 @@ public:
       *
       * @return
       */
-    void logOut();
+    void logOut(const QString &refToken);
 
 
     /**
@@ -50,7 +50,8 @@ private:
     QString baseUrl;                //!< Базовый адрес API
     QString registerUrl;            //!< Адрес для регистрации
     QString logInUrl;               //!< Адрес для авторизации
-    QString refreshAccessTokenUrl;
+    QString refreshAccessTokenUrl;  //!< Адрес для обновления токена
+    QString logOutUrl;              //!< Адрес для выхода из аккаунта
 signals:
     void registrationFinished(const AuthResult &res, const QString &accToken = "", const QString &refToken = ""); //!< Сигнал о завершении регистрации (может быть как успешным так и нет)
     void logInFinished(const AuthResult &res, const QString &accToken = "", const QString &refToken = "");        //!< Сигнал о завершении авторизации (может быть как успешным так и нет)

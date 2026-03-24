@@ -2,7 +2,7 @@
 #include "ui_mainwindow.h"
 #include <QDebug>
 #include <QFile>
-#include <fstream>
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -59,24 +59,16 @@ MainWindow::MainWindow(QWidget *parent)
     chatsListModel->setStringList({"Chat 1", "Chat 2", "Chat 3"});
     ui->chatsView->setModel(chatsListModel);
     ui->messagesView->setModel(messagesListModel);
-    if (!checkAuthorization())
-    {
-        ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);// Показывать окно входа сначала
-        ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);// Показывать окно входа сначала
-    }
-    else
-    {
-        // вытащить инфу о пользователе
-        getMyInfo();
-        ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
-    }
+    ui->loadingAndContentWidgets->setCurrentWidget(ui->loadingPage);
 
+    tryAuthorize();
 
 
 }
 
 MainWindow::~MainWindow()
 {
+    //TODO: записывать refreshToken в файл при выходе
     delete ui;
 }
 
@@ -219,44 +211,50 @@ void MainWindow::positionLogoutButton()
     logOutBtn->move(x, y);
 }
 
-bool MainWindow::checkAuthorization()
+void MainWindow::tryAuthorize()
 {
     QFile file("refreshToken.txt");
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         // файл не открылся
         isAuthorized = false;
-        return isAuthorized;
+        checkAuthorization(AuthResult{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)}, "", "");
+        return;
     }
 
     refreshToken = QString::fromUtf8(file.readAll()).trimmed();
     file.close();
-    // Event loop для синхронного ожидания
-    QEventLoop loop;
-
-    // Отключаем старый обработчик на время
-    disconnect(authController, &AuthController::RefreshAccessTokenFinished, this, &MainWindow::on_RefreshAccessTokenFinished);
-
-    // Подключаем сигнал к лямбде
-    auto connection = connect(authController, &AuthController::RefreshAccessTokenFinished, this, [&](const AuthResult &res, const QString &accToken, const QString &refToken) {
-        isAuthorized = res.ok;
-        accessToken = accToken;
-        refreshToken = refToken;
-        loop.quit();
-    });
 
     authController->requestRefreshAccessToken(refreshToken);
-    loop.exec(); // Ждем здесь
-
-    disconnect(connection); // Отключаем временную связь
-
-    // Переподключаем старый обработчик
-    connect(authController, &AuthController::RefreshAccessTokenFinished, this, &MainWindow::on_RefreshAccessTokenFinished);
-    return isAuthorized;
 }
 
 void MainWindow::getMyInfo()
 {
     userInfoController->requestMyUserInfo(accessToken);
+}
+
+void MainWindow::checkAuthorization(const AuthResult &res, const QString &accToken, const QString &refToken)
+{
+    if (res.ok)
+    {
+        isAuthorized = res.ok;
+        accessToken = accToken;
+        refreshToken = refToken;
+        ui->loadingAndContentWidgets->setCurrentWidget(ui->contentPage);
+        getMyInfo();
+        ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
+    }
+    else
+    {
+        isAuthorized = res.ok;
+        accessToken = accToken;
+        refreshToken = refToken;
+        ui->loadingAndContentWidgets->setCurrentWidget(ui->contentPage);
+        ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);// Показывать окно входа
+        ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);// Показывать окно входа
+#ifdef QT_DEBUG
+        qDebug() << "authorization Failed!!!";
+#endif
+    }
 }
 
 void MainWindow::resizeEvent(QResizeEvent *event)
@@ -267,9 +265,7 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 
 void MainWindow::on_logOutBtn_clicked()
 {
-    // пока logout'а нет
-    authController->requestLogOut();
-
+    authController->requestLogOut(refreshToken);
 }
 
 void MainWindow::on_RefreshAccessTokenInProgress()
@@ -279,6 +275,13 @@ void MainWindow::on_RefreshAccessTokenInProgress()
 
 void MainWindow::on_RefreshAccessTokenFinished(const AuthResult &res, const QString &accToken, const QString &refToken)
 {
+    static bool isFirst = true;
+    if (isFirst)
+    {
+        isFirst = false;
+        checkAuthorization(res, accToken, refToken);
+    }
+
     if (res.ok)
     {
         accessToken = accToken;
@@ -286,6 +289,7 @@ void MainWindow::on_RefreshAccessTokenFinished(const AuthResult &res, const QStr
     }
     else
     {
+        isAuthorized = false;
 #ifdef QT_DEBUG
         qDebug() << "on_RefreshAccessTokenFinished = false";
 #endif
@@ -334,6 +338,9 @@ void MainWindow::on_registrationFinished(const AuthResult &res, const QString &a
     }
     else
     {
+        isAuthorized = false;
+        accessToken = accToken;
+        refreshToken = refToken;
         ui->succesRegistrationLabel->setStyleSheet("color: red;");
         ui->succesRegistrationLabel->setText(res.message);
     }
@@ -358,6 +365,9 @@ void MainWindow::on_logInFinished(const AuthResult &res, const QString &accToken
     }
     else
     {
+        isAuthorized = false;
+        accessToken = accToken;
+        refreshToken = refToken;
         ui->succesLogInLabel->setStyleSheet("color: red;");
         ui->succesLogInLabel->setText(res.message);
         ui->chatName->setText("Выберите чат");
@@ -372,12 +382,16 @@ void MainWindow::on_logOutFinished(const AuthResult &res)
     if (res.ok)
     {
         // TODO: Очистить пользовательские данные и поля
+        isAuthorized = false;
         ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);
         ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);
     }
     else
     {
         // TODO: Сообщение об ошибке
+#ifdef QT_DEBUG
+        qDebug() << "LogOutError";
+#endif
     }
 }
 

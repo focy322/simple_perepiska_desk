@@ -36,7 +36,7 @@ public:
       * @param
       * @return
       */
-    void requestLogOut();
+    void requestLogOut(const QString &refToken);
 
     void requestRefreshAccessToken(const QString &refToken);
 
