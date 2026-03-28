@@ -2,15 +2,13 @@
 #include "ui_mainwindow.h"
 #include <QDebug>
 #include <QFile>
-
+#include <QThread>
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , chatsListModel(new QStringListModel(this))
     , messagesListModel(new QStringListModel(this))
-    , chatMessages({{"Chat 1", {"Привет", "Это чат 1"}},
-                    {"Chat 2", {"Привет", "Это чат 2"}},
-                    {"Chat 3", {"Привет", "Это чат 3"}}})
+    , chatMessages()
     , currentChatName()
     , logOutBtn(new QPushButton("Выход", nullptr))
     , authController(new AuthController(this))
@@ -20,6 +18,9 @@ MainWindow::MainWindow(QWidget *parent)
     , userInfoController(new UserInfoController(this))
     , accessToken("")
     , refreshToken("")
+    , chatsController(new ChatsController(this))
+    , isFirstOpen(true)
+    , chatsList{}
 {
     connect(authController, &AuthController::registrationFinished, this, &MainWindow::on_registrationFinished);
     connect(authController, &AuthController::logInFinished, this, &MainWindow::on_logInFinished);
@@ -27,10 +28,12 @@ MainWindow::MainWindow(QWidget *parent)
     connect(authController, &AuthController::registrationInProgress, this, &MainWindow::on_registrationInProgress);
     connect(authController, &AuthController::logInProgress, this, &MainWindow::on_logInProgress);
     connect(authController, &AuthController::logOutInProgress, this, &MainWindow::on_logOutInProgress);
-    connect(authController, &AuthController::RefreshAccessTokenInProgress, this, &MainWindow::on_RefreshAccessTokenInProgress);
-    connect(authController, &AuthController::RefreshAccessTokenFinished, this, &MainWindow::on_RefreshAccessTokenFinished);
+    connect(authController, &AuthController::refreshAccessTokenInProgress, this, &MainWindow::on_refreshAccessTokenInProgress);
+    connect(authController, &AuthController::refreshAccessTokenFinished, this, &MainWindow::on_refreshAccessTokenFinished);
     connect(userInfoController, &UserInfoController::getMyUserInfoInProgress, this, &MainWindow::on_getMyUserInfoInProgress);
     connect(userInfoController, &UserInfoController::getMyUserInfoFinished, this, &MainWindow::on_getMyUserInfoFinished);
+    connect(chatsController, &ChatsController::getMyChatsInProgress, this, &MainWindow::on_getMyChatsInProgress);
+    connect(chatsController, &ChatsController::getMyChatsFinished, this, &MainWindow::on_getMyChatsFinished);
 
     ui->setupUi(this);
     setUpLogOutBtn();
@@ -56,7 +59,6 @@ MainWindow::MainWindow(QWidget *parent)
         " color:black;"
         " }");
 
-    chatsListModel->setStringList({"Chat 1", "Chat 2", "Chat 3"});
     ui->chatsView->setModel(chatsListModel);
     ui->messagesView->setModel(messagesListModel);
     ui->loadingAndContentWidgets->setCurrentWidget(ui->loadingPage);
@@ -217,6 +219,7 @@ void MainWindow::tryAuthorize()
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         // файл не открылся
         isAuthorized = false;
+        isFirstOpen = false;
         checkAuthorization(AuthResult{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)}, "", "");
         return;
     }
@@ -229,6 +232,7 @@ void MainWindow::tryAuthorize()
 
 void MainWindow::getMyInfo()
 {
+    qDebug() << "Отправленный  accessToken в getMyInfo " << accessToken;
     userInfoController->requestMyUserInfo(accessToken);
 }
 
@@ -242,6 +246,7 @@ void MainWindow::checkAuthorization(const AuthResult &res, const QString &accTok
         ui->loadingAndContentWidgets->setCurrentWidget(ui->contentPage);
         getMyInfo();
         ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
+        getChatsList();
     }
     else
     {
@@ -257,6 +262,11 @@ void MainWindow::checkAuthorization(const AuthResult &res, const QString &accTok
     }
 }
 
+void MainWindow::getChatsList()
+{
+    chatsController->requestMyChats(accessToken);
+}
+
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
@@ -265,20 +275,19 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 
 void MainWindow::on_logOutBtn_clicked()
 {
-    authController->requestLogOut(refreshToken);
+    authController->requestLogOut(accessToken, refreshToken);
 }
 
-void MainWindow::on_RefreshAccessTokenInProgress()
+void MainWindow::on_refreshAccessTokenInProgress()
 {
 
 }
 
-void MainWindow::on_RefreshAccessTokenFinished(const AuthResult &res, const QString &accToken, const QString &refToken)
+void MainWindow::on_refreshAccessTokenFinished(const AuthResult &res, const QString &accToken, const QString &refToken)
 {
-    static bool isFirst = true;
-    if (isFirst)
+    if (isFirstOpen)
     {
-        isFirst = false;
+        isFirstOpen = false;
         checkAuthorization(res, accToken, refToken);
     }
 
@@ -320,6 +329,33 @@ void MainWindow::on_getMyUserInfoFinished(const AuthResult &res, const QString &
     }
 }
 
+void MainWindow::on_getMyChatsInProgress()
+{
+
+}
+
+void MainWindow::on_getMyChatsFinished(const AuthResult &res, const std::vector<ParsedArrayObject>& paObjects)
+{
+    if (res.ok)
+    {
+        chatsList = paObjects;
+
+        QStringList chatNames;
+        for (const ParsedArrayObject &chat : chatsList)
+        {
+            QString displayName = chat.chatName.trimmed();
+            chatNames.append(displayName);
+        }
+
+        chatsListModel->setStringList(chatNames);
+        qDebug() << "on_getMyChatsFinished = true!!!";
+    }
+    else
+    {
+        qDebug() << "on_getMyChatsFinished = false!!!";
+    }
+}
+
 void MainWindow::on_registrationFinished(const AuthResult &res, const QString &accToken, const QString &refToken)
 {
     if (res.ok)
@@ -332,9 +368,11 @@ void MainWindow::on_registrationFinished(const AuthResult &res, const QString &a
         ui->registrationPassword->clear();
         ui->registrationPasswordConfirm->clear();
         accessToken = accToken;
+        qDebug() << "Пришедший accessToken от on_registrationFinished " << accToken;
         refreshToken = refToken;
         isAuthorized = true;
         getMyInfo();
+        getChatsList();
     }
     else
     {
@@ -362,6 +400,7 @@ void MainWindow::on_logInFinished(const AuthResult &res, const QString &accToken
         refreshToken = refToken;
         isAuthorized = true;
         getMyInfo();
+        getChatsList();
     }
     else
     {

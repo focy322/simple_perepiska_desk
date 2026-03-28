@@ -7,7 +7,6 @@
 #include <QtNetwork/QNetworkReply>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include "authservice.h"
 
 // Класс для работы с информацией о пользователе получающий данные от UserInfoController и работающий с API
 class UserInfoService : public QObject
@@ -21,8 +20,8 @@ public:
 private:
     QNetworkAccessManager *network; //!< Указатель на объект для работы с запросами
     QString baseUrl;                //!< Базовый адрес API
-    QString myUserInfoUrl;            //!< Адрес для регистрации
-    QString userByUsernameUrl;               //!< Адрес для авторизации
+    QString myUserInfoUrl;          //!< Адрес для регистрации
+    QString userByUsernameUrl;      //!< Адрес для авторизации
 signals:
 
     void getMyUserInfoFinished(const AuthResult &res, const QString &username = "", unsigned long long userId = ULONG_LONG_MAX);

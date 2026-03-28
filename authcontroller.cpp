@@ -11,8 +11,8 @@ AuthController::AuthController(QObject *parent)
     connect(authService, &AuthService::registrationInProgress, this, &AuthController::registrationInProgress);
     connect(authService, &AuthService::logInProgress, this, &AuthController::logInProgress);
     connect(authService, &AuthService::logOutInProgress, this, &AuthController::logOutInProgress);
-    connect(authService, &AuthService::refreshAccessTokenInProgress, this, &AuthController::RefreshAccessTokenInProgress);
-    connect(authService, &AuthService::refreshAccessTokenFinished, this, &AuthController::RefreshAccessTokenFinished);
+    connect(authService, &AuthService::refreshAccessTokenInProgress, this, &AuthController::refreshAccessTokenInProgress);
+    connect(authService, &AuthService::refreshAccessTokenFinished, this, &AuthController::refreshAccessTokenFinished);
 
 
 }
@@ -40,9 +40,9 @@ void AuthController::requestLogIn(const QString &login, const QString &password)
 
 }
 
-void AuthController::requestLogOut(const QString &refToken)
+void AuthController::requestLogOut(const QString &accToken, const QString &refToken)
 {
-    authService->logOut(refToken);
+    authService->logOut(accToken, refToken);
 }
 
 void AuthController::requestRefreshAccessToken(const QString &refToken)

@@ -6,6 +6,7 @@
 #include <QStringListModel>
 #include "authcontroller.h"
 #include "userinfocontroller.h"
+#include "chatscontroller.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -107,7 +108,7 @@ private slots:
 
     /**
       * Вызывается при получении сигнала о том что начался процесс авторизации
-      * Замораживает кнопки на веремя регистрации
+      * Замораживает кнопки на время регистрации
       *
       */
     void on_logInProgress();
@@ -121,13 +122,17 @@ private slots:
 
     void on_logOutBtn_clicked();
 
-    void on_RefreshAccessTokenInProgress();
+    void on_refreshAccessTokenInProgress();
 
-    void on_RefreshAccessTokenFinished(const AuthResult &res, const QString &accToken, const QString &refToken);
+    void on_refreshAccessTokenFinished(const AuthResult &res, const QString &accToken, const QString &refToken);
 
     void on_getMyUserInfoInProgress();
 
     void on_getMyUserInfoFinished(const AuthResult &res, const QString &username, unsigned long long userId);
+
+    void on_getMyChatsInProgress();
+
+    void on_getMyChatsFinished(const AuthResult &res, const std::vector<ParsedArrayObject>& paObjects );
 
 private:
     Ui::MainWindow *ui;
@@ -143,6 +148,9 @@ private:
     UserInfoController *userInfoController;    //!< Принимает запросы от UI, дергает UserInfoService, возвращает результат через сигналы.
     QString accessToken;
     QString refreshToken;
+    ChatsController *chatsController;          //!< Принимает запросы от UI, дергает ChatService, возвращает результат через сигналы.
+    bool isFirstOpen;                          //!< Флаг первого открытия приложения для авторизирования пользователя в приложение
+    std::vector<ParsedArrayObject> chatsList;  //!< Список чатов состоящий из ParsedArrayObject
 
     /**
       * Инициализация кнопки "Выход"
@@ -161,5 +169,7 @@ private:
     void getMyInfo();
 
     void checkAuthorization(const AuthResult &res, const QString &accToken, const QString &refToken);
+
+    void getChatsList();
 };
 #endif // MAINWINDOW_H

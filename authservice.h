@@ -35,7 +35,7 @@ public:
       *
       * @return
       */
-    void logOut(const QString &refToken);
+    void logOut(const QString &accToken, const QString &refToken);
 
 
     /**

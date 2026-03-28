@@ -36,7 +36,7 @@ public:
       * @param
       * @return
       */
-    void requestLogOut(const QString &refToken);
+    void requestLogOut(const QString &accToken, const QString &refToken);
 
     void requestRefreshAccessToken(const QString &refToken);
 
@@ -51,8 +51,8 @@ signals:
     void registrationInProgress();                    //!< Сигнал о том что регистрация в процессе и нужно заморозить кнопки
     void logInProgress();                             //!< Сигнал о том что авторизация в процессе и нужно заморозить кнопки
     void logOutInProgress();                          //!< Сигнал о том что выход из аккаунта в процессе и нужно заморозить кнопки
-    void RefreshAccessTokenInProgress();
-    void RefreshAccessTokenFinished(const AuthResult &res, const QString &accToken = "", const QString &refToken = "");
+    void refreshAccessTokenInProgress();
+    void refreshAccessTokenFinished(const AuthResult &res, const QString &accToken = "", const QString &refToken = "");
 };
 
 #endif // AUTHCONTROLLER_H

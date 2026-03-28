@@ -11,6 +11,8 @@ CONFIG += c++17
 SOURCES += \
     authcontroller.cpp \
     authservice.cpp \
+    chatscontroller.cpp \
+    chatservice.cpp \
     errortypes.cpp \
     main.cpp \
     mainwindow.cpp \
@@ -20,6 +22,8 @@ SOURCES += \
 HEADERS += \
     authcontroller.h \
     authservice.h \
+    chatscontroller.h \
+    chatservice.h \
     errortypes.h \
     mainwindow.h \
     userinfocontroller.h \
