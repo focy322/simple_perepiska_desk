@@ -35,9 +35,9 @@ private slots:
     /**
       * При выборе чата из списка чатов в messagesView (chatName) выводит его название
       *
-      * @param chatIndex объект представляющий нажатый элемент из chatsList
+      * @param chatItem объект представляющий нажатый элемент из chatsList
       */
-    void on_chatsView_clicked(const QModelIndex &chatIndex);
+    void on_chatsView_clicked(const QModelIndex &chatItem);
 
     /**
       * При нажатии на кнопку отправки сообщения добавляет строку из messageInput в хранилище сообщений

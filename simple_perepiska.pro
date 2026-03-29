@@ -12,6 +12,7 @@ SOURCES += \
     authcontroller.cpp \
     authservice.cpp \
     chatscontroller.cpp \
+    chatlistitemdelegate.cpp \
     chatservice.cpp \
     errortypes.cpp \
     main.cpp \
@@ -23,6 +24,7 @@ HEADERS += \
     authcontroller.h \
     authservice.h \
     chatscontroller.h \
+    chatlistitemdelegate.h \
     chatservice.h \
     errortypes.h \
     mainwindow.h \

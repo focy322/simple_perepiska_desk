@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "chatlistitemdelegate.h"
 #include <QDebug>
 #include <QFile>
 #include <QThread>
@@ -60,6 +61,7 @@ MainWindow::MainWindow(QWidget *parent)
         " }");
 
     ui->chatsView->setModel(chatsListModel);
+    ui->chatsView->setItemDelegate(new ChatListItemDelegate(ui->chatsView));
     ui->messagesView->setModel(messagesListModel);
     ui->loadingAndContentWidgets->setCurrentWidget(ui->loadingPage);
 
@@ -76,11 +78,12 @@ MainWindow::~MainWindow()
 
 
 
-void MainWindow::on_chatsView_clicked(const QModelIndex &chatIndex)
+void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
 {
-    if (chatIndex.isValid())
+    if (chatItem.isValid())
     {
-        QString selectedChatName = chatIndex.data().toString(); // Название выбранного чата
+        const QString itemText = chatItem.data().toString();
+        QString selectedChatName = itemText.section('\n', 0, 0).trimmed(); // Название выбранного чата
         auto chatIt = chatMessages.constFind(selectedChatName); // Итератор на список сообщений (QStringList) для чата с названием chatName
         if (chatIt != chatMessages.constEnd())
         {
@@ -91,7 +94,7 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatIndex)
             messagesListModel->setStringList({});
 
 #ifdef QT_DEBUG
-        qDebug() << chatIndex.data();
+        qDebug() << chatItem.data();
 #endif
     }
     else
@@ -340,14 +343,17 @@ void MainWindow::on_getMyChatsFinished(const AuthResult &res, const std::vector<
     {
         chatsList = paObjects;
 
-        QStringList chatNames;
+        QStringList chatItems;
         for (const ParsedArrayObject &chat : chatsList)
         {
             QString displayName = chat.chatName.trimmed();
-            chatNames.append(displayName);
+
+            QString preview = chat.lastMessage.trimmed();
+
+            chatItems.append(QString("%1\n%2").arg(displayName, preview));
         }
 
-        chatsListModel->setStringList(chatNames);
+        chatsListModel->setStringList(chatItems);
         qDebug() << "on_getMyChatsFinished = true!!!";
     }
     else
