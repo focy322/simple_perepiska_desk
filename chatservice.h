@@ -10,7 +10,7 @@
 #include <vector>
 #include "errortypes.h"
 
-struct ParsedArrayObject
+struct ParsedChatsListArrayObject
 {
     unsigned long long chatId = 0;
     QString chatName;
@@ -33,6 +33,20 @@ struct ParsedArrayObject
     QString lastMessageEditedAt;
 };
 
+struct ParsedChatMessagesArrayObject
+{
+    unsigned long long messageId = 0;
+    unsigned long long senderId = 0;
+    unsigned long long chatId = 0;
+    QString message;
+    unsigned long long fileId = 0;
+    QString timestamp;
+    bool read = false;
+    QString readAt;
+    bool edited = false;
+    QString editedAt;
+};
+
 class ChatService : public QObject
 {
     Q_OBJECT
@@ -41,16 +55,24 @@ public:
 
     void getMyChats(const QString &accToken);
 
-    const std::vector<ParsedArrayObject> parseArray(const QJsonDocument &doc);
+    void getChatMessages(const unsigned long long &chatId, const QString &accToken);
+
+    const std::vector<ParsedChatsListArrayObject> parseChatsListArray(const QJsonDocument &doc);
+
+    const std::vector<ParsedChatMessagesArrayObject> parseChatMessagesArray(const QJsonDocument &doc);
+
 
 private:
     QNetworkAccessManager *network;                     //!< Указатель на объект для работы с запросами
     QString baseUrl;                                    //!< Базовый адрес API
-    QString myChatsUrl;                                 //!< Адрес для получения чатов
+    QString myChatsUrl;                                 //!< Адрес для списка чатов
+    QString chatMessagesUrl;                            //!< Адрес для списка сообщений конкретного чата
 
 signals:
     void getMyChatsInProgress();
-    void getMyChatsFinished(const AuthResult &res, const std::vector<ParsedArrayObject>& paObjects = {} );
+    void getMyChatsFinished(const AuthResult &res, const std::vector<ParsedChatsListArrayObject>& paObjects = {} );
+    void getChatMessagesInProgress();
+    void getChatMessagesFinished(const AuthResult &res, const unsigned long long chatId = ULONG_LONG_MAX, const std::vector<ParsedChatMessagesArrayObject>& paObjects = {} );
 };
 
 

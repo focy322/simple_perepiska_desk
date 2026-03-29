@@ -3,7 +3,9 @@
 
 #include <QPushButton>
 #include <QMainWindow>
-#include <QStringListModel>
+#include "chatlistmodel.h"
+#include "chatmessagesitemdelegate.h"
+#include "chatmessageslistmodel.h"
 #include "authcontroller.h"
 #include "userinfocontroller.h"
 #include "chatscontroller.h"
@@ -132,25 +134,31 @@ private slots:
 
     void on_getMyChatsInProgress();
 
-    void on_getMyChatsFinished(const AuthResult &res, const std::vector<ParsedArrayObject>& paObjects );
+    void on_getMyChatsFinished(const AuthResult &res, const std::vector<ParsedChatsListArrayObject>& paObjects );
+
+    void on_getChatMessagesInProgress();
+
+    void on_getChatMessagesFinished(const AuthResult &res, const unsigned long long chatId, const std::vector<ParsedChatMessagesArrayObject>& paObjects);
 
 private:
     Ui::MainWindow *ui;
-    QStringListModel *chatsListModel;          //!< Модель для списков чатов для отображения
-    QStringListModel *messagesListModel;       //!< Модель для сообщений для конкретного чата
-    QHash<QString, QStringList> chatMessages;  //!< Хранилище сообщений по чатам
-    QString currentChatName;                   //!< Название текущего открытого чата
-    QPushButton *logOutBtn;                    //!< Кнопка выхода из аккаунта
-    AuthController *authController;            //!< Принимает запросы от UI, дергает AuthService, возвращает результат через сигналы.
-    bool isAuthorized;                         //!< Флаг авторизации пользователя
-    QString currentUsername;                   //!< Имя пользователя
-    unsigned long long currentUserId;          //!< Id пользователя
-    UserInfoController *userInfoController;    //!< Принимает запросы от UI, дергает UserInfoService, возвращает результат через сигналы.
+    ChatListModel *chatsListModel;                      //!< Модель чатов с доступом к полям через роли
+    ChatMessagesItemDelegate *messagesItemDelegate;     //!< Делегат сообщений (выравнивание своих/чужих)
+    ChatMessagesListModel *messagesListModel;           //!< Модель сообщений для выбранного чата
+    QHash<unsigned long long, std::vector<ParsedChatMessagesArrayObject>> chatMessages;  //!< Хранилище сообщений по chatId
+    QString currentChatName;                            //!< Название текущего открытого чата
+    unsigned long long currentChatId;                   //!< Id текущего открытого чата
+    QPushButton *logOutBtn;                             //!< Кнопка выхода из аккаунта
+    AuthController *authController;                     //!< Принимает запросы от UI, дергает AuthService, возвращает результат через сигналы.
+    bool isAuthorized;                                  //!< Флаг авторизации пользователя
+    QString currentUsername;                            //!< Имя пользователя
+    unsigned long long userId;                          //!< Id пользователя
+    UserInfoController *userInfoController;             //!< Принимает запросы от UI, дергает UserInfoService, возвращает результат через сигналы.
     QString accessToken;
     QString refreshToken;
-    ChatsController *chatsController;          //!< Принимает запросы от UI, дергает ChatService, возвращает результат через сигналы.
-    bool isFirstOpen;                          //!< Флаг первого открытия приложения для авторизирования пользователя в приложение
-    std::vector<ParsedArrayObject> chatsList;  //!< Список чатов состоящий из ParsedArrayObject
+    ChatsController *chatsController;                   //!< Принимает запросы от UI, дергает ChatService, возвращает результат через сигналы.
+    bool isFirstOpen;                                   //!< Флаг первого открытия приложения для авторизирования пользователя в приложение
+    std::vector<ParsedChatsListArrayObject> chatsList;  //!< Список чатов состоящий из ParsedArrayObject
 
     /**
       * Инициализация кнопки "Выход"
@@ -171,5 +179,7 @@ private:
     void checkAuthorization(const AuthResult &res, const QString &accToken, const QString &refToken);
 
     void getChatsList();
+
+    void getChatMessages();
 };
 #endif // MAINWINDOW_H

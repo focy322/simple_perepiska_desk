@@ -2,20 +2,23 @@
 #include "ui_mainwindow.h"
 #include "chatlistitemdelegate.h"
 #include <QDebug>
+#include <QDateTime>
 #include <QFile>
 #include <QThread>
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , chatsListModel(new QStringListModel(this))
-    , messagesListModel(new QStringListModel(this))
+    , chatsListModel(new ChatListModel(this))
+    , messagesItemDelegate(new ChatMessagesItemDelegate(this))
+    , messagesListModel(new ChatMessagesListModel(this))
     , chatMessages()
     , currentChatName()
+    , currentChatId(ULONG_LONG_MAX)
     , logOutBtn(new QPushButton("Выход", nullptr))
     , authController(new AuthController(this))
     , isAuthorized(false)
     , currentUsername("")
-    , currentUserId(ULONG_LONG_MAX)
+    , userId(ULONG_LONG_MAX)
     , userInfoController(new UserInfoController(this))
     , accessToken("")
     , refreshToken("")
@@ -35,6 +38,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(userInfoController, &UserInfoController::getMyUserInfoFinished, this, &MainWindow::on_getMyUserInfoFinished);
     connect(chatsController, &ChatsController::getMyChatsInProgress, this, &MainWindow::on_getMyChatsInProgress);
     connect(chatsController, &ChatsController::getMyChatsFinished, this, &MainWindow::on_getMyChatsFinished);
+    connect(chatsController, &ChatsController::getChatMessagesInProgress, this, &MainWindow::on_getChatMessagesInProgress);
+    connect(chatsController, &ChatsController::getChatMessagesFinished, this, &MainWindow::on_getChatMessagesFinished);
+
 
     ui->setupUi(this);
     setUpLogOutBtn();
@@ -63,6 +69,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->chatsView->setModel(chatsListModel);
     ui->chatsView->setItemDelegate(new ChatListItemDelegate(ui->chatsView));
     ui->messagesView->setModel(messagesListModel);
+    ui->messagesView->setItemDelegate(messagesItemDelegate);
     ui->loadingAndContentWidgets->setCurrentWidget(ui->loadingPage);
 
     tryAuthorize();
@@ -82,19 +89,23 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
 {
     if (chatItem.isValid())
     {
-        const QString itemText = chatItem.data().toString();
-        QString selectedChatName = itemText.section('\n', 0, 0).trimmed(); // Название выбранного чата
-        auto chatIt = chatMessages.constFind(selectedChatName); // Итератор на список сообщений (QStringList) для чата с названием chatName
+        currentChatId = chatItem.data(ChatListModel::ChatIdRole).toULongLong();
+        currentChatName = chatItem.data(ChatListModel::ChatNameRole).toString().trimmed();
+        ui->chatName->setText(currentChatName);
+        auto chatIt = chatMessages.constFind(currentChatId); // Итератор на список сообщений (QStringList) для чата с выбранным chatId
         if (chatIt != chatMessages.constEnd())
         {
-            currentChatName = selectedChatName;
-            ui->chatName->setText(currentChatName);
-            messagesListModel->setStringList(chatIt.value());
+            messagesListModel->setMessages(chatIt.value());
         } else
-            messagesListModel->setStringList({});
+        {
+            messagesListModel->clear();
+        }
+
+        getChatMessages();
 
 #ifdef QT_DEBUG
         qDebug() << chatItem.data();
+        qDebug() << typeid(chatItem).name();
 #endif
     }
     else
@@ -107,12 +118,17 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
 void MainWindow::on_sendMessageBtn_clicked()
 {
     QString msgToSend = ui->messageInput->text();
-    bool condToSendMsg = !msgToSend.isEmpty() && chatMessages.constFind(currentChatName) != chatMessages.constEnd(); // Условия для отправки сообщения
+    bool condToSendMsg = !msgToSend.isEmpty() && currentChatId != ULONG_LONG_MAX; // Условия для отправки сообщения
     if (condToSendMsg)
     {
-        auto chatIt = chatMessages.find(currentChatName); // Итератор на список сообщений (QStringList) для чата с названием chatName
-        chatIt.value().append(msgToSend);
-        messagesListModel->setStringList(chatIt.value());
+        ParsedChatMessagesArrayObject localMessage;
+        localMessage.chatId = currentChatId;
+        localMessage.senderId = userId;
+        localMessage.message = msgToSend;
+        localMessage.timestamp = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+
+        chatMessages[currentChatId].push_back(localMessage);
+        messagesListModel->appendMessage(localMessage);
         ui->messageInput->clear();
 
     }
@@ -270,6 +286,11 @@ void MainWindow::getChatsList()
     chatsController->requestMyChats(accessToken);
 }
 
+void MainWindow::getChatMessages()
+{
+    chatsController->requestChatMessages(currentChatId, accessToken);
+}
+
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
@@ -318,10 +339,11 @@ void MainWindow::on_getMyUserInfoFinished(const AuthResult &res, const QString &
     if (res.ok)
     {
         currentUsername = username;
-        currentUserId = userId;
+        this->userId = userId;
+        messagesItemDelegate->setCurrentUserId(this->userId);
 #ifdef QT_DEBUG
         qDebug() << "currentUsername" << currentUsername;
-        qDebug() << "currentUserId" << currentUserId;
+        qDebug() << "currentUserId" << this->userId;
 #endif
     }
     else
@@ -337,28 +359,57 @@ void MainWindow::on_getMyChatsInProgress()
 
 }
 
-void MainWindow::on_getMyChatsFinished(const AuthResult &res, const std::vector<ParsedArrayObject>& paObjects)
+void MainWindow::on_getMyChatsFinished(const AuthResult &res, const std::vector<ParsedChatsListArrayObject>& paObjects)
 {
     if (res.ok)
     {
         chatsList = paObjects;
 
-        QStringList chatItems;
-        for (const ParsedArrayObject &chat : chatsList)
-        {
-            QString displayName = chat.chatName.trimmed();
+        // chatMessages.clear();
+        // for (const ParsedArrayObject &chat : chatsList)
+        // {
+        //     QStringList messages;
+        //     if (!chat.lastMessage.trimmed().isEmpty())
+        //         messages.append(chat.lastMessage);
 
-            QString preview = chat.lastMessage.trimmed();
+        //     chatMessages.insert(chat.chatId, messages);
+        // }
 
-            chatItems.append(QString("%1\n%2").arg(displayName, preview));
-        }
-
-        chatsListModel->setStringList(chatItems);
+        chatsListModel->setChats(chatsList);
         qDebug() << "on_getMyChatsFinished = true!!!";
     }
     else
     {
+        chatsList.clear();
+        chatMessages.clear();
+        chatsListModel->clear();
+        currentChatName.clear();
+        currentChatId = ULONG_LONG_MAX;
+        ui->chatName->setText("Выберите чат");
+        messagesListModel->clear();
         qDebug() << "on_getMyChatsFinished = false!!!";
+    }
+}
+
+void MainWindow::on_getChatMessagesInProgress()
+{
+
+}
+
+void MainWindow::on_getChatMessagesFinished(const AuthResult &res, const unsigned long long chatId, const std::vector<ParsedChatMessagesArrayObject>& paObjects)
+{
+    if (res.ok)
+    {
+        chatMessages[chatId] = paObjects;
+        if (currentChatId == chatId)
+            messagesListModel->setMessages(paObjects);
+        qDebug() << "on_getChatMessagesFinished = true!!!";
+    }
+    else
+    {
+        //chatMessages.remove(currentChatId);
+        //messagesListModel->clear();
+        qDebug() << "on_getChatMessagesFinished = false!!!";
     }
 }
 
@@ -458,3 +509,6 @@ void MainWindow::on_logOutInProgress()
 {
     //TODO: Реализация
 }
+
+
+

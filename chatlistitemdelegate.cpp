@@ -1,6 +1,9 @@
 #include "chatlistitemdelegate.h"
+#include "chatlistmodel.h"
 
+#include <algorithm>
 #include <QApplication>
+#include <QDateTime>
 #include <QPainter>
 
 ChatListItemDelegate::ChatListItemDelegate(QObject *parent)
@@ -12,10 +15,9 @@ void ChatListItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
     QStyleOptionViewItem opt = option;
     initStyleOption(&opt, index);
 
-    const QString rawText = index.data(Qt::DisplayRole).toString();
-    const QStringList lines = rawText.split('\n');
-    const QString title = lines.value(0).trimmed();
-    const QString subtitle = lines.value(1).trimmed();
+    const QString title = index.data(ChatListModel::ChatNameRole).toString().trimmed();
+    const QString subtitle = index.data(ChatListModel::LastMessageRole).toString().trimmed();
+    const QString timestamp = index.data(ChatListModel::LastMessageTimestampRole).toString().trimmed();
 
     painter->save();
 
@@ -23,6 +25,9 @@ void ChatListItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
     style->drawPrimitive(QStyle::PE_PanelItemViewItem, &opt, painter, opt.widget);
 
     const QRect contentRect = opt.rect.adjusted(10, 6, -10, -6);
+    const int avatarSize = 40;
+    const QRect avatarRect(contentRect.left(), contentRect.top() + (contentRect.height() - avatarSize) / 2, avatarSize, avatarSize);
+    const QRect textRect = contentRect.adjusted(avatarSize + 10, 0, 0, 0);
 
     QFont titleFont = opt.font;
     titleFont.setBold(true);
@@ -39,8 +44,35 @@ void ChatListItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
         ? opt.palette.color(QPalette::HighlightedText)
         : QColor(95, 95, 95);
 
-    const QRect titleRect(contentRect.left(), contentRect.top(), contentRect.width(), contentRect.height() / 2);
-    const QRect subtitleRect(contentRect.left(), titleRect.bottom(), contentRect.width(), contentRect.height() / 2);
+    const QColor avatarColor = (opt.state & QStyle::State_Selected)
+        ? QColor(255, 235, 200)
+        : QColor(225, 170, 110);
+
+    const QColor avatarTextColor = (opt.state & QStyle::State_Selected)
+        ? QColor(70, 50, 25)
+        : QColor(255, 255, 255);
+
+    const int timestampWidth = 110;
+    const QRect timestampRect(textRect.right() - timestampWidth, textRect.top(), timestampWidth, textRect.height() / 2);
+    const QRect titleRect(textRect.left(), textRect.top(), textRect.width() - timestampWidth - 6, textRect.height() / 2);
+    const QRect subtitleRect(textRect.left(), titleRect.bottom(), textRect.width(), textRect.height() / 2);
+
+    QFont avatarFont = opt.font;
+    avatarFont.setBold(true);
+    avatarFont.setPointSize(avatarFont.pointSize() + 1);
+
+    QChar avatarLetter = QChar('#');
+    if (!title.isEmpty())
+        avatarLetter = title.at(0).toUpper();
+
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(avatarColor);
+    painter->drawEllipse(avatarRect);
+
+    painter->setFont(avatarFont);
+    painter->setPen(avatarTextColor);
+    painter->drawText(avatarRect, Qt::AlignCenter, avatarLetter);
 
     painter->setFont(titleFont);
     painter->setPen(titleColor);
@@ -51,6 +83,24 @@ void ChatListItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
     painter->setPen(subtitleColor);
     painter->drawText(subtitleRect, Qt::AlignLeft | Qt::AlignVCenter,
                       QFontMetrics(subtitleFont).elidedText(subtitle, Qt::ElideRight, subtitleRect.width()));
+
+    QFont timeFont = subtitleFont;
+    timeFont.setPointSize(std::max(7, timeFont.pointSize() - 1));
+    painter->setFont(timeFont);
+    painter->setPen(subtitleColor);
+    QString timeDisplay;
+    if (!timestamp.isEmpty())
+    {
+        QDateTime dt = QDateTime::fromString(timestamp, Qt::ISODateWithMs);
+        if (!dt.isValid())
+            dt = QDateTime::fromString(timestamp, Qt::ISODate);
+
+        if (dt.isValid())
+            timeDisplay = dt.toLocalTime().toString("HH:mm");
+    }
+    painter->drawText(timestampRect, Qt::AlignRight | Qt::AlignVCenter,
+                      QFontMetrics(timeFont).elidedText(timeDisplay, Qt::ElideLeft, timestampRect.width()));
+
 
     painter->restore();
 }

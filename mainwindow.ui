@@ -78,7 +78,7 @@
        </layout>
       </widget>
       <widget class="QWidget" name="contentPage">
-       <layout class="QHBoxLayout" name="horizontalLayout">
+       <layout class="QHBoxLayout" name="horizontalLayout" stretch="0">
         <property name="spacing">
          <number>0</number>
         </property>
@@ -594,7 +594,7 @@
              <verstretch>0</verstretch>
             </sizepolicy>
            </property>
-           <layout class="QHBoxLayout" name="horizontalLayout_10" stretch="0,7">
+           <layout class="QHBoxLayout" name="horizontalLayout_10" stretch="3,7">
             <property name="spacing">
              <number>0</number>
             </property>
