@@ -9,6 +9,8 @@
 #include "authcontroller.h"
 #include "userinfocontroller.h"
 #include "chatscontroller.h"
+#include "websocketcontroller.h"
+#include <QUuid>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -83,7 +85,7 @@ private slots:
       * При неудаче выводит сообщение об ошибке
       *
       */
-    void on_registrationFinished(const AuthResult &res, const QString &accToken, const QString &refToken);
+    void on_registrationFinished(const NetworkResult &res, const QString &accToken, const QString &refToken);
 
     /**
       * Вызывается при получении сигнала о завершении авторизации
@@ -91,7 +93,7 @@ private slots:
       * При неудаче выводит сообщение об ошибке
       *
       */
-    void on_logInFinished(const AuthResult &res, const QString &accToken, const QString &refToken);
+    void on_logInFinished(const NetworkResult &res, const QString &accToken, const QString &refToken);
 
     /**
       * Вызывается при получении сигнала о завершении выхода из аккаунта
@@ -99,7 +101,7 @@ private slots:
       * При неудаче пока хз что
       *
       */
-    void on_logOutFinished(const AuthResult &res);
+    void on_logOutFinished(const NetworkResult &res);
 
     /**
       * Вызывается при получении сигнала о том что начался процесс регистрации
@@ -126,19 +128,40 @@ private slots:
 
     void on_refreshAccessTokenInProgress();
 
-    void on_refreshAccessTokenFinished(const AuthResult &res, const QString &accToken, const QString &refToken);
+    void on_refreshAccessTokenFinished(const NetworkResult &res, const QString &accToken, const QString &refToken);
 
     void on_getMyUserInfoInProgress();
 
-    void on_getMyUserInfoFinished(const AuthResult &res, const QString &username, unsigned long long userId);
+    void on_getMyUserInfoFinished(const NetworkResult &res, const QString &username, unsigned long long userId);
 
     void on_getMyChatsInProgress();
 
-    void on_getMyChatsFinished(const AuthResult &res, const std::vector<ParsedChatsListArrayObject>& paObjects );
+    void on_getMyChatsFinished(const NetworkResult &res, const std::vector<ParsedChatsListArrayObject>& paObjects );
 
     void on_getChatMessagesInProgress();
 
-    void on_getChatMessagesFinished(const AuthResult &res, const unsigned long long chatId, const std::vector<ParsedChatMessagesArrayObject>& paObjects);
+    void on_getChatMessagesFinished(const NetworkResult &res, const unsigned long long chatId, const std::vector<ParsedChatMessagesArrayObject>& paObjects);
+
+    void on_createDirectChatFinished(const NetworkResult &res);
+
+    void on_createDirectChatInProgress();
+
+    void on_socketConnectionInProgress();
+
+    void on_socketConnectionFinished(const NetworkResult &res);
+
+    void on_socketDisonnectionInProgress();
+
+    void on_socketDisonnectionFinished(const NetworkResult &res);
+
+    void on_sendingMessageInProgress();
+
+    void on_sendingMessageFinished(const NetworkResult &res);
+
+    void on_newMessageRecieved(const ParsedChatMessagesArrayObject &newMessage);
+
+    void on_messageAccepted(const ParsedMessageAcceptedObject &msgAccObj);
+
 
 private:
     Ui::MainWindow *ui;
@@ -158,7 +181,8 @@ private:
     QString refreshToken;
     ChatsController *chatsController;                   //!< Принимает запросы от UI, дергает ChatService, возвращает результат через сигналы.
     bool isFirstOpen;                                   //!< Флаг первого открытия приложения для авторизирования пользователя в приложение
-    std::vector<ParsedChatsListArrayObject> chatsList;  //!< Список чатов состоящий из ParsedArrayObject
+    QHash<unsigned long long, ParsedChatsListArrayObject> chatsList;  //!< Список чатов состоящий из ParsedArrayObject
+    WebsocketController *websocketController;           //!< Принимает запросы от UI, дергает WebsocketService, возвращает результат через сигналы.
 
     /**
       * Инициализация кнопки "Выход"
@@ -176,10 +200,12 @@ private:
 
     void getMyInfo();
 
-    void checkAuthorization(const AuthResult &res, const QString &accToken, const QString &refToken);
+    void checkAuthorization(const NetworkResult &res, const QString &accToken, const QString &refToken);
 
     void getChatsList();
 
-    void getChatMessages();
+    void getChatMessages(const unsigned long long &chatId);
+
+    void createDirectChat(const unsigned long long &userId);
 };
 #endif // MAINWINDOW_H

@@ -10,6 +10,7 @@
 #include <vector>
 #include "errortypes.h"
 
+// TODO: обновить
 struct ParsedChatsListArrayObject
 {
     unsigned long long chatId = 0;
@@ -33,18 +34,21 @@ struct ParsedChatsListArrayObject
     QString lastMessageEditedAt;
 };
 
+// TODO: обновить
 struct ParsedChatMessagesArrayObject
 {
     unsigned long long messageId = 0;
     unsigned long long senderId = 0;
     unsigned long long chatId = 0;
     QString message;
-    unsigned long long fileId = 0;
     QString timestamp;
+    QString clientMessageId;    //<! Uuid
+    bool isPending = false;
     bool read = false;
     QString readAt;
     bool edited = false;
     QString editedAt;
+    QString Uuid;
 };
 
 class ChatService : public QObject
@@ -61,18 +65,23 @@ public:
 
     const std::vector<ParsedChatMessagesArrayObject> parseChatMessagesArray(const QJsonDocument &doc);
 
+    void createDirectChat(const unsigned long long &userId, const QString &accToken);
+
 
 private:
     QNetworkAccessManager *network;                     //!< Указатель на объект для работы с запросами
     QString baseUrl;                                    //!< Базовый адрес API
     QString myChatsUrl;                                 //!< Адрес для списка чатов
     QString chatMessagesUrl;                            //!< Адрес для списка сообщений конкретного чата
+    QString createDirectChatUrl;                        //!< Адрес для создания private-чата
 
 signals:
     void getMyChatsInProgress();
-    void getMyChatsFinished(const AuthResult &res, const std::vector<ParsedChatsListArrayObject>& paObjects = {} );
+    void getMyChatsFinished(const NetworkResult &res, const std::vector<ParsedChatsListArrayObject>& paObjects = {} );
     void getChatMessagesInProgress();
-    void getChatMessagesFinished(const AuthResult &res, const unsigned long long chatId = ULONG_LONG_MAX, const std::vector<ParsedChatMessagesArrayObject>& paObjects = {} );
+    void getChatMessagesFinished(const NetworkResult &res, const unsigned long long chatId = ULONG_LONG_MAX, const std::vector<ParsedChatMessagesArrayObject>& paObjects = {} );
+    void createDirectChatInProgress();
+    void createDirectChatFinished(const NetworkResult &res);
 };
 
 

@@ -8,6 +8,8 @@ ChatsController::ChatsController(QObject *parent)
     connect(chatService, &ChatService::getMyChatsFinished, this, &ChatsController::getMyChatsFinished);
     connect(chatService, &ChatService::getChatMessagesInProgress, this, &ChatsController::getChatMessagesInProgress);
     connect(chatService, &ChatService::getChatMessagesFinished, this, &ChatsController::getChatMessagesFinished);
+    connect(chatService, &ChatService::createDirectChatInProgress, this, &ChatsController::createDirectChatInProgress);
+    connect(chatService, &ChatService::createDirectChatFinished, this, &ChatsController::createDirectChatFinished);
 }
 
 void ChatsController::requestMyChats(const QString &accToken)
@@ -18,4 +20,9 @@ void ChatsController::requestMyChats(const QString &accToken)
 void ChatsController::requestChatMessages(const unsigned long long &chatId, const QString &accToken)
 {
     chatService->getChatMessages(chatId, accToken);
+}
+
+void ChatsController::requestCreateDirectChat(const unsigned long long &userId, const QString &accToken)
+{
+    chatService->createDirectChat(userId, accToken);
 }

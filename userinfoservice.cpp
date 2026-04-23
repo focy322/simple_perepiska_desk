@@ -21,7 +21,7 @@ void UserInfoService::getMyUserInfo(const QString &accToken)
         auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
-            AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit getMyUserInfoFinished(res);
             reply->deleteLater();
             return;
@@ -31,7 +31,7 @@ void UserInfoService::getMyUserInfo(const QString &accToken)
         QJsonDocument doc = QJsonDocument::fromJson(raw, &pe);
         if (pe.error || !doc.isObject())
         {
-            AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit getMyUserInfoFinished(res);
             reply->deleteLater();
             return;
@@ -41,12 +41,12 @@ void UserInfoService::getMyUserInfo(const QString &accToken)
             QString username = doc.object()["username"].toString();
             unsigned long long userId = doc.object()["user_id"].toVariant().toULongLong();
             
-            AuthResult res{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)};
+            NetworkResult res{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)};
             emit getMyUserInfoFinished(res, username, userId);
             reply->deleteLater();
             return;
         }
-        AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
         emit getMyUserInfoFinished(res);
         reply->deleteLater();
     });

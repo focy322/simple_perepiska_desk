@@ -19,6 +19,7 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
 {
     const QString messageText = index.data(ChatMessagesListModel::MessageTextRole).toString().trimmed();
     const QString timestampIso = index.data(ChatMessagesListModel::TimestampRole).toString().trimmed();
+    const bool isPending = index.data(ChatMessagesListModel::IsPendingRole).toBool();
     const unsigned long long senderId = index.data(ChatMessagesListModel::SenderIdRole).toULongLong();
     const bool isMine = senderId == m_currentUserId;
 
@@ -51,16 +52,20 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
     timeFont.setPointSize(qMax(7, timeFont.pointSize() - 1));
     QFontMetrics timeFm(timeFont);
     const int timeHeight = timeText.isEmpty() ? 0 : timeFm.height();
+    const int pendingIconSize = 12;
+    const int statusSpacing = 4;
+    const bool showPending = isPending;
+    const int statusHeight = (timeHeight > 0 || showPending) ? qMax(timeHeight, pendingIconSize) + statusSpacing : 0;
 
     const int bubbleWidth = qMax(60, textBounds.width() + horizontalPadding * 2);
-    const int bubbleHeight = textBounds.height() + verticalPadding * 2 + (timeHeight > 0 ? timeHeight + 4 : 0);
+    const int bubbleHeight = textBounds.height() + verticalPadding * 2 + statusHeight;
 
     int bubbleX = rowRect.left();
     if (isMine)
         bubbleX = rowRect.right() - bubbleWidth;
 
     const QRect bubbleRect(bubbleX, rowRect.top(), bubbleWidth, bubbleHeight);
-    const QRect messageRect = bubbleRect.adjusted(horizontalPadding, verticalPadding, -horizontalPadding, -verticalPadding - (timeHeight > 0 ? timeHeight + 4 : 0));
+    const QRect messageRect = bubbleRect.adjusted(horizontalPadding, verticalPadding, -horizontalPadding, -verticalPadding - statusHeight);
 
     const QColor ownBubbleColor(232, 248, 217);
     const QColor otherBubbleColor(255, 255, 255);
@@ -78,10 +83,30 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
 
     if (!timeText.isEmpty())
     {
-        const QRect timeRect = bubbleRect.adjusted(horizontalPadding, bubbleRect.height() - verticalPadding - timeHeight, -horizontalPadding, -verticalPadding);
+        const int pendingReserve = showPending ? pendingIconSize + statusSpacing : 0;
+        const QRect timeRect = bubbleRect.adjusted(horizontalPadding,
+                                                   bubbleRect.height() - verticalPadding - timeHeight,
+                                                   -(horizontalPadding + pendingReserve),
+                                                   -verticalPadding);
         painter->setFont(timeFont);
         painter->setPen(timeColor);
         painter->drawText(timeRect, Qt::AlignRight | Qt::AlignVCenter, timeText);
+    }
+
+    if (showPending)
+    {
+        const QRect iconRect(bubbleRect.right() - horizontalPadding - pendingIconSize + 1,
+                             bubbleRect.bottom() - verticalPadding - pendingIconSize + 1,
+                             pendingIconSize,
+                             pendingIconSize);
+        const QColor pendingColor(130, 130, 130);
+        painter->setPen(QPen(pendingColor, 1));
+        painter->setBrush(Qt::NoBrush);
+        painter->drawEllipse(iconRect);
+
+        const QPoint center = iconRect.center();
+        painter->drawLine(center, QPoint(center.x(), center.y() - 3));
+        painter->drawLine(center, QPoint(center.x() + 2, center.y()));
     }
 
     painter->restore();
@@ -90,6 +115,7 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
 QSize ChatMessagesItemDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
     const QString messageText = index.data(ChatMessagesListModel::MessageTextRole).toString().trimmed();
+    const bool isPending = index.data(ChatMessagesListModel::IsPendingRole).toBool();
     const QString safeMessage = messageText.isEmpty() ? QString(" ") : messageText;
 
     const int maxBubbleWidth = 340;
@@ -104,7 +130,10 @@ QSize ChatMessagesItemDelegate::sizeHint(const QStyleOptionViewItem &option, con
     QFont timeFont = option.font;
     timeFont.setPointSize(qMax(7, timeFont.pointSize() - 1));
     QFontMetrics timeFm(timeFont);
+    const int pendingIconSize = 12;
+    const int statusSpacing = 4;
+    const int statusHeight = qMax(timeFm.height(), isPending ? pendingIconSize : 0) + statusSpacing;
 
-    const int rowHeight = textBounds.height() + verticalPadding * 2 + timeFm.height() + 10;
+    const int rowHeight = textBounds.height() + verticalPadding * 2 + statusHeight + 6;
     return QSize(option.rect.width(), qMax(44, rowHeight));
 }

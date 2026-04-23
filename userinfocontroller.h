@@ -21,7 +21,7 @@ signals:
 
     // Прокидывает сигналы от service'а
     void getMyUserInfoInProgress();
-    void getMyUserInfoFinished(const AuthResult &res, const QString &username = "", unsigned long long userId = ULONG_LONG_MAX);
+    void getMyUserInfoFinished(const NetworkResult &res, const QString &username = "", unsigned long long userId = ULONG_LONG_MAX);
 };
 
 #endif // USERINFOCONTROLLER_H

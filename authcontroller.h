@@ -42,17 +42,19 @@ public:
 
 private:
     AuthService *authService; // Содержит правила регистрации/входа и работу с данными пользователей, без UI-зависимостей.
+    NetworkResult validateRegistration(const QString &login, const QString &password, const QString &passwordConfirm);
+    NetworkResult validateLogIn(const QString &login, const QString &password);
 
 signals:
     // Сигналы прокидываются от AuthService в MainWindow
-    void registrationFinished(const AuthResult &res, const QString &accToken = "", const QString &refToken = ""); //!< Сигнал о завершении регистрации (может быть как успешным так и нет)
-    void logInFinished(const AuthResult &res, const QString &accToken = "", const QString &refToken = "");        //!< Сигнал о завершении авторизации (может быть как успешным так и нет)
-    void logOutFinished(const AuthResult &res);       //!< Сигнал о завершении выхода из аккаунта (может быть как успешным так и нет)
+    void registrationFinished(const NetworkResult &res, const QString &accToken = "", const QString &refToken = ""); //!< Сигнал о завершении регистрации (может быть как успешным так и нет)
+    void logInFinished(const NetworkResult &res, const QString &accToken = "", const QString &refToken = "");        //!< Сигнал о завершении авторизации (может быть как успешным так и нет)
+    void logOutFinished(const NetworkResult &res);       //!< Сигнал о завершении выхода из аккаунта (может быть как успешным так и нет)
     void registrationInProgress();                    //!< Сигнал о том что регистрация в процессе и нужно заморозить кнопки
     void logInProgress();                             //!< Сигнал о том что авторизация в процессе и нужно заморозить кнопки
     void logOutInProgress();                          //!< Сигнал о том что выход из аккаунта в процессе и нужно заморозить кнопки
     void refreshAccessTokenInProgress();
-    void refreshAccessTokenFinished(const AuthResult &res, const QString &accToken = "", const QString &refToken = "");
+    void refreshAccessTokenFinished(const NetworkResult &res, const QString &accToken = "", const QString &refToken = "");
 };
 
 #endif // AUTHCONTROLLER_H

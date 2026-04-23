@@ -21,16 +21,14 @@ enum ERROR_TYPES
 
 QString messageForError(ERROR_TYPES error);
 
-struct AuthResult
+struct NetworkResult
 {
     bool ok = false;
     ERROR_TYPES error = ERROR_TYPES::NO_ERROR;
     QString message;
 };
 
-AuthResult validateRegistration(const QString &login, const QString &password, const QString &passwordConfirm);
 
-AuthResult validateLogIn(const QString &login, const QString &password);
 
 
 

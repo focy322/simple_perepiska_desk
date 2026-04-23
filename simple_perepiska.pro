@@ -1,8 +1,9 @@
 QT       += core gui network
-
+QT += websockets
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++17
+
 
 # You can make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.
@@ -21,7 +22,9 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     userinfocontroller.cpp \
-    userinfoservice.cpp
+    userinfoservice.cpp \
+    websocketcontroller.cpp \
+    websocketservice.cpp
 
 HEADERS += \
     authcontroller.h \
@@ -35,7 +38,9 @@ HEADERS += \
     errortypes.h \
     mainwindow.h \
     userinfocontroller.h \
-    userinfoservice.h
+    userinfoservice.h \
+    websocketcontroller.h \
+    websocketservice.h
 
 FORMS += \
     mainwindow.ui

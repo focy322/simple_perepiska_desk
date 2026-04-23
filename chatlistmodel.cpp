@@ -48,6 +48,8 @@ QVariant ChatListModel::data(const QModelIndex &index, int role) const
         return QVariant::fromValue<qulonglong>(chat.chatAvatarFileId);
     case ChatTypeRole:
         return chat.type;
+    case UserIdRole:
+        return chat.userId;
     default:
         return {};
     }
@@ -62,6 +64,7 @@ QHash<int, QByteArray> ChatListModel::roleNames() const
     roles[LastMessageTimestampRole] = "lastMessageTimestamp";
     roles[AvatarFileIdRole] = "avatarFileId";
     roles[ChatTypeRole] = "chatType";
+    roles[UserIdRole] = "userId";
     return roles;
 }
 

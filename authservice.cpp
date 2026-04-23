@@ -45,7 +45,7 @@ void AuthService::registerUser(const QString &login, const QString &password)
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
             // TODO: Определение конкретной ошибки
-            AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit registrationFinished(res);
             reply->deleteLater();
             return;
@@ -56,7 +56,7 @@ void AuthService::registerUser(const QString &login, const QString &password)
         if (pe.error || !doc.isObject())
         {
             // TODO: Определение конкретной ошибки
-            AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit registrationFinished(res);
             reply->deleteLater();
             return;
@@ -64,7 +64,7 @@ void AuthService::registerUser(const QString &login, const QString &password)
         // TODO: ошибки от 400 до 499
         if (httpCode == 400)
         {
-            AuthResult res{false, ERROR_TYPES::LOGIN_ALREADY_EXISTS, messageForError(ERROR_TYPES::LOGIN_ALREADY_EXISTS)};
+            NetworkResult res{false, ERROR_TYPES::LOGIN_ALREADY_EXISTS, messageForError(ERROR_TYPES::LOGIN_ALREADY_EXISTS)};
             emit registrationFinished(res);
             reply->deleteLater();
             return;
@@ -77,12 +77,12 @@ void AuthService::registerUser(const QString &login, const QString &password)
             QString refToken = doc.object()["token"].toObject()["refresh_token"].toString();
             refreshToken.write(refToken.toStdString().c_str(), refToken.size());
 
-            AuthResult res{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)};
+            NetworkResult res{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)};
             emit registrationFinished(res, accToken, refToken);
             reply->deleteLater();
             return;
         }
-        AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
         emit registrationFinished(res);
         reply->deleteLater();
         return;
@@ -116,7 +116,7 @@ void AuthService::logIn(const QString &login, const QString &password)
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
             // TODO: Определение конкретной ошибки
-            AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit logInFinished(res);
             reply->deleteLater();
             return;
@@ -127,7 +127,7 @@ void AuthService::logIn(const QString &login, const QString &password)
         if (pe.error || !doc.isObject())
         {
             // TODO: Определение конкретной ошибки
-            AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit logInFinished(res);
             reply->deleteLater();
             return;
@@ -138,7 +138,7 @@ void AuthService::logIn(const QString &login, const QString &password)
 #ifdef QT_DEBUG
             qDebug() << doc;
 #endif
-            AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit logInFinished(res);
             reply->deleteLater();
             return;
@@ -150,12 +150,12 @@ void AuthService::logIn(const QString &login, const QString &password)
             std::fstream refreshToken("refreshToken.txt", std::ios_base::trunc | std::ios_base::out);
             QString refToken = doc.object()["refresh_token"].toString();
             refreshToken.write(refToken.toStdString().c_str(), refToken.size());
-            AuthResult res{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)};
+            NetworkResult res{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)};
             emit logInFinished(res, accToken, refToken);
             reply->deleteLater();
             return;
         }
-        AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
 #ifdef QT_DEBUG
         qDebug() << doc;
 #endif
@@ -186,19 +186,19 @@ void AuthService::logOut(const QString &accToken, const QString &refToken)
         auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
-            AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit logOutFinished(res);
             reply->deleteLater();
             return;
         }
         if (httpCode == 200 || httpCode == 201)
         {
-            AuthResult res{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)};
+            NetworkResult res{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)};
             emit logOutFinished(res);
             reply->deleteLater();
             return;
         }
-        AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
 #ifdef QT_DEBUG
         qDebug() << "logOutError code: " << httpCode;
 #endif
@@ -229,7 +229,7 @@ void AuthService::refreshAccessToken(const QString &refToken)
         auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
-            AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit refreshAccessTokenFinished(res);
             reply->deleteLater();
             return;
@@ -239,7 +239,7 @@ void AuthService::refreshAccessToken(const QString &refToken)
         QJsonDocument doc = QJsonDocument::fromJson(raw, &pe);
         if (pe.error || !doc.isObject())
         {
-            AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit refreshAccessTokenFinished(res);
             reply->deleteLater();
             return;
@@ -252,12 +252,12 @@ void AuthService::refreshAccessToken(const QString &refToken)
             std::fstream file("refreshToken.txt", std::ios_base::trunc | std::ios_base::out);
             file.write(newRefToken.toStdString().c_str(), newRefToken.size());
             
-            AuthResult res{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)};
+            NetworkResult res{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)};
             emit refreshAccessTokenFinished(res, accToken, newRefToken);
             reply->deleteLater();
             return;
         }
-        AuthResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
         emit refreshAccessTokenFinished(res);
         reply->deleteLater();
     });

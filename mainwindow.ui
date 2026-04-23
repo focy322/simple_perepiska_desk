@@ -103,7 +103,7 @@
            </sizepolicy>
           </property>
           <property name="currentIndex">
-           <number>1</number>
+           <number>0</number>
           </property>
           <widget class="QWidget" name="pageAuth">
            <property name="sizePolicy">
@@ -622,7 +622,7 @@ border-right: 1px solid black;
                <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
               </property>
               <property name="spacing">
-               <number>20</number>
+               <number>0</number>
               </property>
              </widget>
             </item>

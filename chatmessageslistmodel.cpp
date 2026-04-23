@@ -35,10 +35,10 @@ QVariant ChatMessagesListModel::data(const QModelIndex &index, int role) const
         return QVariant::fromValue<qulonglong>(message.chatId);
     case MessageTextRole:
         return message.message;
-    case FileIdRole:
-        return QVariant::fromValue<qulonglong>(message.fileId);
     case TimestampRole:
         return message.timestamp;
+    case IsPendingRole:
+        return message.isPending;
     case ReadRole:
         return message.read;
     case ReadAtRole:
@@ -59,8 +59,8 @@ QHash<int, QByteArray> ChatMessagesListModel::roleNames() const
     roles[SenderIdRole] = "senderId";
     roles[ChatIdRole] = "chatId";
     roles[MessageTextRole] = "messageText";
-    roles[FileIdRole] = "fileId";
     roles[TimestampRole] = "timestamp";
+    roles[IsPendingRole] = "isPending";
     roles[ReadRole] = "read";
     roles[ReadAtRole] = "readAt";
     roles[EditedRole] = "edited";

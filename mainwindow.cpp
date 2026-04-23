@@ -25,6 +25,7 @@ MainWindow::MainWindow(QWidget *parent)
     , chatsController(new ChatsController(this))
     , isFirstOpen(true)
     , chatsList{}
+    , websocketController(new WebsocketController(this))
 {
     connect(authController, &AuthController::registrationFinished, this, &MainWindow::on_registrationFinished);
     connect(authController, &AuthController::logInFinished, this, &MainWindow::on_logInFinished);
@@ -40,6 +41,16 @@ MainWindow::MainWindow(QWidget *parent)
     connect(chatsController, &ChatsController::getMyChatsFinished, this, &MainWindow::on_getMyChatsFinished);
     connect(chatsController, &ChatsController::getChatMessagesInProgress, this, &MainWindow::on_getChatMessagesInProgress);
     connect(chatsController, &ChatsController::getChatMessagesFinished, this, &MainWindow::on_getChatMessagesFinished);
+    connect(chatsController, &ChatsController::createDirectChatInProgress, this, &MainWindow::on_createDirectChatInProgress);
+    connect(chatsController, &ChatsController::createDirectChatFinished, this, &MainWindow::on_createDirectChatFinished);
+    connect(websocketController, &WebsocketController::socketConnectionInProgress, this, &MainWindow::on_socketConnectionInProgress);
+    connect(websocketController, &WebsocketController::socketConnectionFinished, this, &MainWindow::on_socketConnectionFinished);
+    connect(websocketController, &WebsocketController::socketDisonnectionInProgress, this, &MainWindow::on_socketDisonnectionInProgress);
+    connect(websocketController, &WebsocketController::socketDisonnectionFinished, this, &MainWindow::on_socketDisonnectionFinished);
+    connect(websocketController, &WebsocketController::sendingMessageInProgress, this, &MainWindow::on_sendingMessageInProgress);
+    connect(websocketController, &WebsocketController::sendingMessageFinished, this, &MainWindow::on_sendingMessageFinished);
+    connect(websocketController, &WebsocketController::newMessageRecieved, this, &MainWindow::on_newMessageRecieved);
+    connect(websocketController, &WebsocketController::messageAccepted, this, &MainWindow::on_messageAccepted);
 
 
     ui->setupUi(this);
@@ -92,19 +103,19 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
         currentChatId = chatItem.data(ChatListModel::ChatIdRole).toULongLong();
         currentChatName = chatItem.data(ChatListModel::ChatNameRole).toString().trimmed();
         ui->chatName->setText(currentChatName);
-        auto chatIt = chatMessages.constFind(currentChatId); // Итератор на список сообщений (QStringList) для чата с выбранным chatId
+        auto chatIt = chatMessages.constFind(currentChatId); // Итератор на список сообщений (vector<ParsedChatMessagesArrayObject>) для чата с выбранным chatId
         if (chatIt != chatMessages.constEnd())
         {
             messagesListModel->setMessages(chatIt.value());
         } else
         {
             messagesListModel->clear();
+            getChatMessages(currentChatId);
         }
 
-        getChatMessages();
 
 #ifdef QT_DEBUG
-        qDebug() << chatItem.data();
+        qDebug() << chatItem.data(ChatListModel::UserIdRole);
         qDebug() << typeid(chatItem).name();
 #endif
     }
@@ -118,7 +129,7 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
 void MainWindow::on_sendMessageBtn_clicked()
 {
     QString msgToSend = ui->messageInput->text();
-    bool condToSendMsg = !msgToSend.isEmpty() && currentChatId != ULONG_LONG_MAX; // Условия для отправки сообщения
+    bool condToSendMsg = !msgToSend.trimmed().isEmpty() && currentChatId != ULONG_LONG_MAX; // Условия для отправки сообщения
     if (condToSendMsg)
     {
         ParsedChatMessagesArrayObject localMessage;
@@ -126,9 +137,12 @@ void MainWindow::on_sendMessageBtn_clicked()
         localMessage.senderId = userId;
         localMessage.message = msgToSend;
         localMessage.timestamp = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+        QString Uuid = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        localMessage.clientMessageId = Uuid;
 
         chatMessages[currentChatId].push_back(localMessage);
         messagesListModel->appendMessage(localMessage);
+        websocketController->requestSendMessage(currentChatId, msgToSend, Uuid);
         ui->messageInput->clear();
 
     }
@@ -239,7 +253,7 @@ void MainWindow::tryAuthorize()
         // файл не открылся
         isAuthorized = false;
         isFirstOpen = false;
-        checkAuthorization(AuthResult{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)}, "", "");
+        checkAuthorization(NetworkResult{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)}, "", "");
         return;
     }
 
@@ -255,7 +269,7 @@ void MainWindow::getMyInfo()
     userInfoController->requestMyUserInfo(accessToken);
 }
 
-void MainWindow::checkAuthorization(const AuthResult &res, const QString &accToken, const QString &refToken)
+void MainWindow::checkAuthorization(const NetworkResult &res, const QString &accToken, const QString &refToken)
 {
     if (res.ok)
     {
@@ -266,6 +280,7 @@ void MainWindow::checkAuthorization(const AuthResult &res, const QString &accTok
         getMyInfo();
         ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
         getChatsList();
+        websocketController->requestConnectSocket(accessToken);
     }
     else
     {
@@ -286,9 +301,14 @@ void MainWindow::getChatsList()
     chatsController->requestMyChats(accessToken);
 }
 
-void MainWindow::getChatMessages()
+void MainWindow::getChatMessages(const unsigned long long &chatId)
 {
-    chatsController->requestChatMessages(currentChatId, accessToken);
+    chatsController->requestChatMessages(chatId, accessToken);
+}
+
+void MainWindow::createDirectChat(const unsigned long long &userId)
+{
+    chatsController->requestCreateDirectChat(userId, accessToken);
 }
 
 void MainWindow::resizeEvent(QResizeEvent *event)
@@ -307,7 +327,7 @@ void MainWindow::on_refreshAccessTokenInProgress()
 
 }
 
-void MainWindow::on_refreshAccessTokenFinished(const AuthResult &res, const QString &accToken, const QString &refToken)
+void MainWindow::on_refreshAccessTokenFinished(const NetworkResult &res, const QString &accToken, const QString &refToken)
 {
     if (isFirstOpen)
     {
@@ -319,6 +339,7 @@ void MainWindow::on_refreshAccessTokenFinished(const AuthResult &res, const QStr
     {
         accessToken = accToken;
         refreshToken = refToken;
+        qDebug() << "on_RefreshAccessTokenFinished = true!!!";
     }
     else
     {
@@ -334,7 +355,7 @@ void MainWindow::on_getMyUserInfoInProgress()
 
 }
 
-void MainWindow::on_getMyUserInfoFinished(const AuthResult &res, const QString &username, unsigned long long userId)
+void MainWindow::on_getMyUserInfoFinished(const NetworkResult &res, const QString &username, unsigned long long userId)
 {
     if (res.ok)
     {
@@ -359,11 +380,14 @@ void MainWindow::on_getMyChatsInProgress()
 
 }
 
-void MainWindow::on_getMyChatsFinished(const AuthResult &res, const std::vector<ParsedChatsListArrayObject>& paObjects)
+void MainWindow::on_getMyChatsFinished(const NetworkResult &res, const std::vector<ParsedChatsListArrayObject>& paObjects)
 {
     if (res.ok)
     {
-        chatsList = paObjects;
+        for (const auto &chat : paObjects)
+        {
+            chatsList.insert(chat.chatId, chat);
+        }
 
         // chatMessages.clear();
         // for (const ParsedArrayObject &chat : chatsList)
@@ -375,8 +399,10 @@ void MainWindow::on_getMyChatsFinished(const AuthResult &res, const std::vector<
         //     chatMessages.insert(chat.chatId, messages);
         // }
 
-        chatsListModel->setChats(chatsList);
+        chatsListModel->setChats(paObjects);
+#ifdef QT_DEBUG
         qDebug() << "on_getMyChatsFinished = true!!!";
+#endif
     }
     else
     {
@@ -387,7 +413,9 @@ void MainWindow::on_getMyChatsFinished(const AuthResult &res, const std::vector<
         currentChatId = ULONG_LONG_MAX;
         ui->chatName->setText("Выберите чат");
         messagesListModel->clear();
+#ifdef QT_DEBUG
         qDebug() << "on_getMyChatsFinished = false!!!";
+#endif
     }
 }
 
@@ -396,13 +424,18 @@ void MainWindow::on_getChatMessagesInProgress()
 
 }
 
-void MainWindow::on_getChatMessagesFinished(const AuthResult &res, const unsigned long long chatId, const std::vector<ParsedChatMessagesArrayObject>& paObjects)
+// TODO: chatId сделать ссылкой и везде где он прокидывается до mainWindow
+// (хз может я уже так делал и вылетел segmentation fault поэтому я ссылку убрал, но в принципе 8 байт не так страшно или сколько там sizeof)
+void MainWindow::on_getChatMessagesFinished(const NetworkResult &res, const unsigned long long chatId, const std::vector<ParsedChatMessagesArrayObject>& paObjects)
 {
     if (res.ok)
     {
-        chatMessages[chatId] = paObjects;
+        // TODO: одинаковые сообещения накладываются друг на друга сверху
+        //chatMessages[chatId].insert(chatMessages[chatId].cbegin(), paObjects.cbegin(), paObjects.cend());
+        chatMessages[chatId] = paObjects; // TODO: если работает то что выше то это удалить
         if (currentChatId == chatId)
-            messagesListModel->setMessages(paObjects);
+            messagesListModel->setMessages(chatMessages[chatId]);
+            //messagesListModel->setMessages(paObjects); // TODO: если работает то что выше то это удалить
         qDebug() << "on_getChatMessagesFinished = true!!!";
     }
     else
@@ -413,7 +446,115 @@ void MainWindow::on_getChatMessagesFinished(const AuthResult &res, const unsigne
     }
 }
 
-void MainWindow::on_registrationFinished(const AuthResult &res, const QString &accToken, const QString &refToken)
+void MainWindow::on_createDirectChatFinished(const NetworkResult &res)
+{
+    if (res.ok)
+    {
+        qDebug() << "on_createDirectChatFinished = true!!!";
+        getChatsList();
+    }
+    else
+    {
+        qDebug() << "on_createDirectChatFinished = false!!!";
+    }
+
+}
+
+void MainWindow::on_createDirectChatInProgress()
+{
+
+}
+
+void MainWindow::on_socketConnectionInProgress()
+{
+
+}
+
+void MainWindow::on_socketConnectionFinished(const NetworkResult &res)
+{
+    if (res.ok)
+    {
+#ifdef QT_DEBUG
+        qDebug() << "on_socketConnectionFinished  = TRUE!!!";
+        qDebug() << QDateTime::currentDateTimeUtc();
+#endif
+    }
+    else
+    {
+#ifdef QT_DEBUG
+        qDebug() << "on_socketConnectionFinished  = FALSE!!!";
+        qDebug() << res.message;
+#endif
+    }
+
+}
+
+void MainWindow::on_socketDisonnectionInProgress()
+{
+
+}
+
+void MainWindow::on_socketDisonnectionFinished(const NetworkResult &res)
+{
+
+}
+
+void MainWindow::on_sendingMessageInProgress()
+{
+
+}
+
+void MainWindow::on_sendingMessageFinished(const NetworkResult &res)
+{
+
+}
+
+void MainWindow::on_newMessageRecieved(const ParsedChatMessagesArrayObject &newMessage)
+{
+    unsigned long long newMsgChatId = newMessage.chatId;
+    auto it = chatMessages.find(newMsgChatId);
+    if (it != chatMessages.end())
+    {
+        it.value().push_back(newMessage);
+        if (currentChatId == newMsgChatId)
+            messagesListModel->appendMessage(newMessage);
+    }
+    //TODO: сделать обновление на клиенте двигая локальный вектор, а если нет чата такого то только тогда вызвать этот метод
+    getChatsList();
+}
+
+void MainWindow::on_messageAccepted(const ParsedMessageAcceptedObject &msgAccObj)
+{
+    if (msgAccObj.clientMessageId.isEmpty() || msgAccObj.messageId == 0 || msgAccObj.chatId == 0)
+    {
+        return;
+    }
+
+    auto chatIt = chatMessages.find(msgAccObj.chatId);
+    if (chatIt == chatMessages.end())
+    {
+        return;
+    }
+
+    auto &messages = chatIt.value();
+    for (auto rit = messages.rbegin(); rit != messages.rend(); ++rit)
+    {
+        if (rit->clientMessageId != msgAccObj.clientMessageId)
+            continue;
+
+        rit->messageId = msgAccObj.messageId;
+        rit->isPending = false;
+        if (!msgAccObj.timestamp.isEmpty())
+            rit->timestamp = msgAccObj.timestamp;
+
+        if (currentChatId == msgAccObj.chatId)
+            messagesListModel->setMessages(messages);
+
+        return;
+    }
+}
+
+void MainWindow::on_registrationFinished(const NetworkResult &res, const QString &accToken, const QString &refToken)
 {
     if (res.ok)
     {
@@ -430,6 +571,7 @@ void MainWindow::on_registrationFinished(const AuthResult &res, const QString &a
         isAuthorized = true;
         getMyInfo();
         getChatsList();
+        websocketController->requestConnectSocket(accessToken);
     }
     else
     {
@@ -443,7 +585,7 @@ void MainWindow::on_registrationFinished(const AuthResult &res, const QString &a
     ui->switchToLogInBtn->setEnabled(true);
 }
 
-void MainWindow::on_logInFinished(const AuthResult &res, const QString &accToken, const QString &refToken)
+void MainWindow::on_logInFinished(const NetworkResult &res, const QString &accToken, const QString &refToken)
 {
     if (res.ok)
     {
@@ -458,6 +600,7 @@ void MainWindow::on_logInFinished(const AuthResult &res, const QString &accToken
         isAuthorized = true;
         getMyInfo();
         getChatsList();
+        websocketController->requestConnectSocket(accessToken);
     }
     else
     {
@@ -473,7 +616,7 @@ void MainWindow::on_logInFinished(const AuthResult &res, const QString &accToken
     ui->switchToRegistrationBtn->setEnabled(true);
 }
 
-void MainWindow::on_logOutFinished(const AuthResult &res)
+void MainWindow::on_logOutFinished(const NetworkResult &res)
 {
     if (res.ok)
     {
