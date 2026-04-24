@@ -35,6 +35,7 @@ HEADERS += \
     chatmessagesitemdelegate.h \
     chatmessageslistmodel.h \
     chatservice.h \
+    endpoints.h \
     errortypes.h \
     mainwindow.h \
     userinfocontroller.h \
@@ -44,6 +45,8 @@ HEADERS += \
 
 FORMS += \
     mainwindow.ui
+
+win32:RC_ICONS += enot_windows.ico
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

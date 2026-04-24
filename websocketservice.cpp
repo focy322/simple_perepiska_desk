@@ -6,13 +6,13 @@
 WebsocketService::WebsocketService(QObject *parent)
     : QObject{parent}
     , websocket(new QWebSocket(QString(), QWebSocketProtocol::VersionLatest, this))
-    , baseUrl("wss://messenger-3yfw.onrender.com")
+    , baseUrl(baseWebsocketUrl)
     , webSocketUrl("/ws/")
     , ackFlushTimer(new QTimer(this))
     , outgoingMessagesFlushTimer(new QTimer(this))
     , pendingDeliveryIds()
     , pendingOutgoingMessages()
-    , ackFlushIntervalMs(3000)
+    , ackFlushIntervalMs(5000)
     , outgoingMessagesFlushIntervalMs(5000)
     , handlersMapByTypeOfMessage()
 
@@ -43,6 +43,8 @@ WebsocketService::WebsocketService(QObject *parent)
     outgoingMessagesFlushTimer->setInterval(outgoingMessagesFlushIntervalMs);
     connect(ackFlushTimer, &QTimer::timeout, this, &WebsocketService::flushPendingAcks);
     connect(outgoingMessagesFlushTimer, &QTimer::timeout, this, &WebsocketService::flushPendingOutgoingMessages);
+    outgoingMessagesFlushTimer->start();
+    ackFlushTimer->start();
     fillHandlersMap();
 }
 void WebsocketService::connectSocket(const QString &accessToken)
@@ -92,8 +94,6 @@ void WebsocketService::sendMessage(const unsigned long long &chatId, const QStri
     };
 
     pendingOutgoingMessages.insert(Uuid, obj);
-    if (!outgoingMessagesFlushTimer->isActive())
-        outgoingMessagesFlushTimer->start();
     if (!websocket->isValid())
     {
         emit sendingMessageFinished(NetworkResult{false, ERROR_TYPES::UNKNOWN_ERROR, "websocket is invalid"});
@@ -173,9 +173,6 @@ void WebsocketService::on_newMessage(const QJsonObject &payload)
     newMessage.editedAt = messageObject.value("edited_at").toString();
 
     pendingDeliveryIds.insert(deliveryId);
-    if (!ackFlushTimer->isActive())
-        ackFlushTimer->start();
-    qDebug() << "pendingDeliveryIds.insert count = " << pendingDeliveryIds.count();
     emit newMessageRecieved(newMessage);
 
 }
@@ -208,8 +205,6 @@ void WebsocketService::flushPendingAcks()
 
     const QString jsonText = QString::fromUtf8(QJsonDocument(obj).toJson(QJsonDocument::Compact));
     websocket->sendTextMessage(jsonText);
-    qDebug() << "flushPendingAcks";
-
 }
 
 void WebsocketService::flushPendingOutgoingMessages()
@@ -229,7 +224,6 @@ void WebsocketService::flushPendingOutgoingMessages()
         const QString jsonText = QString::fromUtf8(QJsonDocument(it.value()).toJson(QJsonDocument::Compact));
         websocket->sendTextMessage(jsonText);
     }
-    qDebug() << "flushPendingOutgoingMessages ";
 }
 
 void WebsocketService::on_messageAccepted(const QJsonObject &payload)
@@ -263,7 +257,7 @@ void WebsocketService::on_messageAccepted(const QJsonObject &payload)
     const QString timestamp = timestampValue.toString();
     const bool deduped = dedupedValue.toBool(false);
 
-    if (clientMessageId.isEmpty() || messageId == 0 || timestamp.isEmpty())
+    if (clientMessageId.isEmpty() || messageId == 0 || timestamp.isEmpty() || chatId == 0)
     {
         // TODO: обработка некорректного payload
         return;
@@ -277,8 +271,6 @@ void WebsocketService::on_messageAccepted(const QJsonObject &payload)
     paObj.chatId = chatId;
 
     pendingOutgoingMessages.remove(clientMessageId);
-    qDebug() << "pendingOutgoingMessages.remove" << clientMessageId;
-
     emit messageAccepted(paObj);
 }
 
@@ -313,8 +305,6 @@ void WebsocketService::on_ackResult(const QJsonObject &payload)
             continue;
         unsigned long long deliveryId = toUnsignedLongLong(deliveryIdValue);
         pendingDeliveryIds.remove(deliveryId);
-        qDebug() << "pendingDeliveryIds.remove" << deliveryId;
-        qDebug() << "pendingDeliveryIds.count" << pendingDeliveryIds.count();
     }
 }
 

@@ -6,6 +6,8 @@
 #include <QtNetwork/QNetworkReply>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include "endpoints.h"
+
 // Содержит правила регистрации/входа и работу с данными пользователей, без UI-зависимостей.
 class AuthService : public QObject
 {

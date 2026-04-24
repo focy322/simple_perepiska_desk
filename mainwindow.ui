@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>932</width>
-    <height>621</height>
+    <width>1046</width>
+    <height>718</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -103,7 +103,7 @@
            </sizepolicy>
           </property>
           <property name="currentIndex">
-           <number>0</number>
+           <number>1</number>
           </property>
           <widget class="QWidget" name="pageAuth">
            <property name="sizePolicy">

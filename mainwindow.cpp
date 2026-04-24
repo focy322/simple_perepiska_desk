@@ -139,6 +139,7 @@ void MainWindow::on_sendMessageBtn_clicked()
         localMessage.timestamp = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
         QString Uuid = QUuid::createUuid().toString(QUuid::WithoutBraces);
         localMessage.clientMessageId = Uuid;
+        localMessage.isPending = true;
 
         chatMessages[currentChatId].push_back(localMessage);
         messagesListModel->appendMessage(localMessage);
@@ -624,6 +625,11 @@ void MainWindow::on_logOutFinished(const NetworkResult &res)
         isAuthorized = false;
         ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);
         ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);
+        chatMessages.clear();
+        chatsList.clear();
+        chatsListModel->clear();
+        messagesListModel->clear();
+
     }
     else
     {

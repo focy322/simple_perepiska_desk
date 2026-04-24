@@ -6,7 +6,7 @@
 AuthService::AuthService(QObject *parent)
     : QObject{parent}
     , network(new QNetworkAccessManager(this))
-    , baseUrl("https://messenger-3yfw.onrender.com")
+    , baseUrl(baseHttpUrl)
     , registerUrl("/api/users/")
     , logInUrl("/api/auth/token")
     , refreshAccessTokenUrl("/api/auth/token/refresh")

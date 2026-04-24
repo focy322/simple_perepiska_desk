@@ -3,7 +3,7 @@
 UserInfoService::UserInfoService(QObject *parent)
     : QObject{parent}
     , network(new QNetworkAccessManager(this))
-    , baseUrl("https://messenger-3yfw.onrender.com")
+    , baseUrl(baseHttpUrl)
     , myUserInfoUrl("/api/users/me")
     , userByUsernameUrl("/api/users/search")
 {}

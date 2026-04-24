@@ -7,6 +7,7 @@
 #include <QtNetwork/QNetworkReply>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include "endpoints.h"
 
 // Класс для работы с информацией о пользователе получающий данные от UserInfoController и работающий с API
 class UserInfoService : public QObject

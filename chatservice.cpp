@@ -6,7 +6,7 @@
 ChatService::ChatService(QObject *parent)
     : QObject{parent}
     , network(new QNetworkAccessManager(this))
-    , baseUrl("https://messenger-3yfw.onrender.com")
+    , baseUrl(baseHttpUrl)
     , myChatsUrl("/api/chats/")
     , chatMessagesUrl("/api/chats/%1")
     , createDirectChatUrl("/api/chats/create")

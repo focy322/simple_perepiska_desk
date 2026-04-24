@@ -9,6 +9,7 @@
 #include <QJsonArray>
 #include <vector>
 #include "errortypes.h"
+#include "endpoints.h"
 
 // TODO: обновить
 struct ParsedChatsListArrayObject

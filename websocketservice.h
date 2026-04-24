@@ -10,6 +10,7 @@
 #include <QJsonObject>
 #include "errortypes.h"
 #include "chatservice.h"
+#include "endpoints.h"
 
 struct ParsedMessageAcceptedObject
 {
