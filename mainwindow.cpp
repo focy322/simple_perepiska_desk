@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "chatlistitemdelegate.h"
+#include "searchitemdelegate.h"
 #include <QDebug>
 #include <QDateTime>
 #include <QFile>
@@ -9,6 +10,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , chatsListModel(new ChatListModel(this))
+    , searchListModel(new SearchListModel(this))
     , messagesItemDelegate(new ChatMessagesItemDelegate(this))
     , messagesListModel(new ChatMessagesListModel(this))
     , chatMessages()
@@ -18,7 +20,7 @@ MainWindow::MainWindow(QWidget *parent)
     , authController(new AuthController(this))
     , isAuthorized(false)
     , currentUsername("")
-    , userId(ULONG_LONG_MAX)
+    , myUserId(ULONG_LONG_MAX)
     , userInfoController(new UserInfoController(this))
     , accessToken("")
     , refreshToken("")
@@ -27,6 +29,8 @@ MainWindow::MainWindow(QWidget *parent)
     , chatsList{}
     , websocketController(new WebsocketController(this))
 {
+    ui->setupUi(this);
+
     connect(authController, &AuthController::registrationFinished, this, &MainWindow::on_registrationFinished);
     connect(authController, &AuthController::logInFinished, this, &MainWindow::on_logInFinished);
     connect(authController, &AuthController::logOutFinished, this, &MainWindow::on_logOutFinished);
@@ -37,6 +41,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(authController, &AuthController::refreshAccessTokenFinished, this, &MainWindow::on_refreshAccessTokenFinished);
     connect(userInfoController, &UserInfoController::getMyUserInfoInProgress, this, &MainWindow::on_getMyUserInfoInProgress);
     connect(userInfoController, &UserInfoController::getMyUserInfoFinished, this, &MainWindow::on_getMyUserInfoFinished);
+    connect(userInfoController, &UserInfoController::findUserInProgress, this, &MainWindow::on_findUserInProgress);
+    connect(userInfoController, &UserInfoController::findUserFinished, this, &MainWindow::on_findUserFinished);
     connect(chatsController, &ChatsController::getMyChatsInProgress, this, &MainWindow::on_getMyChatsInProgress);
     connect(chatsController, &ChatsController::getMyChatsFinished, this, &MainWindow::on_getMyChatsFinished);
     connect(chatsController, &ChatsController::getChatMessagesInProgress, this, &MainWindow::on_getChatMessagesInProgress);
@@ -53,8 +59,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(websocketController, &WebsocketController::messageAccepted, this, &MainWindow::on_messageAccepted);
 
 
-    ui->setupUi(this);
-    setUpLogOutBtn();
+    // Изменение высоты строки ввода собщения при переносе строки
+    connect(ui->messageInput, &QTextEdit::textChanged, this, &MainWindow::on_textChanged);
 
     //TODO: Эту хуйню вынести куда то в отдельный файл а может и все css стили в по файлам растаскать
     ui->chatsView->setStyleSheet(
@@ -79,9 +85,14 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->chatsView->setModel(chatsListModel);
     ui->chatsView->setItemDelegate(new ChatListItemDelegate(ui->chatsView));
+    ui->searchView->setModel(searchListModel);
+    ui->searchView->setItemDelegate(new SearchItemDelegate(ui->searchView));
     ui->messagesView->setModel(messagesListModel);
     ui->messagesView->setItemDelegate(messagesItemDelegate);
     ui->loadingAndContentWidgets->setCurrentWidget(ui->loadingPage);
+    ui->chatsAndSearchListsWidgets->setCurrentWidget(ui->chatsListPage);
+    ui->searchInput->installEventFilter(this);
+    setUpLogOutBtn();
 
     tryAuthorize();
 
@@ -110,6 +121,8 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
         } else
         {
             messagesListModel->clear();
+            // Честно говоря не уверен когда нужно вызвать ее ведь у меня есть вебсокет по сути это лишняя нагрузка на сервер всегда ее вызывать поэтому пока ее else ветку засунул
+            // но может быть нужно ее вызывать и при каждом клике на чат для актуализации сообщений, хз
             getChatMessages(currentChatId);
         }
 
@@ -128,13 +141,14 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
 
 void MainWindow::on_sendMessageBtn_clicked()
 {
-    QString msgToSend = ui->messageInput->text();
+    //TODO: что то тут может быть не чисто с toPlainText
+    QString msgToSend = ui->messageInput->toPlainText();
     bool condToSendMsg = !msgToSend.trimmed().isEmpty() && currentChatId != ULONG_LONG_MAX; // Условия для отправки сообщения
     if (condToSendMsg)
     {
         ParsedChatMessagesArrayObject localMessage;
         localMessage.chatId = currentChatId;
-        localMessage.senderId = userId;
+        localMessage.senderId = myUserId;
         localMessage.message = msgToSend;
         localMessage.timestamp = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
         QString Uuid = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -318,6 +332,23 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     positionLogoutButton();
 }
 
+bool MainWindow::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == ui->searchInput) { // Проверяем, что событие пришло именно от нашего поля
+        if (event->type() == QEvent::FocusIn) {
+            // Когда пользователь кликнул в поле или перешел Tab-ом
+            ui->chatsAndSearchListsWidgets->setCurrentWidget(ui->searchListPage); // Индекс страницы, на которую нужно перейти
+        }
+        else if (event->type() == QEvent::FocusOut) {
+            // Возвращаем основную страницу
+            ui->chatsAndSearchListsWidgets->setCurrentWidget(ui->chatsListPage);
+            ui->searchInput->clear();
+        }
+    }
+
+    return QMainWindow::eventFilter(obj, event); // Важно пробросить событие дальше
+}
+
 void MainWindow::on_logOutBtn_clicked()
 {
     authController->requestLogOut(accessToken, refreshToken);
@@ -361,11 +392,11 @@ void MainWindow::on_getMyUserInfoFinished(const NetworkResult &res, const QStrin
     if (res.ok)
     {
         currentUsername = username;
-        this->userId = userId;
-        messagesItemDelegate->setCurrentUserId(this->userId);
+        this->myUserId = userId;
+        messagesItemDelegate->setCurrentUserId(this->myUserId);
 #ifdef QT_DEBUG
         qDebug() << "currentUsername" << currentUsername;
-        qDebug() << "currentUserId" << this->userId;
+        qDebug() << "currentUserId" << this->myUserId;
 #endif
     }
     else
@@ -431,12 +462,15 @@ void MainWindow::on_getChatMessagesFinished(const NetworkResult &res, const unsi
 {
     if (res.ok)
     {
-        // TODO: одинаковые сообещения накладываются друг на друга сверху
-        //chatMessages[chatId].insert(chatMessages[chatId].cbegin(), paObjects.cbegin(), paObjects.cend());
-        chatMessages[chatId] = paObjects; // TODO: если работает то что выше то это удалить
-        if (currentChatId == chatId)
-            messagesListModel->setMessages(chatMessages[chatId]);
+        if (!paObjects.empty())
+        {
+            // TODO: одинаковые сообещения накладываются друг на друга сверху
+            //chatMessages[chatId].insert(chatMessages[chatId].cbegin(), paObjects.cbegin(), paObjects.cend());
+            chatMessages[chatId] = paObjects; // TODO: если работает то что выше то это удалить
+            if (currentChatId == chatId)
+                messagesListModel->setMessages(chatMessages[chatId]);
             //messagesListModel->setMessages(paObjects); // TODO: если работает то что выше то это удалить
+        }
         qDebug() << "on_getChatMessagesFinished = true!!!";
     }
     else
@@ -555,6 +589,42 @@ void MainWindow::on_messageAccepted(const ParsedMessageAcceptedObject &msgAccObj
     }
 }
 
+void MainWindow::on_textChanged()
+{
+    int docHeight = ui->messageInput->document()->size().height();
+
+    int frameWidth = ui->messageInput->frameWidth() * 2;
+    int minHeight = 40;
+    int maxHeight = 200;
+
+    int newHeight = qMax(minHeight, docHeight + frameWidth);
+    newHeight = qMin(newHeight, maxHeight);
+
+    ui->messageInput->setFixedHeight(newHeight);
+}
+
+void MainWindow::on_findUserInProgress()
+{
+
+}
+
+void MainWindow::on_findUserFinished(const NetworkResult &res, const std::vector<ParsedFoundUsersObject> &paObjects)
+{
+    if (res.ok)
+    {
+        searchListModel->setUsers(paObjects);
+#ifdef QT_DEBUG
+        qDebug() << "on_findUserFinished = true!!!";
+#endif
+    }
+    else
+    {
+#ifdef QT_DEBUG
+        qDebug() << "on_findUserFinished = false!!!";
+#endif
+    }
+}
+
 void MainWindow::on_registrationFinished(const NetworkResult &res, const QString &accToken, const QString &refToken)
 {
     if (res.ok)
@@ -629,7 +699,10 @@ void MainWindow::on_logOutFinished(const NetworkResult &res)
         chatsList.clear();
         chatsListModel->clear();
         messagesListModel->clear();
-
+        currentChatName.clear();
+        ui->chatName->clear();
+        currentChatId = ULONG_LONG_MAX;
+        myUserId = ULONG_LONG_MAX;
     }
     else
     {
@@ -659,5 +732,53 @@ void MainWindow::on_logOutInProgress()
     //TODO: Реализация
 }
 
+void MainWindow::on_searchView_clicked(const QModelIndex &user)
+{
+    if (user.isValid())
+    {
+        unsigned long long userId = user.data(SearchListModel::UserIdRole).toULongLong();
+        for (const auto &chatListItem : std::as_const(chatsList))
+        {
+            if (chatListItem.userId == userId)
+            {
+                currentChatId = chatListItem.chatId;
+                currentChatName = chatListItem.chatName;
+                ui->chatName->setText(currentChatName);
+                auto chatIt = chatMessages.constFind(currentChatId); // Итератор на список сообщений (vector<ParsedChatMessagesArrayObject>) для чата с выбранным chatId
+                if (chatIt != chatMessages.constEnd())
+                {
+                    messagesListModel->setMessages(chatIt.value());
+                } else
+                {
+                    messagesListModel->clear();
+                    // Честно говоря не уверен когда нужно вызвать ее ведь у меня есть вебсокет по сути это лишняя нагрузка на сервер всегда ее вызывать поэтому пока ее else ветку засунул
+                    // но может быть нужно ее вызывать и при каждом клике на чат для актуализации сообщений, хз
+                    getChatMessages(currentChatId);
+                }
+                ui->searchInput->clearFocus();
+                return;
+            }
+        }
+        createDirectChat(userId);
+        ui->searchInput->clearFocus();
+    }
+    else
+    {
+        // По сути он невалидным быть не может поэтому хз что тут добавить
+        ui->searchInput->clearFocus();
+    }
+}
 
+
+void MainWindow::on_searchInput_returnPressed()
+{
+    QString input = ui->searchInput->text();
+    bool condToFindUser = !input.trimmed().isEmpty(); // Возможно нужно будет добавить поболее условий только пока хз каких
+    if (condToFindUser)
+    {
+        userInfoController->requestFindUser(accessToken, input);
+    }
+    else
+        ui->searchInput->clear();
+}
 

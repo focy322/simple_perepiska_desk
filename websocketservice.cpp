@@ -190,7 +190,7 @@ void WebsocketService::flushPendingAcks()
     }
 
     QJsonArray deliveryIdsJson;
-    for (unsigned long long deliveryId : pendingDeliveryIds)
+    for (unsigned long long deliveryId : std::as_const(pendingDeliveryIds))
     {
         deliveryIdsJson.append(static_cast<qint64>(deliveryId));
     }
@@ -299,7 +299,7 @@ void WebsocketService::on_ackResult(const QJsonObject &payload)
     {
         return;
     }
-    for (const QJsonValue &deliveryIdValue : deliveryIds)
+    for (const QJsonValue &deliveryIdValue : std::as_const(deliveryIds))
     {
         if(!deliveryIdValue.isDouble())
             continue;

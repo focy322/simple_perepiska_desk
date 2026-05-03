@@ -21,6 +21,8 @@ SOURCES += \
     errortypes.cpp \
     main.cpp \
     mainwindow.cpp \
+    searchitemdelegate.cpp \
+    searchlistmodel.cpp \
     userinfocontroller.cpp \
     userinfoservice.cpp \
     websocketcontroller.cpp \
@@ -38,6 +40,8 @@ HEADERS += \
     endpoints.h \
     errortypes.h \
     mainwindow.h \
+    searchitemdelegate.h \
+    searchlistmodel.h \
     userinfocontroller.h \
     userinfoservice.h \
     websocketcontroller.h \

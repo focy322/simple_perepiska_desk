@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1046</width>
-    <height>718</height>
+    <width>1000</width>
+    <height>720</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -611,20 +611,110 @@
              <number>0</number>
             </property>
             <item>
-             <widget class="QListView" name="chatsView">
-              <property name="styleSheet">
-               <string notr="true">background-color:#FFF8DC;
-border: none;
-border-right: 1px solid black;
-</string>
-              </property>
-              <property name="editTriggers">
-               <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
-              </property>
+             <layout class="QVBoxLayout" name="chatsListWithSearchListAndSearchInputLayout" stretch="0,0">
               <property name="spacing">
                <number>0</number>
               </property>
-             </widget>
+              <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <item>
+               <widget class="QLineEdit" name="searchInput">
+                <property name="minimumSize">
+                 <size>
+                  <width>0</width>
+                  <height>30</height>
+                 </size>
+                </property>
+                <property name="placeholderText">
+                 <string>Поиск</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QStackedWidget" name="chatsAndSearchListsWidgets">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="currentIndex">
+                 <number>0</number>
+                </property>
+                <widget class="QWidget" name="chatsListPage">
+                 <property name="layoutDirection">
+                  <enum>Qt::LayoutDirection::LeftToRight</enum>
+                 </property>
+                 <property name="autoFillBackground">
+                  <bool>false</bool>
+                 </property>
+                 <layout class="QHBoxLayout" name="horizontalLayout_2">
+                  <property name="spacing">
+                   <number>0</number>
+                  </property>
+                  <property name="leftMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="topMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="rightMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="bottomMargin">
+                   <number>0</number>
+                  </property>
+                  <item>
+                   <widget class="QListView" name="chatsView">
+                    <property name="styleSheet">
+                     <string notr="true">background-color:#FFF8DC;
+border: none;
+border-right: 1px solid black;
+</string>
+                    </property>
+                    <property name="editTriggers">
+                     <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
+                    </property>
+                    <property name="spacing">
+                     <number>0</number>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+                <widget class="QWidget" name="searchListPage">
+                 <layout class="QHBoxLayout" name="horizontalLayout_3">
+                  <property name="spacing">
+                   <number>0</number>
+                  </property>
+                  <property name="leftMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="topMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="rightMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="bottomMargin">
+                   <number>0</number>
+                  </property>
+                  <item>
+                   <widget class="QListView" name="searchView">
+                    <property name="styleSheet">
+                     <string notr="true">background-color:#FFF8DC;
+border: none;
+border-right: 1px solid black;
+</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+               </widget>
+              </item>
+             </layout>
             </item>
             <item>
              <layout class="QVBoxLayout" name="messagesViewLayout" stretch="0,10,0">
@@ -642,7 +732,7 @@ border-right: 1px solid black;
                 <property name="minimumSize">
                  <size>
                   <width>0</width>
-                  <height>25</height>
+                  <height>30</height>
                  </size>
                 </property>
                 <property name="styleSheet">
@@ -673,17 +763,14 @@ border: none;</string>
                </widget>
               </item>
               <item>
-               <layout class="QHBoxLayout" name="messageInputLayout" stretch="10,0">
+               <layout class="QHBoxLayout" name="messageInputLayout" stretch="0,0">
                 <property name="spacing">
                  <number>0</number>
                 </property>
                 <item>
-                 <widget class="QLineEdit" name="messageInput">
-                  <property name="enabled">
-                   <bool>true</bool>
-                  </property>
+                 <widget class="QTextEdit" name="messageInput">
                   <property name="sizePolicy">
-                   <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                   <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
                     <horstretch>0</horstretch>
                     <verstretch>0</verstretch>
                    </sizepolicy>
@@ -694,24 +781,41 @@ border: none;</string>
                     <height>40</height>
                    </size>
                   </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>16777215</width>
+                    <height>200</height>
+                   </size>
+                  </property>
                   <property name="baseSize">
                    <size>
                     <width>0</width>
-                    <height>0</height>
+                    <height>6</height>
                    </size>
                   </property>
-                  <property name="styleSheet">
-                   <string notr="true">border: none;</string>
+                  <property name="font">
+                   <font>
+                    <pointsize>14</pointsize>
+                   </font>
                   </property>
-                  <property name="placeholderText">
-                   <string>Введите сообщение...</string>
+                  <property name="frameShape">
+                   <enum>QFrame::Shape::NoFrame</enum>
+                  </property>
+                  <property name="verticalScrollBarPolicy">
+                   <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+                  </property>
+                  <property name="horizontalScrollBarPolicy">
+                   <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+                  </property>
+                  <property name="tabChangesFocus">
+                   <bool>true</bool>
                   </property>
                  </widget>
                 </item>
                 <item>
                  <widget class="QPushButton" name="sendMessageBtn">
                   <property name="sizePolicy">
-                   <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                     <horstretch>0</horstretch>
                     <verstretch>0</verstretch>
                    </sizepolicy>

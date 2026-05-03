@@ -10,6 +10,7 @@
 #include "userinfocontroller.h"
 #include "chatscontroller.h"
 #include "websocketcontroller.h"
+#include "searchlistmodel.h"
 #include <QUuid>
 
 QT_BEGIN_NAMESPACE
@@ -34,6 +35,14 @@ protected:
       * @param event объект QResizeEvent
       */
     void resizeEvent(QResizeEvent *event) override;
+
+
+    /**
+      * Отлавливание события фокуса на поле поиска для изменения с chatsView на searchView
+      * @param obj объект к которому применяется event
+      * @param event объект QEvent
+      */
+    bool eventFilter(QObject *obj, QEvent *event) override;
 
 private slots:
     /**
@@ -162,10 +171,21 @@ private slots:
 
     void on_messageAccepted(const ParsedMessageAcceptedObject &msgAccObj);
 
+    void on_textChanged();
+
+    void on_findUserInProgress();
+
+    void on_findUserFinished(const NetworkResult &res, const std::vector<ParsedFoundUsersObject>& paObjects = {});
+
+
+    void on_searchView_clicked(const QModelIndex &index);
+
+    void on_searchInput_returnPressed();
 
 private:
     Ui::MainWindow *ui;
     ChatListModel *chatsListModel;                      //!< Модель чатов с доступом к полям через роли
+    SearchListModel *searchListModel;                   //!< Модель списка пользователей при поиске с доступом к полям через роли
     ChatMessagesItemDelegate *messagesItemDelegate;     //!< Делегат сообщений (выравнивание своих/чужих)
     ChatMessagesListModel *messagesListModel;           //!< Модель сообщений для выбранного чата
     QHash<unsigned long long, std::vector<ParsedChatMessagesArrayObject>> chatMessages;  //!< Хранилище сообщений по chatId
@@ -175,7 +195,7 @@ private:
     AuthController *authController;                     //!< Принимает запросы от UI, дергает AuthService, возвращает результат через сигналы.
     bool isAuthorized;                                  //!< Флаг авторизации пользователя
     QString currentUsername;                            //!< Имя пользователя
-    unsigned long long userId;                          //!< Id пользователя
+    unsigned long long myUserId;                          //!< Id пользователя
     UserInfoController *userInfoController;             //!< Принимает запросы от UI, дергает UserInfoService, возвращает результат через сигналы.
     QString accessToken;
     QString refreshToken;

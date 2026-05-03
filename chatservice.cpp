@@ -60,7 +60,7 @@ const std::vector<ParsedChatsListArrayObject> ChatService::parseChatsListArray(c
     std::vector<ParsedChatsListArrayObject> parsedArrayObjects;  //!< Объекты разобранного JSON-массива
 
     // Безопасное преобразование JSON-числа к unsigned long long.
-    auto toUnsignedLongLong = [](const QJsonValue &value, unsigned long long defaultValue = 0ULL) -> unsigned long long
+    auto toUnsignedLongLong = [](const QJsonValue &value, unsigned long long defaultValue = ULONG_LONG_MAX) -> unsigned long long
     {
         if (!value.isDouble())
             return defaultValue;
@@ -175,7 +175,7 @@ const std::vector<ParsedChatMessagesArrayObject> ChatService::parseChatMessagesA
     std::vector<ParsedChatMessagesArrayObject> parsedArrayObjects;
 
     // Безопасное преобразование JSON-числа к unsigned long long.
-    auto toUnsignedLongLong = [](const QJsonValue &value, unsigned long long defaultValue = 0ULL) -> unsigned long long
+    auto toUnsignedLongLong = [](const QJsonValue &value, unsigned long long defaultValue = ULONG_LONG_MAX) -> unsigned long long
     {
         if (!value.isDouble())
             return defaultValue;
@@ -265,3 +265,4 @@ void ChatService::createDirectChat(const unsigned long long &userId, const QStri
         return;
     } );
 }
+
