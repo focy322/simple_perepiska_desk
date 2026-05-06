@@ -89,7 +89,7 @@ void WebsocketService::sendMessage(const unsigned long long &chatId, const QStri
         payload.insert("file_id", fileIdCasted);
     }
     QJsonObject obj{
-        {"type", "chat.send_message"},
+        {"type", "chat.message.send"},
         {"payload", payload}
     };
 
@@ -124,9 +124,9 @@ void WebsocketService::fillHandlersMap()
 {
     handlersMapByTypeOfMessage.insert(QString("pong"), &WebsocketService::on_pong);
     handlersMapByTypeOfMessage.insert(QString("chat.message"), &WebsocketService::on_newMessage);
-    handlersMapByTypeOfMessage.insert(QString("chat.message.accepted"), &WebsocketService::on_messageAccepted);
-    handlersMapByTypeOfMessage.insert(QString("chat.ack_result"), &WebsocketService::on_ackResult);
-    handlersMapByTypeOfMessage.insert(QString("chat.read_marked"), &WebsocketService::on_readMarked);
+    handlersMapByTypeOfMessage.insert(QString("chat.message.send.accepted"), &WebsocketService::on_messageAccepted);
+    handlersMapByTypeOfMessage.insert(QString("chat.message.ack.result"), &WebsocketService::on_ackResult);
+    handlersMapByTypeOfMessage.insert(QString("chat.mark_read.accepted"), &WebsocketService::on_readMarked);
     handlersMapByTypeOfMessage.insert(QString("user.status"), &WebsocketService::on_userStatus);
     handlersMapByTypeOfMessage.insert(QString("error"), &WebsocketService::on_error);
 
@@ -199,7 +199,7 @@ void WebsocketService::flushPendingAcks()
         {"delivery_ids", deliveryIdsJson}
     };
     QJsonObject obj{
-        {"type", "chat.ack"},
+        {"type", "chat.message.ack"},
         {"payload", payload}
     };
 
