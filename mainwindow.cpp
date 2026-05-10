@@ -6,6 +6,9 @@
 #include <QDateTime>
 #include <QFile>
 #include <QThread>
+#include <QGraphicsOpacityEffect>
+#include <QPauseAnimation>
+#include <QSequentialAnimationGroup>
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -326,6 +329,88 @@ void MainWindow::createDirectChat(const unsigned long long &userId)
     chatsController->requestCreateDirectChat(userId, accessToken);
 }
 
+void MainWindow::switchPageWithSlideAnimation(QStackedWidget *stackedWidget, QWidget *newPage)
+{
+    if (!stackedWidget || !newPage) return;
+
+    const int duration = 300; // total duration (ms)
+    const int half = duration / 2;
+
+    QWidget *oldPage = stackedWidget->currentWidget();
+    if (oldPage == newPage) return;
+
+    // Ensure pages have correct geometry and are visible for animation
+    QRect area = stackedWidget->rect();
+    oldPage->setGeometry(area);
+    newPage->setGeometry(QRect(area.width(), 0, area.width(), area.height()));
+    newPage->show();
+
+    // Opacity effects
+    auto *oldEffect = new QGraphicsOpacityEffect(oldPage);
+    auto *newEffect = new QGraphicsOpacityEffect(newPage);
+    oldEffect->setOpacity(1.0);
+    newEffect->setOpacity(0.0);
+    oldPage->setGraphicsEffect(oldEffect);
+    newPage->setGraphicsEffect(newEffect);
+
+    // Slide animations
+    auto *slideOut = new QPropertyAnimation(oldPage, "geometry");
+    slideOut->setDuration(duration);
+    slideOut->setStartValue(oldPage->geometry());
+    slideOut->setEndValue(QRect(-area.width(), 0, area.width(), area.height()));
+    slideOut->setEasingCurve(QEasingCurve::InOutQuad);
+
+    auto *slideIn = new QPropertyAnimation(newPage, "geometry");
+    slideIn->setDuration(duration);
+    slideIn->setStartValue(QRect(area.width(), 0, area.width(), area.height()));
+    slideIn->setEndValue(QRect(0, 0, area.width(), area.height()));
+    slideIn->setEasingCurve(QEasingCurve::InOutQuad);
+
+    // Fade animations with delay: pause then fade over second half
+    auto *fadeOutSeq = new QSequentialAnimationGroup(this);
+    fadeOutSeq->addAnimation(new QPauseAnimation(half));
+    auto *fadeOut = new QPropertyAnimation(oldEffect, "opacity");
+    fadeOut->setDuration(half);
+    fadeOut->setStartValue(1.0);
+    fadeOut->setEndValue(0.0);
+    fadeOut->setEasingCurve(QEasingCurve::InOutQuad);
+    fadeOutSeq->addAnimation(fadeOut);
+
+    auto *fadeInSeq = new QSequentialAnimationGroup(this);
+    fadeInSeq->addAnimation(new QPauseAnimation(half));
+    auto *fadeIn = new QPropertyAnimation(newEffect, "opacity");
+    fadeIn->setDuration(half);
+    fadeIn->setStartValue(0.0);
+    fadeIn->setEndValue(1.0);
+    fadeIn->setEasingCurve(QEasingCurve::InOutQuad);
+    fadeInSeq->addAnimation(fadeIn);
+
+    // Parallel group: slides + fades (sequences)
+    auto *group = new QParallelAnimationGroup(this);
+    group->addAnimation(slideOut);
+    group->addAnimation(slideIn);
+    group->addAnimation(fadeOutSeq);
+    group->addAnimation(fadeInSeq);
+
+    // Disable input during animation
+    oldPage->setEnabled(false);
+    newPage->setEnabled(false);
+
+    connect(group, &QParallelAnimationGroup::finished, this, [this, stackedWidget, newPage, oldPage]() {
+        // finalize: switch the stacked widget page
+        stackedWidget->setCurrentWidget(newPage);
+        // restore geometries
+        oldPage->setGeometry(stackedWidget->rect());
+        newPage->setGeometry(stackedWidget->rect());
+        // enable widgets
+        oldPage->setEnabled(true);
+        newPage->setEnabled(true);
+        // effects will be cleaned up automatically with widgets
+    });
+
+    group->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
@@ -337,11 +422,13 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
     if (obj == ui->searchInput) { // Проверяем, что событие пришло именно от нашего поля
         if (event->type() == QEvent::FocusIn) {
             // Когда пользователь кликнул в поле или перешел Tab-ом
-            ui->chatsAndSearchListsWidgets->setCurrentWidget(ui->searchListPage); // Индекс страницы, на которую нужно перейти
+            switchPageWithSlideAnimation(ui->chatsAndSearchListsWidgets, ui->searchListPage);
+            //ui->chatsAndSearchListsWidgets->setCurrentWidget(ui->searchListPage); // Индекс страницы, на которую нужно перейти
         }
         else if (event->type() == QEvent::FocusOut) {
             // Возвращаем основную страницу
-            ui->chatsAndSearchListsWidgets->setCurrentWidget(ui->chatsListPage);
+            switchPageWithSlideAnimation(ui->chatsAndSearchListsWidgets, ui->chatsListPage);
+            //ui->chatsAndSearchListsWidgets->setCurrentWidget(ui->chatsListPage);
             ui->searchInput->clear();
         }
     }
@@ -583,8 +670,11 @@ void MainWindow::on_messageAccepted(const ParsedMessageAcceptedObject &msgAccObj
             rit->timestamp = msgAccObj.timestamp;
 
         if (currentChatId == msgAccObj.chatId)
+            //TODO: может быть можно как то перерисовать без переприсваивания вектора
             messagesListModel->setMessages(messages);
 
+        //TODO: на клиенте переставлсять все
+        getChatsList();
         return;
     }
 }

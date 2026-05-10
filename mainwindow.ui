@@ -639,6 +639,9 @@
                   <verstretch>0</verstretch>
                  </sizepolicy>
                 </property>
+                <property name="styleSheet">
+                 <string notr="true">background-color:#FFF8DC;</string>
+                </property>
                 <property name="currentIndex">
                  <number>0</number>
                 </property>

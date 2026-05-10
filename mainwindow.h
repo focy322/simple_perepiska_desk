@@ -2,7 +2,10 @@
 #define MAINWINDOW_H
 
 #include <QPushButton>
+#include <QPropertyAnimation>
+#include <QParallelAnimationGroup>
 #include <QMainWindow>
+#include <QStackedWidget>
 #include "chatlistmodel.h"
 #include "chatmessagesitemdelegate.h"
 #include "chatmessageslistmodel.h"
@@ -227,5 +230,8 @@ private:
     void getChatMessages(const unsigned long long &chatId);
 
     void createDirectChat(const unsigned long long &userId);
+
+    void switchPageWithSlideAnimation(QStackedWidget *stackedWidget, QWidget *newPage);
+
 };
 #endif // MAINWINDOW_H
