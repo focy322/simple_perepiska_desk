@@ -20,7 +20,29 @@
    <string>MainWindow</string>
   </property>
   <property name="styleSheet">
-   <string notr="true"/>
+   <string notr="true">QMainWindow, QWidget { background-color: #272f39; color: #E6E8EB; font-family: &quot;Segoe UI&quot;; }
+QLabel { color: #E6E8EB; }
+QLineEdit { background-color: #1B1F24; color: #E6E8EB; border: 1px solid #2A3037; border-radius: 6px; padding: 6px 8px; selection-background-color: #2F6BFF; }
+QLineEdit:focus { border: 1px solid #3E7BFF; }
+QTextEdit { background-color: #272f39; color: #E6E8EB; border: none; padding: 6px 8px; selection-background-color: #2F6BFF; }
+QTextEdit:focus { border: none; }
+QPushButton { background-color: #242A31; color: #E6E8EB; border: 1px solid #2F3740; border-radius: 6px; padding: 6px 10px; }
+QPushButton:hover { background-color: #3a4551; }
+QPushButton#sendMessageBtn 
+{
+    background-color: #272f39;
+    border:none;
+    border-radius:none;
+}
+QPushButton#sendMessageBtn:hover { background-color: #3a4551; }
+QPushButton:pressed { background-color: #1F252B; }
+QListView { background-color: #14181C; border: none; }
+QScrollBar:vertical { background: #111418; width: 10px; margin: 2px; }
+QScrollBar::handle:vertical { background: #2B323A; border-radius: 5px; min-height: 20px; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+QScrollBar:horizontal { background: #111418; height: 10px; margin: 2px; }
+QScrollBar::handle:horizontal { background: #2B323A; border-radius: 5px; min-width: 20px; }
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0px; }</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_10">
@@ -640,7 +662,7 @@
                  </sizepolicy>
                 </property>
                 <property name="styleSheet">
-                 <string notr="true">background-color:#FFF8DC;</string>
+                 <string notr="true">background-color: #14181C;</string>
                 </property>
                 <property name="currentIndex">
                  <number>0</number>
@@ -671,9 +693,9 @@
                   <item>
                    <widget class="QListView" name="chatsView">
                     <property name="styleSheet">
-                     <string notr="true">background-color:#FFF8DC;
+                     <string notr="true">background-color: #14181C;
 border: none;
-border-right: 1px solid black;
+border-right: 1px solid #2A3037;
 </string>
                     </property>
                     <property name="editTriggers">
@@ -706,9 +728,9 @@ border-right: 1px solid black;
                   <item>
                    <widget class="QListView" name="searchView">
                     <property name="styleSheet">
-                     <string notr="true">background-color:#FFF8DC;
+                     <string notr="true">background-color: #14181C;
 border: none;
-border-right: 1px solid black;
+border-right: 1px solid #2A3037;
 </string>
                     </property>
                    </widget>
@@ -739,9 +761,9 @@ border-right: 1px solid black;
                  </size>
                 </property>
                 <property name="styleSheet">
-                 <string notr="true">background-color:#FFDEAD;
-color: black;
-border-bottom: 1px solid black;</string>
+                 <string notr="true">background-color: #191E23;
+color: #E6E8EB;
+border-bottom: 1px solid #2A3037;</string>
                 </property>
                 <property name="text">
                  <string>Выберите чат</string>
@@ -754,8 +776,8 @@ border-bottom: 1px solid black;</string>
               <item>
                <widget class="QListView" name="messagesView">
                 <property name="styleSheet">
-                 <string notr="true">background-color:#FFDEAD;
-border: none;</string>
+                 <string notr="true">background-color: #191E23;
+</string>
                 </property>
                 <property name="editTriggers">
                  <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
@@ -798,7 +820,8 @@ border: none;</string>
                   </property>
                   <property name="font">
                    <font>
-                    <pointsize>14</pointsize>
+                    <family>Segoe UI</family>
+                    <pointsize>10</pointsize>
                    </font>
                   </property>
                   <property name="frameShape">

@@ -66,25 +66,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->messageInput, &QTextEdit::textChanged, this, &MainWindow::on_textChanged);
 
     //TODO: Эту хуйню вынести куда то в отдельный файл а может и все css стили в по файлам растаскать
-    ui->chatsView->setStyleSheet(
-        "QListView {"
-        " background-color:#FFF8DC;"
-        " border: none;"
-        " outline: 0; "
-        " border-right: 1px solid black;"
-        " }"
-        "QListView::item {"
-        " min-height: 36px;"
-        " padding: 8px 12px;"
-        " border-radius: 6px;"
-        " }"
-        "QListView::item:hover {"
-        " background-color:#FFE4B5;"
-        " }"
-        "QListView::item:selected {"
-        " background-color:#F4A460;"
-        " color:black;"
-        " }");
+
 
     ui->chatsView->setModel(chatsListModel);
     ui->chatsView->setItemDelegate(new ChatListItemDelegate(ui->chatsView));
@@ -683,11 +665,10 @@ void MainWindow::on_textChanged()
 {
     int docHeight = ui->messageInput->document()->size().height();
 
-    int frameWidth = ui->messageInput->frameWidth() * 2;
     int minHeight = 40;
     int maxHeight = 200;
 
-    int newHeight = qMax(minHeight, docHeight + frameWidth);
+    int newHeight = qMax(minHeight, docHeight);
     newHeight = qMin(newHeight, maxHeight);
 
     ui->messageInput->setFixedHeight(newHeight);
