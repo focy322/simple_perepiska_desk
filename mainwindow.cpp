@@ -34,7 +34,8 @@ MainWindow::MainWindow(QWidget *parent)
     , notificationSound(new QSoundEffect(this))
 {
     ui->setupUi(this);
-    //TODO: настроить notificationSound скчать звук какой то
+    notificationSound->setSource(QUrl("qrc:/sounds/newMessageSound"));
+    notificationSound->setVolume(1.f);
 
     connect(authController, &AuthController::registrationFinished, this, &MainWindow::on_registrationFinished);
     connect(authController, &AuthController::logInFinished, this, &MainWindow::on_logInFinished);
@@ -625,6 +626,9 @@ void MainWindow::on_newMessageRecieved(const ParsedChatMessagesArrayObject &newM
         if (currentChatId == newMsgChatId)
             messagesListModel->appendMessage(newMessage);
     }
+    if (currentChatId != newMsgChatId)
+        notificationSound->play();
+
     //TODO: сделать обновление на клиенте двигая локальный вектор, а если нет чата такого то только тогда вызвать этот метод
     getChatsList();
 }
