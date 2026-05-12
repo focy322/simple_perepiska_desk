@@ -15,6 +15,7 @@
 #include "websocketcontroller.h"
 #include "searchlistmodel.h"
 #include <QUuid>
+#include <QSoundEffect>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -180,10 +181,11 @@ private slots:
 
     void on_findUserFinished(const NetworkResult &res, const std::vector<ParsedFoundUsersObject>& paObjects = {});
 
-
     void on_searchView_clicked(const QModelIndex &index);
 
     void on_searchInput_returnPressed();
+
+    void on_gotDragNDropFiles();
 
 private:
     Ui::MainWindow *ui;
@@ -206,6 +208,7 @@ private:
     bool isFirstOpen;                                   //!< Флаг первого открытия приложения для авторизирования пользователя в приложение
     QHash<unsigned long long, ParsedChatsListArrayObject> chatsList;  //!< Список чатов состоящий из ParsedArrayObject
     WebsocketController *websocketController;           //!< Принимает запросы от UI, дергает WebsocketService, возвращает результат через сигналы.
+    QSoundEffect *notificationSound;
 
     /**
       * Инициализация кнопки "Выход"

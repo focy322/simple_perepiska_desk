@@ -31,8 +31,10 @@ MainWindow::MainWindow(QWidget *parent)
     , isFirstOpen(true)
     , chatsList{}
     , websocketController(new WebsocketController(this))
+    , notificationSound(new QSoundEffect(this))
 {
     ui->setupUi(this);
+    //TODO: настроить notificationSound скчать звук какой то
 
     connect(authController, &AuthController::registrationFinished, this, &MainWindow::on_registrationFinished);
     connect(authController, &AuthController::logInFinished, this, &MainWindow::on_logInFinished);
@@ -60,12 +62,12 @@ MainWindow::MainWindow(QWidget *parent)
     connect(websocketController, &WebsocketController::sendingMessageFinished, this, &MainWindow::on_sendingMessageFinished);
     connect(websocketController, &WebsocketController::newMessageRecieved, this, &MainWindow::on_newMessageRecieved);
     connect(websocketController, &WebsocketController::messageAccepted, this, &MainWindow::on_messageAccepted);
+    connect(ui->messagesView, &ListViewDragNDrop::gotDragNDropFiles, this, &MainWindow::on_gotDragNDropFiles);
 
 
     // Изменение высоты строки ввода собщения при переносе строки
     connect(ui->messageInput, &QTextEdit::textChanged, this, &MainWindow::on_textChanged);
 
-    //TODO: Эту хуйню вынести куда то в отдельный файл а может и все css стили в по файлам растаскать
 
 
     ui->chatsView->setModel(chatsListModel);
@@ -378,7 +380,7 @@ void MainWindow::switchPageWithSlideAnimation(QStackedWidget *stackedWidget, QWi
     oldPage->setEnabled(false);
     newPage->setEnabled(false);
 
-    connect(group, &QParallelAnimationGroup::finished, this, [this, stackedWidget, newPage, oldPage]() {
+    connect(group, &QParallelAnimationGroup::finished, this, [stackedWidget, newPage, oldPage]() {
         // finalize: switch the stacked widget page
         stackedWidget->setCurrentWidget(newPage);
         // restore geometries
@@ -851,5 +853,10 @@ void MainWindow::on_searchInput_returnPressed()
     }
     else
         ui->searchInput->clear();
+}
+
+void MainWindow::on_gotDragNDropFiles()
+{
+
 }
 

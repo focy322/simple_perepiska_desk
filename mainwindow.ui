@@ -16,6 +16,9 @@
     <verstretch>0</verstretch>
    </sizepolicy>
   </property>
+  <property name="acceptDrops">
+   <bool>false</bool>
+  </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
@@ -40,9 +43,11 @@ QListView { background-color: #14181C; border: none; }
 QScrollBar:vertical { background: #111418; width: 10px; margin: 2px; }
 QScrollBar::handle:vertical { background: #2B323A; border-radius: 5px; min-height: 20px; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical { background: #111418;}
 QScrollBar:horizontal { background: #111418; height: 10px; margin: 2px; }
 QScrollBar::handle:horizontal { background: #2B323A; border-radius: 5px; min-width: 20px; }
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0px; }</string>
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0px; }
+QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #111418;}</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_10">
@@ -648,6 +653,9 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0px; }
                   <height>30</height>
                  </size>
                 </property>
+                <property name="acceptDrops">
+                 <bool>false</bool>
+                </property>
                 <property name="placeholderText">
                  <string>Поиск</string>
                 </property>
@@ -774,13 +782,19 @@ border-bottom: 1px solid #2A3037;</string>
                </widget>
               </item>
               <item>
-               <widget class="QListView" name="messagesView">
+               <widget class="ListViewDragNDrop" name="messagesView">
+                <property name="acceptDrops">
+                 <bool>true</bool>
+                </property>
                 <property name="styleSheet">
                  <string notr="true">background-color: #191E23;
 </string>
                 </property>
                 <property name="editTriggers">
                  <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
+                </property>
+                <property name="dragDropMode">
+                 <enum>QAbstractItemView::DragDropMode::DropOnly</enum>
                 </property>
                 <property name="spacing">
                  <number>10</number>
@@ -890,6 +904,13 @@ border-bottom: 1px solid #2A3037;</string>
    </layout>
   </widget>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ListViewDragNDrop</class>
+   <extends>QListView</extends>
+   <header>listviewdragndrop.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

@@ -1,5 +1,6 @@
 QT       += core gui network
 QT += websockets
+QT += multimedia
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++17
@@ -19,6 +20,7 @@ SOURCES += \
     chatmessageslistmodel.cpp \
     chatservice.cpp \
     errortypes.cpp \
+    listviewdragndrop.cpp \
     main.cpp \
     mainwindow.cpp \
     searchitemdelegate.cpp \
@@ -39,6 +41,7 @@ HEADERS += \
     chatservice.h \
     endpoints.h \
     errortypes.h \
+    listviewdragndrop.h \
     mainwindow.h \
     searchitemdelegate.h \
     searchlistmodel.h \
@@ -56,3 +59,5 @@ win32:RC_ICONS += enot_windows.ico
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+RESOURCES +=
