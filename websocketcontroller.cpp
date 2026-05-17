@@ -25,9 +25,9 @@ void WebsocketController::requestDisconnectSocket()
 
 }
 
-void WebsocketController::requestSendMessage(const unsigned long long &chatId, const QString &message, const QString &Uuid, const unsigned long long &fileId)
+void WebsocketController::requestSendMessage(const ParsedChatMessagesArrayObject &message)
 {
-    websocketService->sendMessage(chatId, message, Uuid, fileId);
+    websocketService->sendMessage(message);
 }
 
 

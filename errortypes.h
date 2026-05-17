@@ -15,11 +15,11 @@ enum ERROR_TYPES
     PASSWORD_MISMATCH,
     LOGIN_ALREADY_EXISTS,
     ERRORS_COUNTS,                          //!< Кол-во ошибок
-    // TODO: чета еще
+    // TODO: Дополнить
 
 };
 
-QString messageForError(ERROR_TYPES error);
+QString generateMessageForError(ERROR_TYPES error);
 
 struct NetworkResult
 {

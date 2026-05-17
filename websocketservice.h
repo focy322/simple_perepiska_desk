@@ -29,7 +29,7 @@ public:
     explicit WebsocketService(QObject *parent = nullptr);
     void connectSocket(const QString &accessToken);
     void disconnectSocket();
-    void sendMessage(const unsigned long long &chatId, const QString &message, const QString &Uuid, const unsigned long long &fileId);
+    void sendMessage(const ParsedChatMessagesArrayObject &message);
     void fillHandlersMap();
 private:
     QWebSocket *websocket;

@@ -21,7 +21,10 @@ public:
         ReadRole,
         ReadAtRole,
         EditedRole,
-        EditedAtRole
+        EditedAtRole,
+        HasAttachmentsRole,
+        AttachmentsCountRole,
+        AttachmentsRole
     };
 
     explicit ChatMessagesListModel(QObject *parent = nullptr);

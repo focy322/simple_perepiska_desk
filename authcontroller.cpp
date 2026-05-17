@@ -20,51 +20,51 @@ NetworkResult AuthController::validateRegistration(const QString &login, const Q
 {
     if (login.isEmpty())
     {
-        return NetworkResult{false, ERROR_TYPES::EMPTY_LOGIN, messageForError(ERROR_TYPES::EMPTY_LOGIN)};
+        return NetworkResult{false, ERROR_TYPES::EMPTY_LOGIN, generateMessageForError(ERROR_TYPES::EMPTY_LOGIN)};
 
     }
     if (login.size() < 3)
     {
-        return NetworkResult{false, ERROR_TYPES::SHORT_LOGIN, messageForError(ERROR_TYPES::SHORT_LOGIN)};
+        return NetworkResult{false, ERROR_TYPES::SHORT_LOGIN, generateMessageForError(ERROR_TYPES::SHORT_LOGIN)};
     }
     if (password.isEmpty())
     {
-        return (NetworkResult{false, ERROR_TYPES::EMPTY_PASSWORD, messageForError(ERROR_TYPES::EMPTY_PASSWORD)});
+        return (NetworkResult{false, ERROR_TYPES::EMPTY_PASSWORD, generateMessageForError(ERROR_TYPES::EMPTY_PASSWORD)});
     }
     if (password.size() < 6)
     {
-        return (NetworkResult{false, ERROR_TYPES::SHORT_PASSWORD, messageForError(ERROR_TYPES::SHORT_PASSWORD)});
+        return (NetworkResult{false, ERROR_TYPES::SHORT_PASSWORD, generateMessageForError(ERROR_TYPES::SHORT_PASSWORD)});
     }
     if (passwordConfirm.isEmpty())
     {
-        return (NetworkResult{false, ERROR_TYPES::EMPTY_PASSWORD_CONFIRM, messageForError(ERROR_TYPES::EMPTY_PASSWORD_CONFIRM)});
+        return (NetworkResult{false, ERROR_TYPES::EMPTY_PASSWORD_CONFIRM, generateMessageForError(ERROR_TYPES::EMPTY_PASSWORD_CONFIRM)});
     }
     if (password != passwordConfirm)
     {
-        return (NetworkResult{false, ERROR_TYPES::PASSWORD_MISMATCH, messageForError(ERROR_TYPES::PASSWORD_MISMATCH)});
+        return (NetworkResult{false, ERROR_TYPES::PASSWORD_MISMATCH, generateMessageForError(ERROR_TYPES::PASSWORD_MISMATCH)});
     }
-    return (NetworkResult{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)});
+    return (NetworkResult{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)});
 }
 
 NetworkResult AuthController::validateLogIn(const QString &login, const QString &password)
 {
     if (login.isEmpty())
     {
-        return (NetworkResult{false, ERROR_TYPES::EMPTY_LOGIN, messageForError(ERROR_TYPES::EMPTY_LOGIN)});
+        return (NetworkResult{false, ERROR_TYPES::EMPTY_LOGIN, generateMessageForError(ERROR_TYPES::EMPTY_LOGIN)});
     }
     if (login.size() < 3)
     {
-        return (NetworkResult{false, ERROR_TYPES::SHORT_LOGIN, messageForError(ERROR_TYPES::SHORT_LOGIN)});
+        return (NetworkResult{false, ERROR_TYPES::SHORT_LOGIN, generateMessageForError(ERROR_TYPES::SHORT_LOGIN)});
     }
     if (password.isEmpty())
     {
-        return (NetworkResult{false, ERROR_TYPES::EMPTY_PASSWORD, messageForError(ERROR_TYPES::EMPTY_PASSWORD)});
+        return (NetworkResult{false, ERROR_TYPES::EMPTY_PASSWORD, generateMessageForError(ERROR_TYPES::EMPTY_PASSWORD)});
     }
     if (password.size() < 6)
     {
-        return (NetworkResult{false, ERROR_TYPES::SHORT_PASSWORD, messageForError(ERROR_TYPES::SHORT_PASSWORD)});
+        return (NetworkResult{false, ERROR_TYPES::SHORT_PASSWORD, generateMessageForError(ERROR_TYPES::SHORT_PASSWORD)});
     }
-    return (NetworkResult{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)});
+    return (NetworkResult{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)});
 }
 
 void AuthController::requestRegistration(const QString &login, const QString &password, const QString &passwordConfirm)

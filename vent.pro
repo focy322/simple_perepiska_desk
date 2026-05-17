@@ -20,6 +20,8 @@ SOURCES += \
     chatmessageslistmodel.cpp \
     chatservice.cpp \
     errortypes.cpp \
+    filescontroller.cpp \
+    fileservice.cpp \
     listviewdragndrop.cpp \
     main.cpp \
     mainwindow.cpp \
@@ -41,6 +43,8 @@ HEADERS += \
     chatservice.h \
     endpoints.h \
     errortypes.h \
+    filescontroller.h \
+    fileservice.h \
     listviewdragndrop.h \
     mainwindow.h \
     searchitemdelegate.h \

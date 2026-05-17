@@ -9,6 +9,8 @@
 #include <QGraphicsOpacityEffect>
 #include <QPauseAnimation>
 #include <QSequentialAnimationGroup>
+#include <QSignalBlocker>
+#include <QJsonObject>
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -17,6 +19,7 @@ MainWindow::MainWindow(QWidget *parent)
     , messagesItemDelegate(new ChatMessagesItemDelegate(this))
     , messagesListModel(new ChatMessagesListModel(this))
     , chatMessages()
+    , draftsByChatId()
     , currentChatName()
     , currentChatId(ULONG_LONG_MAX)
     , logOutBtn(new QPushButton("Выход", nullptr))
@@ -32,6 +35,7 @@ MainWindow::MainWindow(QWidget *parent)
     , chatsList{}
     , websocketController(new WebsocketController(this))
     , notificationSound(new QSoundEffect(this))
+    , filesController(new FilesController(this))
 {
     ui->setupUi(this);
     notificationSound->setSource(QUrl("qrc:/sounds/newMessageSound"));
@@ -64,7 +68,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(websocketController, &WebsocketController::newMessageRecieved, this, &MainWindow::on_newMessageRecieved);
     connect(websocketController, &WebsocketController::messageAccepted, this, &MainWindow::on_messageAccepted);
     connect(ui->messagesView, &ListViewDragNDrop::gotDragNDropFiles, this, &MainWindow::on_gotDragNDropFiles);
-
+    connect(filesController, &FilesController::uploadFileInProgress, this, &MainWindow::on_uploadFileInProgress);
+    connect(filesController, &FilesController::uploadFileFinished, this, &MainWindow::on_uploadFileFinished);
 
     // Изменение высоты строки ввода собщения при переносе строки
     connect(ui->messageInput, &QTextEdit::textChanged, this, &MainWindow::on_textChanged);
@@ -99,7 +104,9 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
 {
     if (chatItem.isValid())
     {
+        saveDraftForChat(currentChatId);
         currentChatId = chatItem.data(ChatListModel::ChatIdRole).toULongLong();
+        ui->messagesView->setCurrentChatId(currentChatId);
         currentChatName = chatItem.data(ChatListModel::ChatNameRole).toString().trimmed();
         ui->chatName->setText(currentChatName);
         auto chatIt = chatMessages.constFind(currentChatId); // Итератор на список сообщений (vector<ParsedChatMessagesArrayObject>) для чата с выбранным chatId
@@ -109,10 +116,12 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
         } else
         {
             messagesListModel->clear();
-            // Честно говоря не уверен когда нужно вызвать ее ведь у меня есть вебсокет по сути это лишняя нагрузка на сервер всегда ее вызывать поэтому пока ее else ветку засунул
-            // но может быть нужно ее вызывать и при каждом клике на чат для актуализации сообщений, хз
-            getChatMessages(currentChatId);
         }
+        loadDraftForChat(currentChatId);
+        updateSendButtonState(currentChatId);
+        // Честно говоря не уверен когда нужно вызвать ее ведь у меня есть вебсокет по сути это лишняя нагрузка на сервер всегда ее вызывать поэтому пока ее else ветку засунул
+        // но может быть нужно ее вызывать и при каждом клике на чат для актуализации сообщений, хз
+        getChatMessages(currentChatId);
 
 
 #ifdef QT_DEBUG
@@ -130,8 +139,11 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
 void MainWindow::on_sendMessageBtn_clicked()
 {
     //TODO: что то тут может быть не чисто с toPlainText
-    QString msgToSend = ui->messageInput->toPlainText();
-    bool condToSendMsg = !msgToSend.trimmed().isEmpty() && currentChatId != ULONG_LONG_MAX; // Условия для отправки сообщения
+    QString msgToSend = stripAttachmentMarker(ui->messageInput->toPlainText());
+    const auto draftIt = draftsByChatId.constFind(currentChatId);
+    bool hasDraftAttachments = draftIt != draftsByChatId.constEnd() && !draftIt.value().attachments.isEmpty();
+    bool condToSendMsg = currentChatId != ULONG_LONG_MAX
+            && (!msgToSend.trimmed().isEmpty() || hasDraftAttachments); // Условия для отправки сообщения
     if (condToSendMsg)
     {
         ParsedChatMessagesArrayObject localMessage;
@@ -142,11 +154,18 @@ void MainWindow::on_sendMessageBtn_clicked()
         QString Uuid = QUuid::createUuid().toString(QUuid::WithoutBraces);
         localMessage.clientMessageId = Uuid;
         localMessage.isPending = true;
+        if (hasDraftAttachments)
+        {
+            localMessage.attachments = draftIt.value().attachments;
+            localMessage.attachmentsCount = static_cast<unsigned int>(localMessage.attachments.size());
+            localMessage.hasAttachments = !localMessage.attachments.isEmpty();
+        }
 
         chatMessages[currentChatId].push_back(localMessage);
         messagesListModel->appendMessage(localMessage);
-        websocketController->requestSendMessage(currentChatId, msgToSend, Uuid);
+        websocketController->requestSendMessage(localMessage);
         ui->messageInput->clear();
+        draftsByChatId.remove(currentChatId);
 
     }
     else
@@ -256,7 +275,7 @@ void MainWindow::tryAuthorize()
         // файл не открылся
         isAuthorized = false;
         isFirstOpen = false;
-        checkAuthorization(NetworkResult{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)}, "", "");
+        checkAuthorization(NetworkResult{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)}, "", "");
         return;
     }
 
@@ -678,6 +697,7 @@ void MainWindow::on_textChanged()
     newHeight = qMin(newHeight, maxHeight);
 
     ui->messageInput->setFixedHeight(newHeight);
+    saveDraftForChat(currentChatId);
 }
 
 void MainWindow::on_findUserInProgress()
@@ -773,6 +793,8 @@ void MainWindow::on_logOutFinished(const NetworkResult &res)
         ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);
         ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);
         chatMessages.clear();
+        draftsByChatId.clear();
+        ui->messagesView->clearAllFilePaths();
         chatsList.clear();
         chatsListModel->clear();
         messagesListModel->clear();
@@ -780,6 +802,7 @@ void MainWindow::on_logOutFinished(const NetworkResult &res)
         ui->chatName->clear();
         currentChatId = ULONG_LONG_MAX;
         myUserId = ULONG_LONG_MAX;
+        ui->messageInput->clear();
     }
     else
     {
@@ -818,7 +841,9 @@ void MainWindow::on_searchView_clicked(const QModelIndex &user)
         {
             if (chatListItem.userId == userId)
             {
+                saveDraftForChat(currentChatId);
                 currentChatId = chatListItem.chatId;
+                ui->messagesView->setCurrentChatId(currentChatId);
                 currentChatName = chatListItem.chatName;
                 ui->chatName->setText(currentChatName);
                 auto chatIt = chatMessages.constFind(currentChatId); // Итератор на список сообщений (vector<ParsedChatMessagesArrayObject>) для чата с выбранным chatId
@@ -830,8 +855,11 @@ void MainWindow::on_searchView_clicked(const QModelIndex &user)
                     messagesListModel->clear();
                     // Честно говоря не уверен когда нужно вызвать ее ведь у меня есть вебсокет по сути это лишняя нагрузка на сервер всегда ее вызывать поэтому пока ее else ветку засунул
                     // но может быть нужно ее вызывать и при каждом клике на чат для актуализации сообщений, хз
+                    // по крайней мере пока не будет кэша сообщений придется вызывать
                     getChatMessages(currentChatId);
                 }
+                loadDraftForChat(currentChatId);
+                updateSendButtonState(currentChatId);
                 ui->searchInput->clearFocus();
                 return;
             }
@@ -846,11 +874,116 @@ void MainWindow::on_searchView_clicked(const QModelIndex &user)
     }
 }
 
+void MainWindow::saveDraftForChat(unsigned long long chatId)
+{
+    if (chatId == ULONG_LONG_MAX)
+        return;
+
+    ParsedChatMessagesArrayObject draft = draftsByChatId.value(chatId);
+    draft.chatId = chatId;
+    draft.message = stripAttachmentMarker(ui->messageInput->toPlainText());
+
+    if (draft.message.trimmed().isEmpty() && draft.attachments.isEmpty())
+    {
+        draftsByChatId.remove(chatId);
+        return;
+    }
+
+    draftsByChatId.insert(chatId, draft);
+}
+
+void MainWindow::loadDraftForChat(unsigned long long chatId)
+{
+    QSignalBlocker blocker(ui->messageInput);
+    const auto draftIt = draftsByChatId.constFind(chatId);
+    if (draftIt != draftsByChatId.constEnd())
+    {
+        QString text = draftIt.value().message;
+        if (!draftIt.value().attachments.isEmpty())
+        {
+            QStringList ids;
+            for (const QJsonValue &value : std::as_const(draftIt.value().attachments))
+            {
+                if (value.isObject())
+                {
+                    const QJsonObject obj = value.toObject();
+                    const QString filename = obj.value("filename").toString();
+                    if (!filename.isEmpty())
+                    {
+                        ids.append(filename);
+                        continue;
+                    }
+                    if (obj.value("file_id").isDouble())
+                        ids.append(QString::number(static_cast<qulonglong>(obj.value("file_id").toDouble())));
+                }
+                else if (value.isDouble())
+                {
+                    ids.append(QString::number(static_cast<qulonglong>(value.toDouble())));
+                }
+                else if (value.isString())
+                {
+                    ids.append(value.toString());
+                }
+            }
+            if (!ids.isEmpty())
+                text.prepend("[attachments: " + ids.join(", ") + "]\n");
+        }
+        ui->messageInput->setPlainText(text);
+        QTextCursor cursor = ui->messageInput->textCursor();
+        cursor.movePosition(QTextCursor::End);
+        ui->messageInput->setTextCursor(cursor);
+    }
+    else
+    {
+        ui->messageInput->clear();
+    }
+
+    on_textChanged();
+}
+
+void MainWindow::appendAttachmentToDraft(unsigned long long chatId, const ParsedUploadedFileInfo &fileInfo)
+{
+    if (chatId == ULONG_LONG_MAX)
+        return;
+
+    ParsedChatMessagesArrayObject draft = draftsByChatId.value(chatId);
+    draft.chatId = chatId;
+    QJsonObject attachment;
+    attachment.insert("file_id", static_cast<qint64>(fileInfo.fileId));
+    attachment.insert("filename", fileInfo.filename);
+    draft.attachments.append(attachment);
+    draft.attachmentsCount = static_cast<unsigned int>(draft.attachments.size());
+    draft.hasAttachments = !draft.attachments.isEmpty();
+
+    draftsByChatId.insert(chatId, draft);
+}
+
+void MainWindow::updateSendButtonState(unsigned long long chatId)
+{
+    if (chatId == ULONG_LONG_MAX)
+    {
+        ui->sendMessageBtn->setEnabled(false);
+        return;
+    }
+
+    bool hasPendingFiles = ui->messagesView->hasPendingFiles(chatId);
+    ui->sendMessageBtn->setEnabled(!hasPendingFiles);
+}
+
+QString MainWindow::stripAttachmentMarker(const QString &text) const
+{
+    QStringList lines = text.split('\n');
+    if (!lines.isEmpty() && lines.first().trimmed().startsWith("[attachments:"))
+        lines.removeFirst();
+
+    return lines.join("\n");
+}
+
 
 void MainWindow::on_searchInput_returnPressed()
 {
     QString input = ui->searchInput->text();
-    bool condToFindUser = !input.trimmed().isEmpty(); // Возможно нужно будет добавить поболее условий только пока хз каких
+    bool condToFindUser = !input.trimmed().isEmpty(); // Возможно нужно будет добавить поболее условий по типу проверки что конкретно написано только пока хз каких
     if (condToFindUser)
     {
         userInfoController->requestFindUser(accessToken, input);
@@ -861,6 +994,45 @@ void MainWindow::on_searchInput_returnPressed()
 
 void MainWindow::on_gotDragNDropFiles()
 {
+    if (currentChatId == ULONG_LONG_MAX)
+    {
+        ui->messagesView->clearAllFilePaths(); // как будто бы можно просто return сделать
+        return;
+    }
+
+    const QSet<QString> filePaths = ui->messagesView->getFilePaths(currentChatId);
+    if (filePaths.isEmpty())
+        return;
+
+    updateSendButtonState(currentChatId);
+    filesController->requestUploadFile(this->accessToken, filePaths, this->currentChatId);
+
+}
+
+void MainWindow::on_uploadFileInProgress()
+{
+    updateSendButtonState(currentChatId);
+#ifdef QT_DEBUG
+    qDebug() << "on_uploadFileInProgress";
+#endif
+
+}
+
+void MainWindow::on_uploadFileFinished(const NetworkResult &res, const QString &filePath, const qulonglong &chatId, const ParsedUploadedFileInfo &fileInfo)
+{
+#ifdef QT_DEBUG
+    qDebug() << "on_uploadFileFinished " << res.ok;
+#endif
+    ui->messagesView->removeFileByPath(chatId, filePath);
+    if (res.ok)
+    {
+        appendAttachmentToDraft(chatId, fileInfo);
+        if (currentChatId == chatId)
+            loadDraftForChat(chatId);
+    }
+
+    if (currentChatId == chatId)
+        updateSendButtonState(chatId);
 
 }
 

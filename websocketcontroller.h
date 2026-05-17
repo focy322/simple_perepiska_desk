@@ -11,7 +11,7 @@ public:
     explicit WebsocketController(QObject *parent = nullptr);
     void requestConnectSocket(const QString &accessToken);
     void requestDisconnectSocket();
-    void requestSendMessage(const unsigned long long &chatId, const QString &message, const QString &Uuid, const unsigned long long &fileId = 0);
+    void requestSendMessage(const ParsedChatMessagesArrayObject &message);
 
 private:
     WebsocketService *websocketService; //!< Дергает сокет

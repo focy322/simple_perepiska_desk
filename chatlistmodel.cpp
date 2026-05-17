@@ -26,9 +26,16 @@ QVariant ChatListModel::data(const QModelIndex &index, int role) const
     QString displayName = chat.chatName.trimmed();
     if (displayName.isEmpty())
     {
-        if (chat.type.compare("private", Qt::CaseInsensitive) == 0 && !chat.username.trimmed().isEmpty())
-            displayName = chat.username.trimmed();
-        else
+        if (chat.type.compare("private", Qt::CaseInsensitive) == 0)
+        {
+            const QString nickname = chat.nickname.trimmed();
+            const QString username = chat.username.trimmed();
+            if (!nickname.isEmpty())
+                displayName = nickname;
+            else if (!username.isEmpty())
+                displayName = username;
+        }
+        if (displayName.isEmpty())
             displayName = QString("Chat %1").arg(chat.chatId);
     }
 
@@ -50,6 +57,20 @@ QVariant ChatListModel::data(const QModelIndex &index, int role) const
         return chat.type;
     case UserIdRole:
         return chat.userId;
+    case UsernameRole:
+        return chat.username;
+    case NicknameRole:
+        return chat.nickname;
+    case UserAvatarFileUrlRole:
+        return chat.userAvatarFileUrl;
+    case UnreadCountRole:
+        return static_cast<uint>(chat.unreadCount);
+    case LastMessageHasAttachmentsRole:
+        return chat.lastMessageHasAttachments;
+    case LastMessageAttachmentTypeRole:
+        return chat.lastMessageAttachmentType;
+    case LastMessageAttachmentsCountRole:
+        return QVariant::fromValue<qulonglong>(chat.lastMessageAttachmentsCount);
     default:
         return {};
     }
@@ -65,6 +86,13 @@ QHash<int, QByteArray> ChatListModel::roleNames() const
     roles[AvatarFileIdRole] = "avatarFileId";
     roles[ChatTypeRole] = "chatType";
     roles[UserIdRole] = "userId";
+    roles[UsernameRole] = "username";
+    roles[NicknameRole] = "nickname";
+    roles[UserAvatarFileUrlRole] = "userAvatarFileUrl";
+    roles[UnreadCountRole] = "unreadCount";
+    roles[LastMessageHasAttachmentsRole] = "lastMessageHasAttachments";
+    roles[LastMessageAttachmentTypeRole] = "lastMessageAttachmentType";
+    roles[LastMessageAttachmentsCountRole] = "lastMessageAttachmentsCount";
     return roles;
 }
 

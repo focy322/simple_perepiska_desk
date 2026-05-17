@@ -19,12 +19,12 @@ WebsocketService::WebsocketService(QObject *parent)
 {
     connect(websocket, &QWebSocket::connected, this, [this]()
     {
-        emit socketConnectionFinished(NetworkResult{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)});
+        emit socketConnectionFinished(NetworkResult{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)});
     });
 
     connect(websocket, &QWebSocket::disconnected, this, [this]()
     {
-        emit socketDisonnectionFinished(NetworkResult{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)});
+        emit socketDisonnectionFinished(NetworkResult{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)});
 #ifdef QT_DEBUG
         qDebug() << "websocket disconnected!!!";
 #endif
@@ -64,10 +64,10 @@ void WebsocketService::disconnectSocket()
     websocket->close();
 }
 
-void WebsocketService::sendMessage(const unsigned long long &chatId, const QString &message, const QString &Uuid, const unsigned long long &fileId)
+void WebsocketService::sendMessage(const ParsedChatMessagesArrayObject &message)
 {
     emit sendingMessageInProgress();
-    if (Uuid.isEmpty())
+    if (message.clientMessageId.isEmpty())
     {
         emit sendingMessageFinished(NetworkResult{false, ERROR_TYPES::UNKNOWN_ERROR, "client_message_id is empty"});
 #ifdef QT_DEBUG
@@ -77,23 +77,37 @@ void WebsocketService::sendMessage(const unsigned long long &chatId, const QStri
     }
 
     // Приходитсья кастить к signed так как jsonvalue не принимает ULL тип
-    qint64 chatIdCasted = chatId;
-    qint64 fileIdCasted = fileId;
+    qint64 chatIdCasted = message.chatId;
     QJsonObject payload{
         {"chat_id", chatIdCasted},
-        {"message", message},
-        {"client_message_id", Uuid}
+        {"message", message.message},
+        {"client_message_id", message.clientMessageId}
     };
-    if (fileId > 0)
+    if (!message.attachments.isEmpty())
     {
-        payload.insert("file_id", fileIdCasted);
+        QJsonArray attachmentIds;
+        for (const QJsonValue &value : std::as_const(message.attachments))
+        {
+            if (value.isObject())
+            {
+                const QJsonObject obj = value.toObject();
+                if (obj.value("file_id").isDouble())
+                    attachmentIds.append(obj.value("file_id").toInt());
+            }
+            else if (value.isDouble())
+            {
+                attachmentIds.append(value.toInt());
+            }
+        }
+        if (!attachmentIds.isEmpty())
+            payload.insert("attachments_ids", attachmentIds);
     }
     QJsonObject obj{
         {"type", "chat.message.send"},
         {"payload", payload}
     };
 
-    pendingOutgoingMessages.insert(Uuid, obj);
+    pendingOutgoingMessages.insert(message.clientMessageId, obj);
     if (!websocket->isValid())
     {
         emit sendingMessageFinished(NetworkResult{false, ERROR_TYPES::UNKNOWN_ERROR, "websocket is invalid"});
@@ -107,7 +121,7 @@ void WebsocketService::sendMessage(const unsigned long long &chatId, const QStri
     const qint64 bytesSent = websocket->sendTextMessage(jsonText);
     if (bytesSent > 0)
     {
-        emit sendingMessageFinished(NetworkResult{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)});
+        emit sendingMessageFinished(NetworkResult{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)});
 #ifdef QT_DEBUG
         qDebug() << "websocket message sent and queued, pending count:" << pendingOutgoingMessages.size();
 #endif
@@ -171,6 +185,12 @@ void WebsocketService::on_newMessage(const QJsonObject &payload)
     newMessage.readAt = messageObject.value("read_at").toString();
     newMessage.edited = messageObject.value("edited").toBool(false);
     newMessage.editedAt = messageObject.value("edited_at").toString();
+    if (messageObject.value("attachments").isArray())
+    {
+        newMessage.attachments = messageObject.value("attachments").toArray();
+        newMessage.attachmentsCount = static_cast<unsigned int>(newMessage.attachments.size());
+        newMessage.hasAttachments = !newMessage.attachments.isEmpty();
+    }
 
     pendingDeliveryIds.insert(deliveryId);
     emit newMessageRecieved(newMessage);

@@ -47,6 +47,12 @@ QVariant ChatMessagesListModel::data(const QModelIndex &index, int role) const
         return message.edited;
     case EditedAtRole:
         return message.editedAt;
+    case HasAttachmentsRole:
+        return message.hasAttachments;
+    case AttachmentsCountRole:
+        return static_cast<uint>(message.attachmentsCount);
+    case AttachmentsRole:
+        return message.attachments;
     default:
         return {};
     }
@@ -65,6 +71,9 @@ QHash<int, QByteArray> ChatMessagesListModel::roleNames() const
     roles[ReadAtRole] = "readAt";
     roles[EditedRole] = "edited";
     roles[EditedAtRole] = "editedAt";
+    roles[HasAttachmentsRole] = "hasAttachments";
+    roles[AttachmentsCountRole] = "attachmentsCount";
+    roles[AttachmentsRole] = "attachments";
     return roles;
 }
 

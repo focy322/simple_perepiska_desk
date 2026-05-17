@@ -4,6 +4,8 @@
 #include <climits>
 #include <QDateTime>
 #include <QPainter>
+#include <QJsonArray>
+#include <QJsonObject>
 
 ChatMessagesItemDelegate::ChatMessagesItemDelegate(QObject *parent)
     : QStyledItemDelegate(parent)
@@ -21,6 +23,8 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
     const QString timestampIso = index.data(ChatMessagesListModel::TimestampRole).toString().trimmed();
     const bool isPending = index.data(ChatMessagesListModel::IsPendingRole).toBool();
     const unsigned long long senderId = index.data(ChatMessagesListModel::SenderIdRole).toULongLong();
+    const QJsonArray attachments = index.data(ChatMessagesListModel::AttachmentsRole).toJsonArray();
+    const bool hasAttachments = !attachments.isEmpty();
     const bool isMine = senderId == m_currentUserId;
 
     painter->save();
@@ -33,10 +37,8 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
 
     QFont textFont = option.font;
     QFontMetrics textFm(textFont);
-    const QString safeMessage = messageText.isEmpty() ? QString(" ") : messageText;
-    const QRect textBounds = textFm.boundingRect(QRect(0, 0, maxBubbleWidth - horizontalPadding * 2, 10000),
-                                                 Qt::TextWordWrap,
-                                                 safeMessage);
+    const bool hasMessage = !messageText.isEmpty();
+    const QString safeMessage = hasMessage ? messageText : QString();
 
     QString timeText;
     if (!timestampIso.isEmpty())
@@ -57,15 +59,53 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
     const bool showPending = isPending;
     const int statusHeight = (timeHeight > 0 || showPending) ? qMax(timeHeight, pendingIconSize) + statusSpacing : 0;
 
-    const int bubbleWidth = qMax(60, textBounds.width() + horizontalPadding * 2);
-    const int bubbleHeight = textBounds.height() + verticalPadding * 2 + statusHeight;
+    QFont attachmentsFont = option.font;
+    attachmentsFont.setPointSize(qMax(8, attachmentsFont.pointSize() - 1));
+    QFontMetrics attachmentsFm(attachmentsFont);
+    const int attachmentIconSize = 18;
+    const int attachmentSpacing = 6;
+    const int attachmentsRowSpacing = 6;
+    const int attachmentsBlockSpacing = 6;
+
+    int attachmentsHeight = 0;
+    int attachmentsMaxWidth = 0;
+    if (hasAttachments)
+    {
+        for (int i = 0; i < attachments.size(); ++i)
+        {
+            const QJsonObject obj = attachments.at(i).toObject();
+            const QString fileName = obj.value("filename").toString(QString("file"));
+            const int rowHeight = qMax(attachmentIconSize, attachmentsFm.height());
+            attachmentsHeight += rowHeight;
+            if (i < attachments.size() - 1)
+                attachmentsHeight += attachmentsRowSpacing;
+
+            const int rowWidth = attachmentIconSize + attachmentSpacing + attachmentsFm.horizontalAdvance(fileName);
+            attachmentsMaxWidth = qMax(attachmentsMaxWidth, rowWidth);
+        }
+    }
+
+    const int maxContentWidth = maxBubbleWidth - horizontalPadding * 2;
+    const int naturalTextWidth = hasMessage ? textFm.horizontalAdvance(safeMessage) : 0;
+    const int contentWidth = qMin(maxContentWidth, qMax(attachmentsMaxWidth, naturalTextWidth));
+    const QRect textBounds = hasMessage
+        ? textFm.boundingRect(QRect(0, 0, qMax(1, contentWidth), 10000),
+                              Qt::TextWordWrap,
+                              safeMessage)
+        : QRect(0, 0, 0, 0);
+    const int bubbleWidth = qMax(60, contentWidth + horizontalPadding * 2);
+    const int bubbleHeight = textBounds.height() + verticalPadding * 2 + statusHeight
+        + (hasAttachments ? attachmentsHeight : 0)
+        + (hasAttachments && hasMessage ? attachmentsBlockSpacing : 0);
 
     int bubbleX = rowRect.left();
     if (isMine)
         bubbleX = rowRect.right() - bubbleWidth;
 
     const QRect bubbleRect(bubbleX, rowRect.top(), bubbleWidth, bubbleHeight);
-    const QRect messageRect = bubbleRect.adjusted(horizontalPadding, verticalPadding, -horizontalPadding, -verticalPadding - statusHeight);
+    const int contentLeft = bubbleRect.left() + horizontalPadding;
+    int contentTop = bubbleRect.top() + verticalPadding;
+    const int contentRight = bubbleRect.right() - horizontalPadding;
 
     const QColor ownBubbleColor(232, 248, 217);
     const QColor otherBubbleColor(255, 255, 255);
@@ -77,9 +117,49 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
     painter->setBrush(isMine ? ownBubbleColor : otherBubbleColor);
     painter->drawRoundedRect(bubbleRect, 12, 12);
 
-    painter->setFont(textFont);
-    painter->setPen(textColor);
-    painter->drawText(messageRect, Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop, safeMessage);
+    if (hasAttachments)
+    {
+        painter->setFont(attachmentsFont);
+        painter->setPen(textColor);
+
+        for (int i = 0; i < attachments.size(); ++i)
+        {
+            const QJsonObject obj = attachments.at(i).toObject();
+            const QString fileName = obj.value("filename").toString(QString("file"));
+            const int rowHeight = qMax(attachmentIconSize, attachmentsFm.height());
+
+            const QRect iconRect(contentLeft, contentTop, attachmentIconSize, attachmentIconSize);
+            painter->setBrush(Qt::NoBrush);
+            painter->setPen(QPen(bubbleBorderColor, 1));
+            painter->drawRoundedRect(iconRect, 3, 3);
+            painter->drawLine(iconRect.topRight() + QPoint(-5, 2), iconRect.topRight() + QPoint(-1, 6));
+            painter->drawLine(iconRect.topRight() + QPoint(-5, 2), iconRect.topRight() + QPoint(-1, 2));
+
+            const int textLeft = iconRect.right() + attachmentSpacing;
+            const QRect textRect(textLeft, contentTop,
+                                 contentRight - textLeft,
+                                 rowHeight);
+            const QString elidedName = attachmentsFm.elidedText(fileName, Qt::ElideRight, textRect.width());
+            painter->setPen(textColor);
+            painter->drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft, elidedName);
+
+            contentTop += rowHeight;
+            if (i < attachments.size() - 1)
+                contentTop += attachmentsRowSpacing;
+        }
+
+        if (hasMessage)
+            contentTop += attachmentsBlockSpacing;
+    }
+
+    if (hasMessage)
+    {
+        const QRect messageRect(contentLeft, contentTop, contentRight - contentLeft,
+                                textBounds.height());
+        painter->setFont(textFont);
+        painter->setPen(textColor);
+        painter->drawText(messageRect, Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop, safeMessage);
+    }
 
     if (!timeText.isEmpty())
     {
@@ -116,16 +196,50 @@ QSize ChatMessagesItemDelegate::sizeHint(const QStyleOptionViewItem &option, con
 {
     const QString messageText = index.data(ChatMessagesListModel::MessageTextRole).toString().trimmed();
     const bool isPending = index.data(ChatMessagesListModel::IsPendingRole).toBool();
-    const QString safeMessage = messageText.isEmpty() ? QString(" ") : messageText;
+    const QJsonArray attachments = index.data(ChatMessagesListModel::AttachmentsRole).toJsonArray();
+    const bool hasAttachments = !attachments.isEmpty();
+    const bool hasMessage = !messageText.isEmpty();
+    const QString safeMessage = hasMessage ? messageText : QString();
 
     const int maxBubbleWidth = 340;
     const int horizontalPadding = 12;
     const int verticalPadding = 8;
 
     QFontMetrics textFm(option.font);
-    const QRect textBounds = textFm.boundingRect(QRect(0, 0, maxBubbleWidth - horizontalPadding * 2, 10000),
-                                                 Qt::TextWordWrap,
-                                                 safeMessage);
+
+    QFont attachmentsFont = option.font;
+    attachmentsFont.setPointSize(qMax(8, attachmentsFont.pointSize() - 1));
+    QFontMetrics attachmentsFm(attachmentsFont);
+    const int attachmentIconSize = 18;
+    const int attachmentSpacing = 6;
+    const int attachmentsRowSpacing = 6;
+    const int attachmentsBlockSpacing = 6;
+
+    int attachmentsHeight = 0;
+    int attachmentsMaxWidth = 0;
+    if (hasAttachments)
+    {
+        for (int i = 0; i < attachments.size(); ++i)
+        {
+            const int rowHeight = qMax(attachmentIconSize, attachmentsFm.height());
+            attachmentsHeight += rowHeight;
+            if (i < attachments.size() - 1)
+                attachmentsHeight += attachmentsRowSpacing;
+            const QJsonObject obj = attachments.at(i).toObject();
+            const QString fileName = obj.value("filename").toString(QString("file"));
+            const int rowWidth = attachmentIconSize + attachmentSpacing + attachmentsFm.horizontalAdvance(fileName);
+            attachmentsMaxWidth = qMax(attachmentsMaxWidth, rowWidth);
+        }
+    }
+
+    const int maxContentWidth = maxBubbleWidth - horizontalPadding * 2;
+    const int naturalTextWidth = hasMessage ? textFm.horizontalAdvance(safeMessage) : 0;
+    const int contentWidth = qMin(maxContentWidth, qMax(attachmentsMaxWidth, naturalTextWidth));
+    const QRect textBounds = hasMessage
+        ? textFm.boundingRect(QRect(0, 0, qMax(1, contentWidth), 10000),
+                              Qt::TextWordWrap,
+                              safeMessage)
+        : QRect(0, 0, 0, 0);
 
     QFont timeFont = option.font;
     timeFont.setPointSize(qMax(7, timeFont.pointSize() - 1));
@@ -134,6 +248,8 @@ QSize ChatMessagesItemDelegate::sizeHint(const QStyleOptionViewItem &option, con
     const int statusSpacing = 4;
     const int statusHeight = qMax(timeFm.height(), isPending ? pendingIconSize : 0) + statusSpacing;
 
-    const int rowHeight = textBounds.height() + verticalPadding * 2 + statusHeight + 6;
+    const int rowHeight = textBounds.height() + verticalPadding * 2 + statusHeight + 6
+        + (hasAttachments ? attachmentsHeight : 0)
+        + (hasAttachments && hasMessage ? attachmentsBlockSpacing : 0);
     return QSize(option.rect.width(), qMax(44, rowHeight));
 }

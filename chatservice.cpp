@@ -25,7 +25,7 @@ void ChatService::getMyChats(const QString &accToken)
         auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
-            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit getMyChatsFinished(res);
             reply->deleteLater();
             return;
@@ -35,7 +35,7 @@ void ChatService::getMyChats(const QString &accToken)
         QJsonDocument doc = QJsonDocument::fromJson(raw, &pe);
         if (pe.error || !doc.isArray())
         {
-            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit getMyChatsFinished(res);
             reply->deleteLater();
             return;
@@ -43,12 +43,12 @@ void ChatService::getMyChats(const QString &accToken)
         if (httpCode == 200)
         {
             const auto parsedArrayObjects = parseChatsListArray(doc);
-            NetworkResult res{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)};
+            NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
             emit getMyChatsFinished(res, parsedArrayObjects);
             reply->deleteLater();
             return;
         }
-        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
         emit getMyChatsFinished(res);
         reply->deleteLater();
     });
@@ -93,16 +93,21 @@ const std::vector<ParsedChatsListArrayObject> ChatService::parseChatsListArray(c
             const QJsonObject interlocutorObj = interlocutorValue.toObject();
             paObj.userId = toUnsignedLongLong(interlocutorObj.value("user_id"));
             paObj.username = interlocutorObj.value("username").toString();
-            paObj.userAvatarFileId = toUnsignedLongLong(interlocutorObj.value("avatar_file_id"));
+            paObj.nickname = interlocutorObj.value("nickname").toString();
+            paObj.userAvatarFileUrl = interlocutorObj.value("avatar_file_url").toString();
         }
 
         const QString normalizedChatName = paObj.chatName.trimmed();
         if (paObj.type.compare("private", Qt::CaseInsensitive) == 0
-            && (normalizedChatName.isEmpty() || normalizedChatName.compare("none", Qt::CaseInsensitive) == 0)
-            && !paObj.username.trimmed().isEmpty())
+            && (normalizedChatName.isEmpty() || normalizedChatName.compare("none", Qt::CaseInsensitive) == 0))
         {
-            // Для private-диалогов используем username как отображаемое имя чата.
-            paObj.chatName = paObj.username;
+            const QString nickname = paObj.nickname.trimmed();
+            const QString username = paObj.username.trimmed();
+            // Для private-диалогов используем nickname/username как отображаемое имя чата.
+            if (!nickname.isEmpty())
+                paObj.chatName = nickname;
+            else if (!username.isEmpty())
+                paObj.chatName = username;
         }
 
         const QJsonValue lastMessageValue = chatObject.value("last_message");
@@ -112,15 +117,15 @@ const std::vector<ParsedChatsListArrayObject> ChatService::parseChatsListArray(c
             const QJsonObject lastMessageObject = lastMessageValue.toObject();
             paObj.lastMessageId = toUnsignedLongLong(lastMessageObject.value("message_id"));
             paObj.lastMessageSenderId = toUnsignedLongLong(lastMessageObject.value("sender_id"));
-            paObj.lastMessageChatId = toUnsignedLongLong(lastMessageObject.value("chat_id"));
             paObj.lastMessage = lastMessageObject.value("message").toString();
-            paObj.lastMessageFileId = toUnsignedLongLong(lastMessageObject.value("file_id"));
             paObj.lastMessageTimestamp = lastMessageObject.value("timestamp").toString();
-            paObj.lastMessageRead = lastMessageObject.value("read").toBool(false);
-            paObj.lastMessageReadAt = lastMessageObject.value("read_at").toString();
-            paObj.lastMessageEdited = lastMessageObject.value("edited").toBool(false);
-            paObj.lastMessageEditedAt = lastMessageObject.value("edited_at").toString();
+            paObj.lastMessageHasAttachments = lastMessageObject.value("has_attachments").toBool(false);
+            paObj.lastMessageAttachmentType = lastMessageObject.value("attachment_type").toString();
+            paObj.lastMessageAttachmentsCount = toUnsignedLongLong(lastMessageObject.value("attachments_count"), 0);
         }
+
+        if (chatObject.contains("unread_count"))
+            paObj.unreadCount = static_cast<unsigned int>(toUnsignedLongLong(chatObject.value("unread_count"), 0));
 
         parsedArrayObjects.push_back(paObj);
     }
@@ -141,7 +146,7 @@ void ChatService::getChatMessages(const unsigned long long &chatId, const QStrin
         auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
-            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit getChatMessagesFinished(res);
             reply->deleteLater();
             return;
@@ -151,7 +156,7 @@ void ChatService::getChatMessages(const unsigned long long &chatId, const QStrin
         QJsonDocument doc = QJsonDocument::fromJson(raw, &pe);
         if (pe.error || !doc.isArray())
         {
-            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit getChatMessagesFinished(res);
             reply->deleteLater();
             return;
@@ -159,12 +164,12 @@ void ChatService::getChatMessages(const unsigned long long &chatId, const QStrin
         if (httpCode == 200)
         {
             const auto parsedArrayObjects = parseChatMessagesArray(doc);
-            NetworkResult res{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)};
+            NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
             emit getChatMessagesFinished(res, chatId, parsedArrayObjects);
             reply->deleteLater();
             return;
         }
-        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
         emit getChatMessagesFinished(res);
         reply->deleteLater();
     });
@@ -205,6 +210,12 @@ const std::vector<ParsedChatMessagesArrayObject> ChatService::parseChatMessagesA
         paObj.readAt = messageObject.value("read_at").toString();
         paObj.edited = messageObject.value("edited").toBool(false);
         paObj.editedAt = messageObject.value("edited_at").toString();
+        if (messageObject.value("attachments").isArray())
+        {
+            paObj.attachments = messageObject.value("attachments").toArray();
+            paObj.attachmentsCount = static_cast<unsigned int>(paObj.attachments.size());
+            paObj.hasAttachments = !paObj.attachments.isEmpty();
+        }
 
         parsedArrayObjects.push_back(paObj);
     }
@@ -232,7 +243,7 @@ void ChatService::createDirectChat(const unsigned long long &userId, const QStri
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
             // TODO: Определение конкретной ошибки
-            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit createDirectChatFinished(res);
             reply->deleteLater();
             return;
@@ -243,7 +254,7 @@ void ChatService::createDirectChat(const unsigned long long &userId, const QStri
         if (pe.error || !doc.isObject())
         {
             // TODO: Определение конкретной ошибки
-            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit createDirectChatFinished(res);
             reply->deleteLater();
             return;
@@ -251,12 +262,12 @@ void ChatService::createDirectChat(const unsigned long long &userId, const QStri
         if (httpCode == 200 || httpCode == 201)
         {
 
-            NetworkResult res{true, ERROR_TYPES::NO_ERROR, messageForError(ERROR_TYPES::NO_ERROR)};
+            NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
             emit createDirectChatFinished(res);
             reply->deleteLater();
             return;
         }
-        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, messageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
 #ifdef QT_DEBUG
         qDebug() << doc;
 #endif

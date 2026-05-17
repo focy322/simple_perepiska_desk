@@ -18,7 +18,14 @@ public:
         LastMessageTimestampRole,
         AvatarFileIdRole,
         ChatTypeRole,
-        UserIdRole
+        UserIdRole,
+        UsernameRole,
+        NicknameRole,
+        UserAvatarFileUrlRole,
+        UnreadCountRole,
+        LastMessageHasAttachmentsRole,
+        LastMessageAttachmentTypeRole,
+        LastMessageAttachmentsCountRole
     };
 
     explicit ChatListModel(QObject *parent = nullptr);

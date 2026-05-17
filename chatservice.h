@@ -11,29 +11,26 @@
 #include "errortypes.h"
 #include "endpoints.h"
 
-// TODO: обновить
 struct ParsedChatsListArrayObject
 {
     QString chatName;
     QString type;
     QString username;
+    QString nickname;
+    QString userAvatarFileUrl;
     QString lastMessage;
     QString lastMessageTimestamp;
-    QString lastMessageReadAt;
-    QString lastMessageEditedAt;
+    QString lastMessageAttachmentType;
     unsigned long long chatId = ULONG_LONG_MAX;
     unsigned long long chatAvatarFileId = ULONG_LONG_MAX;
     unsigned long long userId = ULONG_LONG_MAX;
-    unsigned long long userAvatarFileId = ULONG_LONG_MAX;
     unsigned long long lastMessageId = ULONG_LONG_MAX;
     unsigned long long lastMessageSenderId = ULONG_LONG_MAX;
-    unsigned long long lastMessageChatId = ULONG_LONG_MAX;
-    unsigned long long lastMessageFileId = ULONG_LONG_MAX;
-    bool lastMessageRead = false;
-    bool lastMessageEdited = false;
+    unsigned long long lastMessageAttachmentsCount = 0;
+    unsigned int unreadCount = 0;
+    bool lastMessageHasAttachments = false;
 };
 
-// TODO: обновить
 struct ParsedChatMessagesArrayObject
 {
     QString message;
@@ -42,12 +39,15 @@ struct ParsedChatMessagesArrayObject
     QString editedAt;
     QString Uuid;
     QString readAt;
+    QJsonArray attachments;
     unsigned long long messageId = ULONG_LONG_MAX;
     unsigned long long senderId = ULONG_LONG_MAX;
     unsigned long long chatId = ULONG_LONG_MAX;
+    unsigned int attachmentsCount = 0;
     bool isPending = false;
     bool read = false;
     bool edited = false;
+    bool hasAttachments = false;
 };
 
 

@@ -1,6 +1,6 @@
 #include "errortypes.h"
 
-QString messageForError(ERROR_TYPES error)
+QString generateMessageForError(ERROR_TYPES error)
 {
     switch (error)
     {

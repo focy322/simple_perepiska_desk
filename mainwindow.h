@@ -16,6 +16,7 @@
 #include "searchlistmodel.h"
 #include <QUuid>
 #include <QSoundEffect>
+#include "filescontroller.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -187,6 +188,10 @@ private slots:
 
     void on_gotDragNDropFiles();
 
+    void on_uploadFileInProgress();
+
+    void on_uploadFileFinished(const NetworkResult &res, const QString &filePath, const qulonglong &chatId, const ParsedUploadedFileInfo &fileInfo);
+
 private:
     Ui::MainWindow *ui;
     ChatListModel *chatsListModel;                      //!< Модель чатов с доступом к полям через роли
@@ -194,6 +199,7 @@ private:
     ChatMessagesItemDelegate *messagesItemDelegate;     //!< Делегат сообщений (выравнивание своих/чужих)
     ChatMessagesListModel *messagesListModel;           //!< Модель сообщений для выбранного чата
     QHash<unsigned long long, std::vector<ParsedChatMessagesArrayObject>> chatMessages;  //!< Хранилище сообщений по chatId
+    QHash<unsigned long long, ParsedChatMessagesArrayObject> draftsByChatId;  //!< Черновики сообщений по chatId
     QString currentChatName;                            //!< Название текущего открытого чата
     unsigned long long currentChatId;                   //!< Id текущего открытого чата
     QPushButton *logOutBtn;                             //!< Кнопка выхода из аккаунта
@@ -209,6 +215,7 @@ private:
     QHash<unsigned long long, ParsedChatsListArrayObject> chatsList;  //!< Список чатов состоящий из ParsedArrayObject
     WebsocketController *websocketController;           //!< Принимает запросы от UI, дергает WebsocketService, возвращает результат через сигналы.
     QSoundEffect *notificationSound;
+    FilesController *filesController;
 
     /**
       * Инициализация кнопки "Выход"
@@ -235,6 +242,12 @@ private:
     void createDirectChat(const unsigned long long &userId);
 
     void switchPageWithSlideAnimation(QStackedWidget *stackedWidget, QWidget *newPage);
+
+    void saveDraftForChat(unsigned long long chatId);
+    void loadDraftForChat(unsigned long long chatId);
+    void appendAttachmentToDraft(unsigned long long chatId, const ParsedUploadedFileInfo &fileInfo);
+    void updateSendButtonState(unsigned long long chatId);
+    QString stripAttachmentMarker(const QString &text) const;
 
 };
 #endif // MAINWINDOW_H
