@@ -4,7 +4,7 @@
 #include "searchitemdelegate.h"
 #include <QDebug>
 #include <QDateTime>
-#include <QFile>
+#include "qt6keychain/keychain.h"
 #include <QThread>
 #include <QGraphicsOpacityEffect>
 #include <QPauseAnimation>
@@ -270,19 +270,23 @@ void MainWindow::positionLogoutButton()
 
 void MainWindow::tryAuthorize()
 {
-    QFile file("refreshToken.txt");
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        // файл не открылся
-        isAuthorized = false;
-        isFirstOpen = false;
-        checkAuthorization(NetworkResult{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)}, "", "");
-        return;
-    }
+    auto *job = new QKeychain::ReadPasswordJob("Vent", this);
+    job->setKey("vent_refresh_token");
+    connect(job, &QKeychain::Job::finished, this, [this, job]() {
+        const QString token = job->textData().trimmed();
+        if (job->error() || token.isEmpty()) {
+            isAuthorized = false;
+            isFirstOpen = false;
+            checkAuthorization(NetworkResult{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)}, "", "");
+            job->deleteLater();
+            return;
+        }
 
-    refreshToken = QString::fromUtf8(file.readAll()).trimmed();
-    file.close();
-
-    authController->requestRefreshAccessToken(refreshToken);
+        refreshToken = token;
+        authController->requestRefreshAccessToken(refreshToken);
+        job->deleteLater();
+    });
+    job->start();
 }
 
 void MainWindow::getMyInfo()
@@ -336,6 +340,25 @@ void MainWindow::createDirectChat(const unsigned long long &userId)
 void MainWindow::switchPageWithSlideAnimation(QStackedWidget *stackedWidget, QWidget *newPage)
 {
     if (!stackedWidget || !newPage) return;
+
+    if (pageSwitchAnimation)
+    {
+        pageSwitchAnimation->stop();
+        pageSwitchAnimation->deleteLater();
+        pageSwitchAnimation = nullptr;
+
+        QWidget *current = stackedWidget->currentWidget();
+        if (current)
+        {
+            current->setGraphicsEffect(nullptr);
+            current->setGeometry(stackedWidget->rect());
+        }
+        newPage->setGraphicsEffect(nullptr);
+        newPage->setGeometry(stackedWidget->rect());
+
+        if (current == newPage)
+            return;
+    }
 
     const int duration = 300; // total duration (ms)
     const int half = duration / 2;
@@ -396,19 +419,19 @@ void MainWindow::switchPageWithSlideAnimation(QStackedWidget *stackedWidget, QWi
     group->addAnimation(fadeOutSeq);
     group->addAnimation(fadeInSeq);
 
-    // Disable input during animation
-    oldPage->setEnabled(false);
-    newPage->setEnabled(false);
+    pageSwitchAnimation = group;
 
-    connect(group, &QParallelAnimationGroup::finished, this, [stackedWidget, newPage, oldPage]() {
+    connect(group, &QParallelAnimationGroup::finished, this, [this, stackedWidget, newPage, oldPage]() {
         // finalize: switch the stacked widget page
         stackedWidget->setCurrentWidget(newPage);
         // restore geometries
         oldPage->setGeometry(stackedWidget->rect());
         newPage->setGeometry(stackedWidget->rect());
-        // enable widgets
-        oldPage->setEnabled(true);
-        newPage->setEnabled(true);
+
+        oldPage->setGraphicsEffect(nullptr);
+        newPage->setGraphicsEffect(nullptr);
+        pageSwitchAnimation = nullptr;
+
         // effects will be cleaned up automatically with widgets
     });
 
@@ -1034,5 +1057,11 @@ void MainWindow::on_uploadFileFinished(const NetworkResult &res, const QString &
     if (currentChatId == chatId)
         updateSendButtonState(chatId);
 
+}
+
+
+void MainWindow::on_messagesView_clicked(const QModelIndex &index)
+{
+    qDebug() << "on_messagesView_clicked";
 }
 

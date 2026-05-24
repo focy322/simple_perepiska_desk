@@ -5,6 +5,10 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++17
 
+VCPKG_ROOT = C:/vcpkg
+VCPKG_TRIPLET = x64-mingw-dynamic
+INCLUDEPATH += C:/Qt/qtkeychain-qt6/include
+LIBS += -L C:/Qt/qtkeychain-qt6/lib -lqt6keychain
 
 # You can make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.

@@ -47,6 +47,8 @@ public:
       */
     void refreshAccessToken(const QString &refToken);
 
+    void writeRefreshTokenToKeychain(QObject *parent, const QString &token);
+
 private:
     QNetworkAccessManager *network; //!< Указатель на объект для работы с запросами
     QString baseUrl;                //!< Базовый адрес API

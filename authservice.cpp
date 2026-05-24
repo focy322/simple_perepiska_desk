@@ -1,7 +1,10 @@
 #include "authservice.h"
 #include <QSysInfo>
-#include <fstream>
 #include <QUrlQuery>
+#include "qt6keychain/keychain.h"
+
+
+
 
 AuthService::AuthService(QObject *parent)
     : QObject{parent}
@@ -15,6 +18,22 @@ AuthService::AuthService(QObject *parent)
 
 }
 
+void AuthService::writeRefreshTokenToKeychain(QObject *parent, const QString &token)
+{
+    auto *job = new QKeychain::WritePasswordJob("Vent", parent);
+    job->setKey("vent_refresh_token");
+    job->setTextData(token);
+
+    connect(job, &QKeychain::Job::finished, job, [job]() {
+#ifdef QT_DEBUG
+        if (job->error())
+            qDebug() << "qtkeychain write error:" << job->errorString();
+#endif
+        job->deleteLater();
+    });
+
+    job->start();
+}
 
 void AuthService::registerUser(const QString &login, const QString &password)
 {
@@ -24,7 +43,7 @@ void AuthService::registerUser(const QString &login, const QString &password)
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     // Данные о системе
-    QString ua = QString("Simple_Perepiska_lol_kek/0.01 (%1; %2)").arg(QSysInfo::prettyProductName(), QSysInfo::currentCpuArchitecture());
+    QString ua = QString("Vent Desktop (%1; %2)").arg(QSysInfo::prettyProductName(), QSysInfo::currentCpuArchitecture());
     req.setHeader(QNetworkRequest::UserAgentHeader, ua);
 
     QJsonObject obj // Вид тела запроса для регистрации
@@ -73,9 +92,8 @@ void AuthService::registerUser(const QString &login, const QString &password)
         {
             QString accToken = doc.object()["token"].toObject()["access_token"].toString();
 
-            std::fstream refreshToken("refreshToken.txt", std::ios_base::trunc | std::ios_base::out);
             QString refToken = doc.object()["token"].toObject()["refresh_token"].toString();
-            refreshToken.write(refToken.toStdString().c_str(), refToken.size());
+            writeRefreshTokenToKeychain(this, refToken);
 
             NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
             emit registrationFinished(res, accToken, refToken);
@@ -97,7 +115,7 @@ void AuthService::logIn(const QString &login, const QString &password)
     QUrl url(baseUrl + logInUrl);
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded"); // Поставить JSON-заголовок
-    QString ua = QString("Simple_Perepiska_lol_kek/0.01 (%1; %2)").arg(QSysInfo::prettyProductName(), QSysInfo::currentCpuArchitecture());
+    QString ua = QString("Vent Desktop/0.01 (%1; %2)").arg(QSysInfo::prettyProductName(), QSysInfo::currentCpuArchitecture());
     req.setHeader(QNetworkRequest::UserAgentHeader, ua);
 
     QUrlQuery form; // Форма для запроса Авторизации
@@ -147,9 +165,8 @@ void AuthService::logIn(const QString &login, const QString &password)
         {
             QString accToken = doc.object()["access_token"].toString();
 
-            std::fstream refreshToken("refreshToken.txt", std::ios_base::trunc | std::ios_base::out);
             QString refToken = doc.object()["refresh_token"].toString();
-            refreshToken.write(refToken.toStdString().c_str(), refToken.size());
+            writeRefreshTokenToKeychain(this, refToken);
             NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
             emit logInFinished(res, accToken, refToken);
             reply->deleteLater();
@@ -207,7 +224,6 @@ void AuthService::logOut(const QString &accToken, const QString &refToken)
     });
 }
 
-// TODO: Реализация
 void AuthService::refreshAccessToken(const QString &refToken)
 {
     emit refreshAccessTokenInProgress();
@@ -215,7 +231,7 @@ void AuthService::refreshAccessToken(const QString &refToken)
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     // Данные о системе
-    QString ua = QString("Simple_Perepiska_lol_kek/0.01 (%1; %2)").arg(QSysInfo::prettyProductName(), QSysInfo::currentCpuArchitecture());
+    QString ua = QString("Vent Desktop/0.01 (%1; %2)").arg(QSysInfo::prettyProductName(), QSysInfo::currentCpuArchitecture());
     req.setHeader(QNetworkRequest::UserAgentHeader, ua);
 
     // Отправляем просто строку в JSON формате
@@ -249,8 +265,7 @@ void AuthService::refreshAccessToken(const QString &refToken)
             QString accToken = doc.object()["access_token"].toString();
             QString newRefToken = doc.object()["refresh_token"].toString();
             
-            std::fstream file("refreshToken.txt", std::ios_base::trunc | std::ios_base::out);
-            file.write(newRefToken.toStdString().c_str(), newRefToken.size());
+            writeRefreshTokenToKeychain(this, newRefToken);
             
             NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
             emit refreshAccessTokenFinished(res, accToken, newRefToken);

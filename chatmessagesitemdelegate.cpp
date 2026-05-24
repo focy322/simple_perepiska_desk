@@ -54,10 +54,10 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
     timeFont.setPointSize(qMax(7, timeFont.pointSize() - 1));
     QFontMetrics timeFm(timeFont);
     const int timeHeight = timeText.isEmpty() ? 0 : timeFm.height();
-    const int pendingIconSize = 12;
+    const int statusIconSize = 12;
     const int statusSpacing = 4;
     const bool showPending = isPending;
-    const int statusHeight = (timeHeight > 0 || showPending) ? qMax(timeHeight, pendingIconSize) + statusSpacing : 0;
+    const int statusHeight = qMax(timeHeight, statusIconSize) + statusSpacing;
 
     QFont attachmentsFont = option.font;
     attachmentsFont.setPointSize(qMax(8, attachmentsFont.pointSize() - 1));
@@ -163,10 +163,10 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
 
     if (!timeText.isEmpty())
     {
-        const int pendingReserve = showPending ? pendingIconSize + statusSpacing : 0;
+        const int statusReserve = statusIconSize + statusSpacing;
         const QRect timeRect = bubbleRect.adjusted(horizontalPadding,
                                                    bubbleRect.height() - verticalPadding - timeHeight,
-                                                   -(horizontalPadding + pendingReserve),
+                                                   -(horizontalPadding + statusReserve),
                                                    -verticalPadding);
         painter->setFont(timeFont);
         painter->setPen(timeColor);
@@ -175,10 +175,10 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
 
     if (showPending)
     {
-        const QRect iconRect(bubbleRect.right() - horizontalPadding - pendingIconSize + 1,
-                             bubbleRect.bottom() - verticalPadding - pendingIconSize + 1,
-                             pendingIconSize,
-                             pendingIconSize);
+        const QRect iconRect(bubbleRect.right() - horizontalPadding - statusIconSize + 1,
+                             bubbleRect.bottom() - verticalPadding - statusIconSize + 1,
+                             statusIconSize,
+                             statusIconSize);
         const QColor pendingColor(130, 130, 130);
         painter->setPen(QPen(pendingColor, 1));
         painter->setBrush(Qt::NoBrush);
@@ -188,6 +188,23 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
         painter->drawLine(center, QPoint(center.x(), center.y() - 3));
         painter->drawLine(center, QPoint(center.x() + 2, center.y()));
     }
+    else
+    {
+        const QRect iconRect(bubbleRect.right() - horizontalPadding - statusIconSize + 1,
+                             bubbleRect.bottom() - verticalPadding - statusIconSize + 1,
+                             statusIconSize,
+                             statusIconSize);
+        const QColor deliveredColor(0, 150, 0);
+        painter->setPen(QPen(deliveredColor, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        painter->setBrush(Qt::NoBrush);
+
+        const QPoint p1(iconRect.left() + 2, iconRect.top() + iconRect.height() / 2);
+        const QPoint p2(iconRect.left() + iconRect.width() / 2, iconRect.bottom() - 3);
+        const QPoint p3(iconRect.right() - 2, iconRect.top() + 3);
+        painter->drawLine(p1, p2);
+        painter->drawLine(p2, p3);
+    }
+
 
     painter->restore();
 }

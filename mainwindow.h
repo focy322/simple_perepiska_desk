@@ -4,6 +4,7 @@
 #include <QPushButton>
 #include <QPropertyAnimation>
 #include <QParallelAnimationGroup>
+#include <QPointer>
 #include <QMainWindow>
 #include <QStackedWidget>
 #include "chatlistmodel.h"
@@ -192,6 +193,8 @@ private slots:
 
     void on_uploadFileFinished(const NetworkResult &res, const QString &filePath, const qulonglong &chatId, const ParsedUploadedFileInfo &fileInfo);
 
+    void on_messagesView_clicked(const QModelIndex &index);
+
 private:
     Ui::MainWindow *ui;
     ChatListModel *chatsListModel;                      //!< Модель чатов с доступом к полям через роли
@@ -216,6 +219,7 @@ private:
     WebsocketController *websocketController;           //!< Принимает запросы от UI, дергает WebsocketService, возвращает результат через сигналы.
     QSoundEffect *notificationSound;
     FilesController *filesController;
+    QPointer<QParallelAnimationGroup> pageSwitchAnimation;
 
     /**
       * Инициализация кнопки "Выход"
