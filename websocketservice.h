@@ -44,13 +44,15 @@ private:
     QHash<QString, Handler> handlersMapByTypeOfMessage; //!< хэш таблица для обработчиков по типу получаемого сообщения
 
     //!< Обработчики
-    void on_pong(const QJsonObject& payload);
-    void on_newMessage(const QJsonObject& payload);
-    void on_messageAccepted(const QJsonObject& payload);
-    void on_ackResult(const QJsonObject& payload);
-    void on_readMarked(const QJsonObject& payload);
-    void on_userStatus(const QJsonObject& payload);
-    void on_error(const QJsonObject& payload);
+    void on_pong(const QJsonObject &payload);
+    void on_newMessage(const QJsonObject &payload);
+    void on_messageAccepted(const QJsonObject &payload);
+    void on_ackResult(const QJsonObject &payload);
+    void on_markedRead(const QJsonObject &payload);
+    void on_userStatus(const QJsonObject &payload);
+    void on_error(const QJsonObject &payload);
+    void on_messageEdited(const QJsonObject &payload);
+    void on_messageDeleted(const QJsonObject &payload);
     //!< Обработчики
 
     void flushPendingAcks();
@@ -66,6 +68,7 @@ signals:
     void sendingMessageFinished(const NetworkResult &res);
     void newMessageRecieved(const ParsedChatMessagesArrayObject &newMessage);
     void messageAccepted(const ParsedMessageAcceptedObject &msgAccObj);
+    void messageMarkedRead(const quint64 userId, const quint64 chatId, const quint64 lastReadMessageId);
 private slots:
     void on_textMessageReceived(const QString &message);
 

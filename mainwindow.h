@@ -195,6 +195,10 @@ private slots:
 
     void on_messagesView_clicked(const QModelIndex &index);
 
+    void on_needReadLastMessage(const std::pair<quint64, quint64> &message);
+
+    void on_messageMarkedRead(const quint64 userId, const quint64 chatId, const quint64 lastReadMessageId);
+
 private:
     Ui::MainWindow *ui;
     ChatListModel *chatsListModel;                      //!< Модель чатов с доступом к полям через роли

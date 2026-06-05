@@ -13,6 +13,7 @@ public:
     void requestMyChats(const QString &accToken);
     void requestChatMessages(const unsigned long long &chatId, const QString &accToken);
     void requestCreateDirectChat(const unsigned long long &userId, const QString &accToken);
+    void requestMarkMessageRead(const std::pair<quint64, quint64> &msg, const QString &accToken);
 
 private:
     ChatService *chatService;   //!< Дергает API-шку

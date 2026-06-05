@@ -1,15 +1,23 @@
 #include "listviewdragndrop.h"
+#include "chatmessagesitemdelegate.h"
+#include "QScrollBar"
 
 ListViewDragNDrop::ListViewDragNDrop (QWidget *parent)
     : QListView(parent)
     , filePathsByChat{}
     , currentChatId(ULONG_LONG_MAX)
+    , scrollStopTimer(new QTimer(this))
+    ,lastReadMessage_{ULONG_LONG_MAX, ULONG_LONG_MAX}
 {
     setAcceptDrops(true);
     viewport()->setAcceptDrops(true);
     setDropIndicatorShown(true);
     setDragDropMode(QAbstractItemView::DropOnly);
     setDefaultDropAction(Qt::CopyAction);
+    scrollStopTimer->setSingleShot(true);
+    scrollStopTimer->setInterval(SCROLL_STOP_TIMER_INTERVAL);
+    connect(verticalScrollBar(), &QScrollBar::valueChanged, this, [this](){scrollStopTimer->start();});
+    connect(scrollStopTimer, &QTimer::timeout, this, &ListViewDragNDrop::on_scrollStop);
 }
 
 QSet<QString> ListViewDragNDrop::getFilePaths(unsigned long long chatId) const
@@ -91,5 +99,30 @@ void ListViewDragNDrop::dropEvent(QDropEvent *event)
     if (!pathsForChat.isEmpty())
         emit gotDragNDropFiles();
 }
+
+void ListViewDragNDrop::paintEvent(QPaintEvent *event)
+{
+    QListView::paintEvent(event);
+    ChatMessagesItemDelegate* delegate = qobject_cast<ChatMessagesItemDelegate*>(itemDelegate());
+    if (delegate)
+    {
+        const std::pair<quint64, quint64> lastReadMessage = delegate->getLastReadMessage();
+        if (lastReadMessage.second != ULONG_LONG_MAX)
+            setLastReadMessage(lastReadMessage.first, lastReadMessage.second);
+    }
+
+}
+
+void ListViewDragNDrop::on_scrollStop()
+{
+    if (lastReadMessage_.second != ULONG_LONG_MAX)
+        emit needReadLastMessage(lastReadMessage_);
+}
+
+void ListViewDragNDrop::setLastReadMessage(const quint64 chatId, const quint64 messageId)
+{
+    lastReadMessage_ = {chatId, messageId};
+}
+
 
 

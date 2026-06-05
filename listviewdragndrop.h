@@ -1,6 +1,7 @@
 #ifndef LISTVIEWDRAGNDROP_H
 #define LISTVIEWDRAGNDROP_H
 
+#include "qtimer.h"
 #include <QListView>
 #include <QDragEnterEvent>
 #include <QMimeData>
@@ -27,13 +28,21 @@ protected:
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dragMoveEvent(QDragMoveEvent *event) override;
     void dropEvent(QDropEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;
 
 private:
     QHash<unsigned long long, QSet<QString>> filePathsByChat;
     unsigned long long currentChatId = ULONG_LONG_MAX;
+    QTimer *scrollStopTimer;
+    inline static constexpr uint SCROLL_STOP_TIMER_INTERVAL = 500;
+    std::pair<quint64, quint64> lastReadMessage_;
+    void on_scrollStop();
+    void setLastReadMessage(const quint64 chatId, const quint64 messageId);
+
 
 signals:
     void gotDragNDropFiles();
+    void needReadLastMessage(const std::pair<quint64, quint64> &message);
 };
 
 #endif // LISTVIEWDRAGNDROP_H

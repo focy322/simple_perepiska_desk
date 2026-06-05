@@ -43,6 +43,7 @@ WebsocketService::WebsocketService(QObject *parent)
     outgoingMessagesFlushTimer->setInterval(outgoingMessagesFlushIntervalMs);
     connect(ackFlushTimer, &QTimer::timeout, this, &WebsocketService::flushPendingAcks);
     connect(outgoingMessagesFlushTimer, &QTimer::timeout, this, &WebsocketService::flushPendingOutgoingMessages);
+    //TODO: тут можно походу поставить singleshot и при каждой отправке запускать таймер хотя как будто хуйня
     outgoingMessagesFlushTimer->start();
     ackFlushTimer->start();
     fillHandlersMap();
@@ -140,7 +141,9 @@ void WebsocketService::fillHandlersMap()
     handlersMapByTypeOfMessage.insert(QString("chat.message"), &WebsocketService::on_newMessage);
     handlersMapByTypeOfMessage.insert(QString("chat.message.send.accepted"), &WebsocketService::on_messageAccepted);
     handlersMapByTypeOfMessage.insert(QString("chat.message.ack.result"), &WebsocketService::on_ackResult);
-    handlersMapByTypeOfMessage.insert(QString("chat.mark_read.accepted"), &WebsocketService::on_readMarked);
+    handlersMapByTypeOfMessage.insert(QString("chat.marked_read"), &WebsocketService::on_markedRead);
+    handlersMapByTypeOfMessage.insert(QString("message.edited"), &WebsocketService::on_messageEdited);
+    handlersMapByTypeOfMessage.insert(QString("message.deleted"), &WebsocketService::on_messageDeleted);
     handlersMapByTypeOfMessage.insert(QString("user.status"), &WebsocketService::on_userStatus);
     handlersMapByTypeOfMessage.insert(QString("error"), &WebsocketService::on_error);
 
@@ -328,8 +331,15 @@ void WebsocketService::on_ackResult(const QJsonObject &payload)
     }
 }
 
-void WebsocketService::on_readMarked(const QJsonObject &payload)
+void WebsocketService::on_markedRead(const QJsonObject &payload)
 {
+    const quint64 userId = static_cast<quint64>(payload.value("user_id").toInteger(-1));
+    const quint64 chatId = static_cast<quint64>(payload.value("chat_id").toInteger(-1));
+    const quint64 lastReadMessageId = static_cast<quint64>(payload.value("last_read_message_id").toInteger(-1));
+    if (userId == ULONG_LONG_MAX || chatId == ULONG_LONG_MAX || lastReadMessageId == ULONG_LONG_MAX)
+        return;
+
+    emit messageMarkedRead(userId, chatId, lastReadMessageId);
 
 }
 
@@ -339,6 +349,16 @@ void WebsocketService::on_userStatus(const QJsonObject &payload)
 }
 
 void WebsocketService::on_error(const QJsonObject &payload)
+{
+
+}
+
+void WebsocketService::on_messageEdited(const QJsonObject &payload)
+{
+
+}
+
+void WebsocketService::on_messageDeleted(const QJsonObject &payload)
 {
 
 }

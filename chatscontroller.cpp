@@ -28,3 +28,8 @@ void ChatsController::requestCreateDirectChat(const unsigned long long &userId, 
     chatService->createDirectChat(userId, accToken);
 }
 
+void ChatsController::requestMarkMessageRead(const std::pair<quint64, quint64> &msg, const QString &accToken)
+{
+    chatService->markMessageRead(msg, accToken);
+}
+

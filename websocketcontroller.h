@@ -25,6 +25,7 @@ signals:
     void sendingMessageFinished(const NetworkResult &res);
     void newMessageRecieved(const ParsedChatMessagesArrayObject &newMessage);
     void messageAccepted(const ParsedMessageAcceptedObject &msgAccObj);
+    void messageMarkedRead(const quint64 userId, const quint64 chatId, const quint64 lastReadMessageId);
 };
 
 #endif // WEBSOCKETCONTROLLER_H

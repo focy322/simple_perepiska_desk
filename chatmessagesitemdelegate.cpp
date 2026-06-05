@@ -10,6 +10,7 @@
 ChatMessagesItemDelegate::ChatMessagesItemDelegate(QObject *parent)
     : QStyledItemDelegate(parent)
     , m_currentUserId(ULONG_LONG_MAX)
+    , lastReadMessage{ULONG_LONG_MAX, ULONG_LONG_MAX}
 {}
 
 void ChatMessagesItemDelegate::setCurrentUserId(unsigned long long userId)
@@ -26,6 +27,9 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
     const QJsonArray attachments = index.data(ChatMessagesListModel::AttachmentsRole).toJsonArray();
     const bool hasAttachments = !attachments.isEmpty();
     const bool isMine = senderId == m_currentUserId;
+    const bool isRead = index.data(ChatMessagesListModel::ReadRole).toBool();
+    const quint64 messageId = index.data(ChatMessagesListModel::MessageIdRole).toULongLong();
+    const quint64 chatId = index.data(ChatMessagesListModel::ChatIdRole).toULongLong();
 
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
@@ -163,7 +167,7 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
 
     if (!timeText.isEmpty())
     {
-        const int statusReserve = statusIconSize + statusSpacing;
+        const int statusReserve = isMine ? statusIconSize + statusSpacing : 0;
         const QRect timeRect = bubbleRect.adjusted(horizontalPadding,
                                                    bubbleRect.height() - verticalPadding - timeHeight,
                                                    -(horizontalPadding + statusReserve),
@@ -173,38 +177,67 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
         painter->drawText(timeRect, Qt::AlignRight | Qt::AlignVCenter, timeText);
     }
 
-    if (showPending)
+    if (isMine)
     {
-        const QRect iconRect(bubbleRect.right() - horizontalPadding - statusIconSize + 1,
-                             bubbleRect.bottom() - verticalPadding - statusIconSize + 1,
-                             statusIconSize,
-                             statusIconSize);
-        const QColor pendingColor(130, 130, 130);
-        painter->setPen(QPen(pendingColor, 1));
-        painter->setBrush(Qt::NoBrush);
-        painter->drawEllipse(iconRect);
+        if (showPending)
+        {
+            const QRect iconRect(bubbleRect.right() - horizontalPadding - statusIconSize + 1,
+                                 bubbleRect.bottom() - verticalPadding - statusIconSize + 1,
+                                 statusIconSize,
+                                 statusIconSize);
+            const QColor pendingColor(130, 130, 130);
+            painter->setPen(QPen(pendingColor, 1));
+            painter->setBrush(Qt::NoBrush);
+            painter->drawEllipse(iconRect);
 
-        const QPoint center = iconRect.center();
-        painter->drawLine(center, QPoint(center.x(), center.y() - 3));
-        painter->drawLine(center, QPoint(center.x() + 2, center.y()));
+            const QPoint center = iconRect.center();
+            painter->drawLine(center, QPoint(center.x(), center.y() - 3));
+            painter->drawLine(center, QPoint(center.x() + 2, center.y()));
+        }
+        else if (isRead)
+        {
+            const QRect iconRect(bubbleRect.right() - horizontalPadding - statusIconSize + 1,
+                                 bubbleRect.bottom() - verticalPadding - statusIconSize + 1,
+                                 statusIconSize,
+                                 statusIconSize);
+            const QColor readColor(0, 120, 215);
+            painter->setPen(QPen(readColor, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+            painter->setBrush(Qt::NoBrush);
+
+            const QPoint p1a(iconRect.left() + 2, iconRect.top() + iconRect.height() / 2);
+            const QPoint p2a(iconRect.left() + iconRect.width() / 2, iconRect.bottom() - 3);
+            const QPoint p3a(iconRect.right() - 2, iconRect.top() + 3);
+            painter->drawLine(p1a, p2a);
+            painter->drawLine(p2a, p3a);
+
+            const QPoint p1b(iconRect.left() + 6, iconRect.top() + iconRect.height() / 2);
+            const QPoint p2b(iconRect.left() + iconRect.width() / 2 + 4, iconRect.bottom() - 3);
+            const QPoint p3b(iconRect.right() + 2, iconRect.top() + 3);
+            painter->drawLine(p1b, p2b);
+            painter->drawLine(p2b, p3b);
+        }
+        else
+        {
+            const QRect iconRect(bubbleRect.right() - horizontalPadding - statusIconSize + 1,
+                                 bubbleRect.bottom() - verticalPadding - statusIconSize + 1,
+                                 statusIconSize,
+                                 statusIconSize);
+            const QColor deliveredColor(0, 150, 0);
+            painter->setPen(QPen(deliveredColor, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+            painter->setBrush(Qt::NoBrush);
+
+            const QPoint p1(iconRect.left() + 2, iconRect.top() + iconRect.height() / 2);
+            const QPoint p2(iconRect.left() + iconRect.width() / 2, iconRect.bottom() - 3);
+            const QPoint p3(iconRect.right() - 2, iconRect.top() + 3);
+            painter->drawLine(p1, p2);
+            painter->drawLine(p2, p3);
+        }
     }
     else
     {
-        const QRect iconRect(bubbleRect.right() - horizontalPadding - statusIconSize + 1,
-                             bubbleRect.bottom() - verticalPadding - statusIconSize + 1,
-                             statusIconSize,
-                             statusIconSize);
-        const QColor deliveredColor(0, 150, 0);
-        painter->setPen(QPen(deliveredColor, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-        painter->setBrush(Qt::NoBrush);
-
-        const QPoint p1(iconRect.left() + 2, iconRect.top() + iconRect.height() / 2);
-        const QPoint p2(iconRect.left() + iconRect.width() / 2, iconRect.bottom() - 3);
-        const QPoint p3(iconRect.right() - 2, iconRect.top() + 3);
-        painter->drawLine(p1, p2);
-        painter->drawLine(p2, p3);
+        if (!isRead)
+            setLastReadMessage(chatId, messageId);
     }
-
 
     painter->restore();
 }
@@ -269,4 +302,9 @@ QSize ChatMessagesItemDelegate::sizeHint(const QStyleOptionViewItem &option, con
         + (hasAttachments ? attachmentsHeight : 0)
         + (hasAttachments && hasMessage ? attachmentsBlockSpacing : 0);
     return QSize(option.rect.width(), qMax(44, rowHeight));
+}
+
+void ChatMessagesItemDelegate::setLastReadMessage(const quint64 chatId, const quint64 MessageId) const
+{
+    lastReadMessage = {chatId, MessageId};
 }

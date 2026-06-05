@@ -11,6 +11,7 @@
 #include <QSequentialAnimationGroup>
 #include <QSignalBlocker>
 #include <QJsonObject>
+#include <format>
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -67,9 +68,11 @@ MainWindow::MainWindow(QWidget *parent)
     connect(websocketController, &WebsocketController::sendingMessageFinished, this, &MainWindow::on_sendingMessageFinished);
     connect(websocketController, &WebsocketController::newMessageRecieved, this, &MainWindow::on_newMessageRecieved);
     connect(websocketController, &WebsocketController::messageAccepted, this, &MainWindow::on_messageAccepted);
+    connect(websocketController, &WebsocketController::messageMarkedRead, this, &MainWindow::on_messageMarkedRead);
     connect(ui->messagesView, &ListViewDragNDrop::gotDragNDropFiles, this, &MainWindow::on_gotDragNDropFiles);
     connect(filesController, &FilesController::uploadFileInProgress, this, &MainWindow::on_uploadFileInProgress);
     connect(filesController, &FilesController::uploadFileFinished, this, &MainWindow::on_uploadFileFinished);
+    connect(ui->messagesView, &ListViewDragNDrop::needReadLastMessage, this, &MainWindow::on_needReadLastMessage);
 
     // Изменение высоты строки ввода собщения при переносе строки
     connect(ui->messageInput, &QTextEdit::textChanged, this, &MainWindow::on_textChanged);
@@ -1063,5 +1066,37 @@ void MainWindow::on_uploadFileFinished(const NetworkResult &res, const QString &
 void MainWindow::on_messagesView_clicked(const QModelIndex &index)
 {
     qDebug() << "on_messagesView_clicked";
+}
+
+void MainWindow::on_needReadLastMessage(const std::pair<quint64, quint64> &message)
+{
+    chatsController->requestMarkMessageRead(message, accessToken);
+}
+
+void MainWindow::on_messageMarkedRead(const quint64 userId, const quint64 chatId, const quint64 lastReadMessageId)
+{
+    Q_UNUSED(userId);
+    auto chatIt = chatMessages.find(chatId);
+    if (chatIt != chatMessages.end())
+    {
+        auto &messages = chatIt.value();
+        //Возможно есть какой-то более красивый алгоритм чем перебор всего вектора сообщений
+        for (auto &message : messages)
+        {
+            if ((message.senderId == myUserId) && (message.messageId <= lastReadMessageId) && !message.read)
+            {
+                message.read = true;
+                if (message.messageId == lastReadMessageId)
+                {
+                    if (currentChatId == chatId)
+                    {
+                        messagesListModel->setMessages(messages);
+                    }
+                    return;
+                }
+            }
+        }
+
+    }
 }
 

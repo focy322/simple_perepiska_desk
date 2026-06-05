@@ -67,14 +67,18 @@ public:
 
     void createDirectChat(const unsigned long long &userId, const QString &accToken);
 
+    void markMessageRead(const std::pair<quint64, quint64> &msg, const QString &accToken);
+
 
 
 private:
     QNetworkAccessManager *network;                     //!< Указатель на объект для работы с запросами
+    //TODO : А зачем когда у меня есть baseHttpUrl
     QString baseUrl;                                    //!< Базовый адрес API
     QString myChatsUrl;                                 //!< Адрес для списка чатов
     QString chatMessagesUrl;                            //!< Адрес для списка сообщений конкретного чата
     QString createDirectChatUrl;                        //!< Адрес для создания private-чата
+    QString markMessageReadUrl;
 
 signals:
     void getMyChatsInProgress();

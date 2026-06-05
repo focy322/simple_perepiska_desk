@@ -10,6 +10,7 @@ ChatService::ChatService(QObject *parent)
     , myChatsUrl("/api/chats/")
     , chatMessagesUrl("/api/chats/%1")
     , createDirectChatUrl("/api/chats/create")
+    , markMessageReadUrl("/api/chats/%1/mark-read")
 {}
 
 void ChatService::getMyChats(const QString &accToken)
@@ -275,5 +276,43 @@ void ChatService::createDirectChat(const unsigned long long &userId, const QStri
         reply->deleteLater();
         return;
     } );
+}
+
+void ChatService::markMessageRead(const std::pair<quint64, quint64> &msg, const QString &accToken)
+{
+    QUrl url(baseUrl + markMessageReadUrl.arg(msg.first));
+    QUrlQuery query;
+    query.addQueryItem("last_read_message_id", QString::number(msg.second));
+    url.setQuery(query);
+    QNetworkRequest req(url);
+    req.setRawHeader("Authorization", "Bearer " + accToken.toUtf8());
+    QNetworkReply * reply = network->sendCustomRequest(req, "PATCH", QByteArray("{}"));
+    connect(reply, &QNetworkReply::finished, this, [this, reply](){
+        auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (reply->error() != QNetworkReply::NoError && httpCode == 0)
+        {
+            reply->deleteLater();
+            return;
+        }
+        QByteArray raw = reply->readAll();
+        QJsonParseError pe;
+        QJsonDocument doc = QJsonDocument::fromJson(raw, &pe);
+        if (pe.error || !doc.isObject())
+        {
+            reply->deleteLater();
+            return;
+        }
+        if (httpCode == 200 || httpCode == 201)
+        {
+            reply->deleteLater();
+            return;
+        }
+        reply->deleteLater();
+#ifdef QT_DEBUG
+        qDebug()<< doc;
+#endif
+        return;
+    } );
+
 }
 
