@@ -199,6 +199,14 @@ private slots:
 
     void on_messageMarkedRead(const quint64 userId, const quint64 chatId, const quint64 lastReadMessageId);
 
+    void on_downloadFileInfoInProgress();
+
+    void on_downloadFileInfoFinished(const NetworkResult &res, const ParsedDownloadedFileInfo& fileInfo = {});
+
+    void on_downloadFileInProgress();
+
+    void on_downloadFileFinished(const NetworkResult &res, const ParsedDownloadedFileInfo& fileInfo = {});
+
 private:
     Ui::MainWindow *ui;
     ChatListModel *chatsListModel;                      //!< Модель чатов с доступом к полям через роли

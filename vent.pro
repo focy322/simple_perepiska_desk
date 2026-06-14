@@ -51,6 +51,7 @@ HEADERS += \
     fileservice.h \
     listviewdragndrop.h \
     mainwindow.h \
+    paths.h \
     searchitemdelegate.h \
     searchlistmodel.h \
     userinfocontroller.h \

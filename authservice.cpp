@@ -192,8 +192,12 @@ void AuthService::logOut(const QString &accToken, const QString &refToken)
     // Передаем токен в заголовке
     req.setRawHeader("Authorization", "Bearer " + accToken.toUtf8());
 
-    // Отправляем просто строку в JSON формате
-    QByteArray body = "\"" + refToken.toUtf8() + "\"";
+    QJsonObject obj
+        {
+            {"refresh_token", refToken}
+        };
+
+    QByteArray body = QJsonDocument(obj).toJson(QJsonDocument::Compact);
 #ifdef QT_DEBUG
     qDebug() << "RefreshToken" << body;
 #endif
@@ -234,8 +238,12 @@ void AuthService::refreshAccessToken(const QString &refToken)
     QString ua = QString("Vent Desktop/0.01 (%1; %2)").arg(QSysInfo::prettyProductName(), QSysInfo::currentCpuArchitecture());
     req.setHeader(QNetworkRequest::UserAgentHeader, ua);
 
-    // Отправляем просто строку в JSON формате
-    QByteArray body = "\"" + refToken.toUtf8() + "\"";
+    QJsonObject obj
+    {
+        {"refresh_token", refToken}
+    };
+
+    QByteArray body = QJsonDocument(obj).toJson(QJsonDocument::Compact);
 #ifdef QT_DEBUG
     qDebug() << "RefreshToken" << body;
 #endif

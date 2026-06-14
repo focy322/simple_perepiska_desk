@@ -2,6 +2,8 @@
 #include "ui_mainwindow.h"
 #include "chatlistitemdelegate.h"
 #include "searchitemdelegate.h"
+#include <paths.h>
+
 #include <QDebug>
 #include <QDateTime>
 #include "qt6keychain/keychain.h"
@@ -11,7 +13,8 @@
 #include <QSequentialAnimationGroup>
 #include <QSignalBlocker>
 #include <QJsonObject>
-#include <format>
+#include <QDir>
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -41,6 +44,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     notificationSound->setSource(QUrl("qrc:/sounds/newMessageSound"));
     notificationSound->setVolume(1.f);
+    QDir().mkpath(appDownloadsDir);
 
     connect(authController, &AuthController::registrationFinished, this, &MainWindow::on_registrationFinished);
     connect(authController, &AuthController::logInFinished, this, &MainWindow::on_logInFinished);
@@ -73,7 +77,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(filesController, &FilesController::uploadFileInProgress, this, &MainWindow::on_uploadFileInProgress);
     connect(filesController, &FilesController::uploadFileFinished, this, &MainWindow::on_uploadFileFinished);
     connect(ui->messagesView, &ListViewDragNDrop::needReadLastMessage, this, &MainWindow::on_needReadLastMessage);
-
+    connect(filesController, &FilesController::downloadFileInfoInProgress, this, &MainWindow::on_downloadFileInfoInProgress);
+    connect(filesController, &FilesController::downloadFileInfoFinished, this, &MainWindow::on_downloadFileInfoFinished);
+    connect(filesController, &FilesController::downloadFileInProgress, this, &MainWindow::on_downloadFileInProgress);
+    connect(filesController, &FilesController::downloadFileFinished, this, &MainWindow::on_downloadFileFinished);
     // Изменение высоты строки ввода собщения при переносе строки
     connect(ui->messageInput, &QTextEdit::textChanged, this, &MainWindow::on_textChanged);
 
@@ -1062,10 +1069,22 @@ void MainWindow::on_uploadFileFinished(const NetworkResult &res, const QString &
 
 }
 
-
+// Скачивание сразу всех вложений при нажатии на сообщение
 void MainWindow::on_messagesView_clicked(const QModelIndex &index)
 {
-    qDebug() << "on_messagesView_clicked";
+    bool hasAttachments = index.data(ChatMessagesListModel::HasAttachmentsRole).toBool();
+    if (hasAttachments)
+    {
+        std::vector<quint64> fileIds{};
+        QJsonArray attachments = index.data(ChatMessagesListModel::AttachmentsRole).toJsonArray();
+        for (const auto &attachmentValue : std::as_const(attachments))
+        {
+            QJsonObject attachmentObj = attachmentValue.toObject();
+            fileIds.push_back(static_cast<quint64>(attachmentObj.value("file_id").toInteger(-1)));
+        }
+        filesController->requestDownloadFileInfo(accessToken, fileIds);
+    }
+
 }
 
 void MainWindow::on_needReadLastMessage(const std::pair<quint64, quint64> &message)
@@ -1098,5 +1117,25 @@ void MainWindow::on_messageMarkedRead(const quint64 userId, const quint64 chatId
         }
 
     }
+}
+
+void MainWindow::on_downloadFileInfoInProgress()
+{
+
+}
+
+void MainWindow::on_downloadFileInfoFinished(const NetworkResult &res, const ParsedDownloadedFileInfo &fileInfo)
+{
+
+}
+
+void MainWindow::on_downloadFileInProgress()
+{
+
+}
+
+void MainWindow::on_downloadFileFinished(const NetworkResult &res, const ParsedDownloadedFileInfo &fileInfo)
+{
+
 }
 
