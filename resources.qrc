@@ -1,5 +1,0 @@
-<RCC>
-    <qresource prefix="/sounds">
-        <file alias="newMessageSound">newMessage.wav</file>
-    </qresource>
-</RCC>
