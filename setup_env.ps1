@@ -3,7 +3,7 @@ param(
 )
 
 Write-Host "===================================================" -ForegroundColor Cyan
-Write-Host "   Скрипт настройки окружения для проекта Vent" -ForegroundColor Cyan
+Write-Host "       Скрипт настройки окружения для проекта      " -ForegroundColor Cyan
 Write-Host "===================================================" -ForegroundColor Cyan
 Write-Host ""
 

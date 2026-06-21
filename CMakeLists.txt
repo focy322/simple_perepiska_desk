@@ -12,15 +12,13 @@ set(CMAKE_AUTOUIC ON)
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Network WebSockets Multimedia Widgets)
 
 # --- Управление зависимостями ---
-# Используем FetchContent для автоматической загрузки и сборки qtkeychain
-# внутри папки сборки проекта, избавляясь от необходимости во внешних скриптах установки.
 include(FetchContent)
 FetchContent_Declare(
     qtkeychain
     GIT_REPOSITORY https://github.com/frankosterfeld/qtkeychain.git
     GIT_TAG        0.14.2
 )
-# Настраиваем qtkeychain для статической сборки и без лишних компонентов
+# Настройка qtkeychain для статической сборки и без лишних компонентов
 set(BUILD_WITH_QT6 ON CACHE BOOL "Сборка с Qt 6" FORCE)
 set(BUILD_TRANSLATIONS OFF CACHE BOOL "Сборка переводов" FORCE)
 set(BUILD_TEST_APPLICATION OFF CACHE BOOL "Сборка тестового приложения" FORCE)
@@ -97,7 +95,7 @@ qt_add_executable(vent
     ${APP_ICON_RESOURCE_WINDOWS}
 )
 
-# Линкуем библиотеки Qt6 и qtkeychain
+# Линковка библиотеки Qt6 и qtkeychain
 target_link_libraries(vent PRIVATE
     Qt6::Core
     Qt6::Gui
@@ -108,7 +106,7 @@ target_link_libraries(vent PRIVATE
     qt6keychain
 )
 
-# Подключаем все наши новые папки, чтобы #include "authcontroller.h" продолжал работать без изменения пути в самом коде
+# Подключение всех папок
 target_include_directories(vent PRIVATE 
     ${qtkeychain_SOURCE_DIR} 
     ${qtkeychain_BINARY_DIR} 
