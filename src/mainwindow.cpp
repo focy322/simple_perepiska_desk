@@ -312,7 +312,7 @@ void MainWindow::checkAuthorization(const NetworkResult &res, const QString &acc
         isAuthorized = res.ok;
         accessToken = accToken;
         refreshToken = refToken;
-        ui->loadingAndContentWidgets->setCurrentWidget(ui->contentPage);
+        switchPageWithFadeAnimation(ui->loadingAndContentWidgets, ui->contentPage);
         getMyInfo();
         ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
         getChatsList();
@@ -323,7 +323,7 @@ void MainWindow::checkAuthorization(const NetworkResult &res, const QString &acc
         isAuthorized = res.ok;
         accessToken = accToken;
         refreshToken = refToken;
-        ui->loadingAndContentWidgets->setCurrentWidget(ui->contentPage);
+        switchPageWithFadeAnimation(ui->loadingAndContentWidgets, ui->contentPage);
         ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);// Показывать окно входа
         ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);// Показывать окно входа
 #ifdef QT_DEBUG
@@ -446,6 +446,39 @@ void MainWindow::switchPageWithSlideAnimation(QStackedWidget *stackedWidget, QWi
     });
 
     group->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void MainWindow::switchPageWithFadeAnimation(QStackedWidget *stackedWidget, QWidget *newPage)
+{
+    if (!stackedWidget || !newPage) return;
+    QWidget *oldPage = stackedWidget->currentWidget();
+    if (oldPage == newPage) return;
+
+    auto *effect = new QGraphicsOpacityEffect(oldPage);
+    oldPage->setGraphicsEffect(effect);
+
+    auto *fadeOut = new QPropertyAnimation(effect, "opacity");
+    fadeOut->setDuration(300);
+    fadeOut->setStartValue(1.0);
+    fadeOut->setEndValue(0.0);
+
+    connect(fadeOut, &QPropertyAnimation::finished, this, [=]() {
+        stackedWidget->setCurrentWidget(newPage);
+        oldPage->setGraphicsEffect(nullptr);
+
+        auto *effect2 = new QGraphicsOpacityEffect(newPage);
+        newPage->setGraphicsEffect(effect2);
+        auto *fadeIn = new QPropertyAnimation(effect2, "opacity");
+        fadeIn->setDuration(300);
+        fadeIn->setStartValue(0.0);
+        fadeIn->setEndValue(1.0);
+        connect(fadeIn, &QPropertyAnimation::finished, this, [=]() {
+            newPage->setGraphicsEffect(nullptr);
+        });
+        fadeIn->start(QAbstractAnimation::DeleteWhenStopped);
+    });
+
+    fadeOut->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
 void MainWindow::resizeEvent(QResizeEvent *event)

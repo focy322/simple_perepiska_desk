@@ -258,6 +258,7 @@ private:
     void createDirectChat(const unsigned long long &userId);
 
     void switchPageWithSlideAnimation(QStackedWidget *stackedWidget, QWidget *newPage);
+    void switchPageWithFadeAnimation(QStackedWidget *stackedWidget, QWidget *newPage);
 
     void saveDraftForChat(unsigned long long chatId);
     void loadDraftForChat(unsigned long long chatId);

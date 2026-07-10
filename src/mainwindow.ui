@@ -87,19 +87,33 @@ QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #1
         </property>
         <item>
          <widget class="QWidget" name="loadingWidget" native="true">
-          <widget class="QLabel" name="loadingLabel">
-           <property name="geometry">
-            <rect>
-             <x>370</x>
-             <y>310</y>
-             <width>171</width>
-             <height>16</height>
-            </rect>
-           </property>
-           <property name="text">
-            <string>ТИПО ЗАГРУЗКА(АНИМАЦИЯ)</string>
-           </property>
-          </widget>
+          <layout class="QVBoxLayout" name="verticalLayout_loading">
+           <item alignment="Qt::AlignCenter">
+            <widget class="QLabel" name="loadingLabel">
+             <property name="minimumSize">
+              <size>
+               <width>150</width>
+               <height>150</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>150</width>
+               <height>150</height>
+              </size>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="pixmap">
+              <pixmap>:/images/enot.png</pixmap>
+             </property>
+             <property name="scaledContents">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
          </widget>
         </item>
        </layout>
@@ -914,6 +928,8 @@ border-bottom: 1px solid #2A3037;</string>
    <header>listviewdragndrop.h</header>
   </customwidget>
  </customwidgets>
- <resources/>
+ <resources>
+  <include location="../resources/resources.qrc"/>
+ </resources>
  <connections/>
 </ui>

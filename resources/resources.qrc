@@ -2,4 +2,7 @@
     <qresource prefix="/sounds">
         <file alias="newMessageSound">newMessage.wav</file>
     </qresource>
+    <qresource prefix="/images">
+        <file>enot.png</file>
+    </qresource>
 </RCC>
