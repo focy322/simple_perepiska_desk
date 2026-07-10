@@ -27,60 +27,11 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Сборка qtkeychain как стати�
 FetchContent_MakeAvailable(qtkeychain)
 # -----------------------------
 
-set(SOURCES
-    src/controllers/authcontroller.cpp
-    src/services/authservice.cpp
-    src/controllers/chatscontroller.cpp
-    src/delegates/chatlistitemdelegate.cpp
-    src/models/chatlistmodel.cpp
-    src/delegates/chatmessagesitemdelegate.cpp
-    src/models/chatmessageslistmodel.cpp
-    src/services/chatservice.cpp
-    src/utils/errortypes.cpp
-    src/controllers/filescontroller.cpp
-    src/services/fileservice.cpp
-    src/widgets/listviewdragndrop.cpp
-    src/main.cpp
-    src/mainwindow.cpp
-    src/delegates/searchitemdelegate.cpp
-    src/models/searchlistmodel.cpp
-    src/controllers/userinfocontroller.cpp
-    src/services/userinfoservice.cpp
-    src/controllers/websocketcontroller.cpp
-    src/services/websocketservice.cpp
-)
-
-set(HEADERS
-    src/controllers/authcontroller.h
-    src/services/authservice.h
-    src/controllers/chatscontroller.h
-    src/delegates/chatlistitemdelegate.h
-    src/models/chatlistmodel.h
-    src/delegates/chatmessagesitemdelegate.h
-    src/models/chatmessageslistmodel.h
-    src/services/chatservice.h
-    src/utils/endpoints.h
-    src/utils/errortypes.h
-    src/controllers/filescontroller.h
-    src/services/fileservice.h
-    src/widgets/listviewdragndrop.h
-    src/mainwindow.h
-    src/utils/paths.h
-    src/delegates/searchitemdelegate.h
-    src/models/searchlistmodel.h
-    src/controllers/userinfocontroller.h
-    src/services/userinfoservice.h
-    src/controllers/websocketcontroller.h
-    src/services/websocketservice.h
-)
-
-set(FORMS
-    src/mainwindow.ui
-)
-
-set(RESOURCES
-    resources/resources.qrc
-)
+# Автоматически находим все файлы в нужных папках                                                                                                                                                    
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp")                                                                                                                                             
+file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS "src/*.h")                                                                                                                                               
+file(GLOB_RECURSE FORMS CONFIGURE_DEPENDS "src/*.ui")                                                                                                                                                
+file(GLOB_RECURSE RESOURCES CONFIGURE_DEPENDS "resources/*.qrc") 
 
 # Иконка для Windows
 if(WIN32)
@@ -112,10 +63,4 @@ target_include_directories(vent PRIVATE
     ${qtkeychain_BINARY_DIR} 
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/controllers
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/services
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/models
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/delegates
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/utils
 )

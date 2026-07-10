@@ -1,4 +1,4 @@
-#include "filescontroller.h"
+﻿#include "controllers/filescontroller.h"
 
 FilesController::FilesController(QObject *parent)
     : QObject{parent}

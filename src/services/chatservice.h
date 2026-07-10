@@ -1,4 +1,4 @@
-#ifndef CHATSERVICE_H
+﻿#ifndef CHATSERVICE_H
 #define CHATSERVICE_H
 
 #include <QObject>
@@ -8,8 +8,8 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <vector>
-#include "errortypes.h"
-#include "endpoints.h"
+#include "utils/errortypes.h"
+#include "utils/endpoints.h"
 
 struct ParsedChatsListArrayObject
 {

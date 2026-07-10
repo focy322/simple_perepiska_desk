@@ -1,4 +1,4 @@
-#include "userinfocontroller.h"
+﻿#include "controllers/userinfocontroller.h"
 
 UserInfoController::UserInfoController(QObject *parent)
     : QObject{parent}

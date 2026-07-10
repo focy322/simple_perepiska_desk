@@ -1,4 +1,4 @@
-#include "searchlistmodel.h"
+﻿#include "models/searchlistmodel.h"
 
 SearchListModel::SearchListModel(QObject *parent)
     : QAbstractListModel(parent)

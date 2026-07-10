@@ -1,10 +1,10 @@
-#ifndef SEARCHLISTMODEL_H
+﻿#ifndef SEARCHLISTMODEL_H
 #define SEARCHLISTMODEL_H
 
 #include <QAbstractListModel>
 #include <vector>
 
-#include "userinfoservice.h"
+#include "services/userinfoservice.h"
 
 class SearchListModel : public QAbstractListModel
 {

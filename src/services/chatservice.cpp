@@ -1,4 +1,4 @@
-#include "chatservice.h"
+﻿#include "services/chatservice.h"
 #include <cmath>
 #include <algorithm>
 #include <QUrlQuery>

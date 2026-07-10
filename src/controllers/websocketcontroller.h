@@ -1,8 +1,8 @@
-#ifndef WEBSOCKETCONTROLLER_H
+﻿#ifndef WEBSOCKETCONTROLLER_H
 #define WEBSOCKETCONTROLLER_H
 
 #include <QObject>
-#include "websocketservice.h"
+#include "services/websocketservice.h"
 
 class WebsocketController : public QObject
 {

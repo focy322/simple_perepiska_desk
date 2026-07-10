@@ -1,5 +1,5 @@
-#include "chatlistitemdelegate.h"
-#include "chatlistmodel.h"
+﻿#include "delegates/chatlistitemdelegate.h"
+#include "models/chatlistmodel.h"
 
 #include <algorithm>
 #include <QApplication>

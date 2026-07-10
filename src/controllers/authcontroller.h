@@ -1,8 +1,8 @@
-#ifndef AUTHCONTROLLER_H
+﻿#ifndef AUTHCONTROLLER_H
 #define AUTHCONTROLLER_H
 
 #include <QObject>
-#include "authservice.h"
+#include "services/authservice.h"
 
 // Принимает запросы от UI, дергает AuthService, возвращает результат через сигналы.
 class AuthController : public QObject

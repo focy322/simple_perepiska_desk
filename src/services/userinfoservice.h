@@ -1,14 +1,14 @@
-#ifndef USERINFOSERVICE_H
+﻿#ifndef USERINFOSERVICE_H
 #define USERINFOSERVICE_H
 
 #include <QObject>
-#include "errortypes.h"
+#include "utils/errortypes.h"
 #include <QtNetwork/QNetworkAccessManager>
 #include <QtNetwork/QNetworkReply>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
-#include "endpoints.h"
+#include "utils/endpoints.h"
 
 struct ParsedFoundUsersObject
 {

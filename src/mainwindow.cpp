@@ -1,8 +1,9 @@
-#include "mainwindow.h"
+﻿#include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "chatlistitemdelegate.h"
-#include "searchitemdelegate.h"
-#include <paths.h>
+#include "delegates/chatlistitemdelegate.h"
+#include "delegates/searchitemdelegate.h"
+#include "utils/paths.h"
+
 #include <keychain.h>
 
 #include <QDebug>

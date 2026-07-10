@@ -1,4 +1,4 @@
-#include "websocketcontroller.h"
+﻿#include "controllers/websocketcontroller.h"
 
 WebsocketController::WebsocketController(QObject *parent)
     : QObject{parent}

@@ -1,8 +1,8 @@
-#ifndef CHATSCONTROLLER_H
+﻿#ifndef CHATSCONTROLLER_H
 #define CHATSCONTROLLER_H
 
 #include <QObject>
-#include "chatservice.h"
+#include "services/chatservice.h"
 
 
 class ChatsController : public QObject

@@ -1,5 +1,5 @@
-#include "listviewdragndrop.h"
-#include "chatmessagesitemdelegate.h"
+﻿#include "widgets/listviewdragndrop.h"
+#include "delegates/chatmessagesitemdelegate.h"
 #include "QScrollBar"
 
 ListViewDragNDrop::ListViewDragNDrop (QWidget *parent)

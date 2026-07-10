@@ -1,11 +1,11 @@
-#ifndef FILESERVICE_H
+﻿#ifndef FILESERVICE_H
 #define FILESERVICE_H
 
 #include <QObject>
 #include <QtNetwork/QNetworkAccessManager>
 #include <QtNetwork/QNetworkReply>
-#include "errortypes.h"
-#include "endpoints.h"
+#include "utils/errortypes.h"
+#include "utils/endpoints.h"
 
 
 struct ParsedUploadedFileInfo

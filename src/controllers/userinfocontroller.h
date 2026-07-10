@@ -1,8 +1,8 @@
-#ifndef USERINFOCONTROLLER_H
+﻿#ifndef USERINFOCONTROLLER_H
 #define USERINFOCONTROLLER_H
 
 #include <QObject>
-#include "userinfoservice.h"
+#include "services/userinfoservice.h"
 
 // Принимает запросы от UI, дергает UserInfoService, возвращает результат через сигналы.
 class UserInfoController : public QObject

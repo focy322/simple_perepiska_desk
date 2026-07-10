@@ -1,5 +1,5 @@
-#include "searchitemdelegate.h"
-#include "searchlistmodel.h"
+﻿#include "delegates/searchitemdelegate.h"
+#include "models/searchlistmodel.h"
 
 #include <QApplication>
 #include <QPainter>

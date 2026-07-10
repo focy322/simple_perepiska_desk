@@ -1,4 +1,4 @@
-#ifndef WEBSOCKETSERVICE_H
+﻿#ifndef WEBSOCKETSERVICE_H
 #define WEBSOCKETSERVICE_H
 
 #include <QObject>
@@ -8,9 +8,9 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include "errortypes.h"
-#include "chatservice.h"
-#include "endpoints.h"
+#include "utils/errortypes.h"
+#include "services/chatservice.h"
+#include "utils/endpoints.h"
 
 struct ParsedMessageAcceptedObject
 {

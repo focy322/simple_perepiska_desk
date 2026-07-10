@@ -1,5 +1,5 @@
-#include "fileservice.h"
-#include "paths.h"
+﻿#include "services/fileservice.h"
+#include "utils/paths.h"
 
 #include <QUrlQuery>
 #include <QJsonDocument>

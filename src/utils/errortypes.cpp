@@ -1,4 +1,4 @@
-#include "errortypes.h"
+﻿#include "utils/errortypes.h"
 
 QString generateMessageForError(ERROR_TYPES error)
 {

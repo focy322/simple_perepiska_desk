@@ -1,8 +1,8 @@
-#ifndef FILESCONTROLLER_H
+﻿#ifndef FILESCONTROLLER_H
 #define FILESCONTROLLER_H
 
 #include <QObject>
-#include "fileservice.h"
+#include "services/fileservice.h"
 
 class FilesController : public QObject
 {

@@ -1,4 +1,4 @@
-#ifndef MAINWINDOW_H
+﻿#ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
 #include <QPushButton>
@@ -7,17 +7,18 @@
 #include <QPointer>
 #include <QMainWindow>
 #include <QStackedWidget>
-#include "chatlistmodel.h"
-#include "chatmessagesitemdelegate.h"
-#include "chatmessageslistmodel.h"
-#include "authcontroller.h"
-#include "userinfocontroller.h"
-#include "chatscontroller.h"
-#include "websocketcontroller.h"
-#include "searchlistmodel.h"
 #include <QUuid>
 #include <QSoundEffect>
-#include "filescontroller.h"
+
+#include "models/chatlistmodel.h"
+#include "models/chatmessageslistmodel.h"
+#include "models/searchlistmodel.h"
+#include "delegates/chatmessagesitemdelegate.h"
+#include "controllers/authcontroller.h"
+#include "controllers/userinfocontroller.h"
+#include "controllers/chatscontroller.h"
+#include "controllers/websocketcontroller.h"
+#include "controllers/filescontroller.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {

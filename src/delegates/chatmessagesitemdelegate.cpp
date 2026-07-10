@@ -1,5 +1,5 @@
-#include "chatmessagesitemdelegate.h"
-#include "chatmessageslistmodel.h"
+﻿#include "delegates/chatmessagesitemdelegate.h"
+#include "models/chatmessageslistmodel.h"
 
 #include <climits>
 #include <QDateTime>

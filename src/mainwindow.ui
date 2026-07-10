@@ -925,7 +925,7 @@ border-bottom: 1px solid #2A3037;</string>
   <customwidget>
    <class>ListViewDragNDrop</class>
    <extends>QListView</extends>
-   <header>listviewdragndrop.h</header>
+   <header>widgets/listviewdragndrop.h</header>
   </customwidget>
  </customwidgets>
  <resources>

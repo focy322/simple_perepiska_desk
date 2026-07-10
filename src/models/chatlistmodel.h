@@ -1,10 +1,10 @@
-#ifndef CHATLISTMODEL_H
+﻿#ifndef CHATLISTMODEL_H
 #define CHATLISTMODEL_H
 
 #include <QAbstractListModel>
 #include <vector>
 
-#include "chatservice.h"
+#include "services/chatservice.h"
 
 class ChatListModel : public QAbstractListModel
 {

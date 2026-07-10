@@ -1,12 +1,12 @@
-#ifndef AUTHSERVICE_H
+﻿#ifndef AUTHSERVICE_H
 #define AUTHSERVICE_H
-#include "errortypes.h"
+#include "utils/errortypes.h"
 #include <QObject>
 #include <QtNetwork/QNetworkAccessManager>
 #include <QtNetwork/QNetworkReply>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include "endpoints.h"
+#include "utils/endpoints.h"
 
 // Содержит правила регистрации/входа и работу с данными пользователей, без UI-зависимостей.
 class AuthService : public QObject

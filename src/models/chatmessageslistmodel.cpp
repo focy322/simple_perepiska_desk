@@ -1,4 +1,4 @@
-#include "chatmessageslistmodel.h"
+﻿#include "models/chatmessageslistmodel.h"
 
 ChatMessagesListModel::ChatMessagesListModel(QObject *parent)
     : QAbstractListModel(parent)
