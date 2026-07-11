@@ -5,4 +5,7 @@
     <qresource prefix="/images">
         <file>enot.png</file>
     </qresource>
+    <qresource prefix="/icons">
+        <file>circle.svg</file>
+    </qresource>
 </RCC>

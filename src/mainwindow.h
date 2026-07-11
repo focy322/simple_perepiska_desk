@@ -51,6 +51,11 @@ protected:
       */
     bool eventFilter(QObject *obj, QEvent *event) override;
 
+    /**
+     * Обработка нативных событий Windows для изменения размера окна
+     */
+    bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
+
 private slots:
     /**
       * При выборе чата из списка чатов в messagesView (chatName) выводит его название

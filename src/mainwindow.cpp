@@ -3,6 +3,12 @@
 #include "delegates/chatlistitemdelegate.h"
 #include "delegates/searchitemdelegate.h"
 #include "utils/paths.h"
+#include "widgets/customtitlebar.h"
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <windowsx.h>
+#endif
 
 #include <keychain.h>
 
@@ -43,6 +49,13 @@ MainWindow::MainWindow(QWidget *parent)
     , filesController(new FilesController(this))
 {
     ui->setupUi(this);
+
+    // Оставляем стандартные флаги окна, чтобы Windows продолжала считать окно обычным 
+    // (сохраняются нативные анимации, Aero Snap, двойной клик). Рамка будет скрыта через WM_NCCALCSIZE.
+    setWindowFlags(Qt::Window | Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
+    CustomTitleBar *titleBar = new CustomTitleBar(this);
+    setMenuWidget(titleBar);
+
     notificationSound->setSource(QUrl("qrc:/sounds/newMessageSound"));
     notificationSound->setVolume(1.f);
     QDir().mkpath(appDownloadsDir);
@@ -509,6 +522,99 @@ void MainWindow::switchPageWithFadeAnimation(QStackedWidget *stackedWidget, QWid
     });
 
     fadeOut->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
+{
+#ifdef Q_OS_WIN
+    MSG *msg = static_cast<MSG *>(message);
+    if (msg->message == WM_NCCALCSIZE) {
+        if (msg->wParam == TRUE) {
+            NCCALCSIZE_PARAMS *params = reinterpret_cast<NCCALCSIZE_PARAMS *>(msg->lParam);
+            if (IsZoomed(msg->hwnd)) {
+                HMONITOR monitor = MonitorFromWindow(msg->hwnd, MONITOR_DEFAULTTONULL);
+                if (monitor) {
+                    MONITORINFO mi;
+                    mi.cbSize = sizeof(mi);
+                    GetMonitorInfoW(monitor, &mi);
+                    params->rgrc[0] = mi.rcWork;
+                }
+            }
+            *result = 0;
+            return true;
+        }
+        return false;
+    }
+
+    if (msg->message == WM_GETMINMAXINFO) {
+        MINMAXINFO *mmi = reinterpret_cast<MINMAXINFO *>(msg->lParam);
+        HMONITOR monitor = MonitorFromWindow(msg->hwnd, MONITOR_DEFAULTTONEAREST);
+        MONITORINFO mi;
+        mi.cbSize = sizeof(MONITORINFO);
+        if (GetMonitorInfoW(monitor, &mi)) {
+            mmi->ptMaxPosition.x = mi.rcWork.left - mi.rcMonitor.left;
+            mmi->ptMaxPosition.y = mi.rcWork.top - mi.rcMonitor.top;
+            mmi->ptMaxSize.x = mi.rcWork.right - mi.rcWork.left;
+            mmi->ptMaxSize.y = mi.rcWork.bottom - mi.rcWork.top;
+            *result = 0;
+            return true;
+        }
+    }
+
+    if (msg->message == WM_NCHITTEST) {
+        long x = GET_X_LPARAM(msg->lParam);
+        long y = GET_Y_LPARAM(msg->lParam);
+        QPoint pos = mapFromGlobal(QPoint(x, y));
+
+        int border_width = 8; // Ширина зоны для захвата курсором
+
+        bool left = pos.x() < border_width;
+        bool right = pos.x() > width() - border_width;
+        bool top = pos.y() < border_width;
+        bool bottom = pos.y() > height() - border_width;
+
+        if (top && left) {
+            *result = HTTOPLEFT;
+            return true;
+        }
+        if (top && right) {
+            *result = HTTOPRIGHT;
+            return true;
+        }
+        if (bottom && left) {
+            *result = HTBOTTOMLEFT;
+            return true;
+        }
+        if (bottom && right) {
+            *result = HTBOTTOMRIGHT;
+            return true;
+        }
+        if (left) {
+            *result = HTLEFT;
+            return true;
+        }
+        if (right) {
+            *result = HTRIGHT;
+            return true;
+        }
+        if (top) {
+            *result = HTTOP;
+            return true;
+        }
+        if (bottom) {
+            *result = HTBOTTOM;
+            return true;
+        }
+
+        // Если курсор не на краях, но находится на кастомном TitleBar (высота 24px)
+        // и не на кнопках управления (отступ ~90px справа)
+        if (pos.y() < 24 && pos.x() < width() - 90) {
+            *result = HTCAPTION;
+            return true;
+        }
+    }
+#endif
+    return QMainWindow::nativeEvent(eventType, message, result);
 }
 
 void MainWindow::resizeEvent(QResizeEvent *event)
