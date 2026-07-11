@@ -1,4 +1,4 @@
-﻿#ifndef CHATSERVICE_H
+#ifndef CHATSERVICE_H
 #define CHATSERVICE_H
 
 #include <QObject>
@@ -69,6 +69,7 @@ public:
 
     void markMessageRead(const std::pair<quint64, quint64> &msg, const QString &accToken);
 
+    void editMessage(const quint64 messageId, const quint64 chatId, const QString &newText, const QString &accToken);
 
 
 private:
@@ -87,6 +88,7 @@ signals:
     void getChatMessagesFinished(const NetworkResult &res, const unsigned long long chatId = ULONG_LONG_MAX, const std::vector<ParsedChatMessagesArrayObject>& paObjects = {} );
     void createDirectChatInProgress();
     void createDirectChatFinished(const NetworkResult &res);
+    void editMessageFinished(const NetworkResult &res);
 };
 
 

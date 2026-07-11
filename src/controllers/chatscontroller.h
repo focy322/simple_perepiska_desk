@@ -1,4 +1,4 @@
-﻿#ifndef CHATSCONTROLLER_H
+#ifndef CHATSCONTROLLER_H
 #define CHATSCONTROLLER_H
 
 #include <QObject>
@@ -14,6 +14,8 @@ public:
     void requestChatMessages(const unsigned long long &chatId, const QString &accToken);
     void requestCreateDirectChat(const unsigned long long &userId, const QString &accToken);
     void requestMarkMessageRead(const std::pair<quint64, quint64> &msg, const QString &accToken);
+    void requestEditMessage(const quint64 messageId, const quint64 chatId, const QString &newText, const QString &accToken);
+
 
 private:
     ChatService *chatService;   //!< Дергает API-шку
@@ -25,6 +27,7 @@ signals:
     void getChatMessagesFinished(const NetworkResult &res, const unsigned long long chatId = ULONG_LONG_MAX, const std::vector<ParsedChatMessagesArrayObject>& paObjects = {});
     void createDirectChatInProgress();
     void createDirectChatFinished(const NetworkResult &res);
+    void editMessageFinished(const NetworkResult &res);
 };
 
 #endif // CHATSCONTROLLER_H

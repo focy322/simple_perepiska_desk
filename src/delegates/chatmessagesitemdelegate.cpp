@@ -1,4 +1,4 @@
-﻿#include "delegates/chatmessagesitemdelegate.h"
+#include "delegates/chatmessagesitemdelegate.h"
 #include "models/chatmessageslistmodel.h"
 
 #include <climits>
@@ -6,6 +6,8 @@
 #include <QPainter>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QMouseEvent>
+
 
 ChatMessagesItemDelegate::ChatMessagesItemDelegate(QObject *parent)
     : QStyledItemDelegate(parent)
@@ -28,6 +30,7 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
     const bool hasAttachments = !attachments.isEmpty();
     const bool isMine = senderId == m_currentUserId;
     const bool isRead = index.data(ChatMessagesListModel::ReadRole).toBool();
+    const bool isEdited = index.data(ChatMessagesListModel::EditedRole).toBool();
     const quint64 messageId = index.data(ChatMessagesListModel::MessageIdRole).toULongLong();
     const quint64 chatId = index.data(ChatMessagesListModel::ChatIdRole).toULongLong();
 
@@ -50,8 +53,12 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
         QDateTime dt = QDateTime::fromString(timestampIso, Qt::ISODateWithMs);
         if (!dt.isValid())
             dt = QDateTime::fromString(timestampIso, Qt::ISODate);
-        if (dt.isValid())
+        if (dt.isValid()) {
             timeText = dt.toLocalTime().toString("HH:mm");
+            if (isEdited) {
+                timeText = "Ред. " + timeText;
+            }
+        }
     }
 
     QFont timeFont = option.font;
@@ -97,7 +104,12 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
                               Qt::TextWordWrap,
                               safeMessage)
         : QRect(0, 0, 0, 0);
-    const int bubbleWidth = qMax(60, contentWidth + horizontalPadding * 2);
+
+    const int statusReserve = isMine ? 18 : 0;
+    const int timeTextWidth = timeText.isEmpty() ? 0 : QFontMetrics(timeFont).horizontalAdvance(timeText);
+    const int bottomWidth = timeTextWidth + statusReserve;
+    const int trueContentWidth = qMax(attachmentsMaxWidth, qMax(hasMessage ? textBounds.width() : 0, bottomWidth));
+    const int bubbleWidth = qMax(60, trueContentWidth + horizontalPadding * 2);
     const int bubbleHeight = textBounds.height() + verticalPadding * 2 + statusHeight
         + (hasAttachments ? attachmentsHeight : 0)
         + (hasAttachments && hasMessage ? attachmentsBlockSpacing : 0);
@@ -232,9 +244,28 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
             painter->drawLine(p1, p2);
             painter->drawLine(p2, p3);
         }
+
+        if (option.state & QStyle::State_MouseOver)
+        {
+            const int btnSize = 24;
+            QRect editBtnRect(bubbleX - btnSize - 8, rowRect.center().y() - btnSize / 2, btnSize, btnSize);
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(QColor(0, 0, 0, 15));
+            painter->drawEllipse(editBtnRect);
+            
+            painter->setPen(QColor(100, 100, 100));
+            QFont iconFont = option.font;
+            iconFont.setPointSize(12);
+            painter->setFont(iconFont);
+            painter->drawText(editBtnRect, Qt::AlignCenter, "✎");
+            m_editBtnRects[messageId] = editBtnRect;
+        } else {
+            m_editBtnRects.remove(messageId);
+        }
     }
     else
     {
+        m_editBtnRects.remove(messageId);
         if (!isRead)
             setLastReadMessage(chatId, messageId);
     }
@@ -307,4 +338,27 @@ QSize ChatMessagesItemDelegate::sizeHint(const QStyleOptionViewItem &option, con
 void ChatMessagesItemDelegate::setLastReadMessage(const quint64 chatId, const quint64 MessageId) const
 {
     lastReadMessage = {chatId, MessageId};
+}
+
+bool ChatMessagesItemDelegate::editorEvent(QEvent *event, QAbstractItemModel *model, const QStyleOptionViewItem &option, const QModelIndex &index)
+{
+    if (event->type() == QEvent::MouseButtonRelease) {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+        if (mouseEvent->button() == Qt::LeftButton) {
+            const unsigned long long senderId = index.data(ChatMessagesListModel::SenderIdRole).toULongLong();
+            const bool isMine = senderId == m_currentUserId;
+            
+            if (isMine) {
+                const quint64 messageId = index.data(ChatMessagesListModel::MessageIdRole).toULongLong();
+                QRect editBtnRect = m_editBtnRects.value(messageId);
+                
+                if (editBtnRect.isValid() && editBtnRect.contains(mouseEvent->pos())) {
+                    const QString messageText = index.data(ChatMessagesListModel::MessageTextRole).toString().trimmed();
+                    emit editMessageRequested(messageId, messageText);
+                    return true;
+                }
+            }
+        }
+    }
+    return QStyledItemDelegate::editorEvent(event, model, option, index);
 }

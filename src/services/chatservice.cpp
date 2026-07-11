@@ -1,4 +1,4 @@
-﻿#include "services/chatservice.h"
+#include "services/chatservice.h"
 #include <cmath>
 #include <algorithm>
 #include <QUrlQuery>
@@ -316,3 +316,41 @@ void ChatService::markMessageRead(const std::pair<quint64, quint64> &msg, const 
 
 }
 
+void ChatService::editMessage(const quint64 messageId, const quint64 chatId, const QString &newText, const QString &accToken)
+{
+    QUrl url(baseUrl + QString("/api/messages/%1").arg(messageId));
+    QUrlQuery query;
+    query.addQueryItem("chat_id", QString::number(chatId));
+    url.setQuery(query);
+
+    QNetworkRequest req(url);
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    req.setRawHeader("Authorization", "Bearer " + accToken.toUtf8());
+
+    QJsonObject json;
+    json["edited_message"] = newText;
+    QJsonDocument doc(json);
+
+    QNetworkReply *reply = network->sendCustomRequest(req, "PATCH", doc.toJson());
+    connect(reply, &QNetworkReply::finished, this, [this, reply](){
+        auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (reply->error() != QNetworkReply::NoError && httpCode == 0)
+        {
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            emit editMessageFinished(res);
+            reply->deleteLater();
+            return;
+        }
+        if (httpCode == 200)
+        {
+            NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
+            emit editMessageFinished(res);
+        }
+        else
+        {
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            emit editMessageFinished(res);
+        }
+        reply->deleteLater();
+    });
+}

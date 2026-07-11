@@ -1,4 +1,4 @@
-﻿#include "controllers/chatscontroller.h"
+#include "controllers/chatscontroller.h"
 
 ChatsController::ChatsController(QObject *parent)
     : QObject{parent}
@@ -10,6 +10,7 @@ ChatsController::ChatsController(QObject *parent)
     connect(chatService, &ChatService::getChatMessagesFinished, this, &ChatsController::getChatMessagesFinished);
     connect(chatService, &ChatService::createDirectChatInProgress, this, &ChatsController::createDirectChatInProgress);
     connect(chatService, &ChatService::createDirectChatFinished, this, &ChatsController::createDirectChatFinished);
+    connect(chatService, &ChatService::editMessageFinished, this, &ChatsController::editMessageFinished);
 
 }
 
@@ -33,3 +34,7 @@ void ChatsController::requestMarkMessageRead(const std::pair<quint64, quint64> &
     chatService->markMessageRead(msg, accToken);
 }
 
+void ChatsController::requestEditMessage(const quint64 messageId, const quint64 chatId, const QString &newText, const QString &accToken)
+{
+    chatService->editMessage(messageId, chatId, newText, accToken);
+}

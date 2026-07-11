@@ -1,4 +1,4 @@
-﻿#ifndef MAINWINDOW_H
+#ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
 #include <QPushButton>
@@ -170,6 +170,9 @@ private slots:
 
     void on_socketDisonnectionFinished(const NetworkResult &res);
 
+    void onEditMessageRequested(quint64 messageId, const QString &currentText);
+    void on_editMessageFinished(const NetworkResult &res);
+
     void on_sendingMessageInProgress();
 
     void on_sendingMessageFinished(const NetworkResult &res);
@@ -218,6 +221,9 @@ private:
     QHash<unsigned long long, ParsedChatMessagesArrayObject> draftsByChatId;  //!< Черновики сообщений по chatId
     QString currentChatName;                            //!< Название текущего открытого чата
     unsigned long long currentChatId;                   //!< Id текущего открытого чата
+
+    quint64 editingMessageId = ULONG_LONG_MAX;          //!< Id редактируемого в данный момент сообщения
+
     QPushButton *logOutBtn;                             //!< Кнопка выхода из аккаунта
     AuthController *authController;                     //!< Принимает запросы от UI, дергает AuthService, возвращает результат через сигналы.
     bool isAuthorized;                                  //!< Флаг авторизации пользователя

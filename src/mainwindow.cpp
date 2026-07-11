@@ -1,4 +1,4 @@
-﻿#include "mainwindow.h"
+#include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "delegates/chatlistitemdelegate.h"
 #include "delegates/searchitemdelegate.h"
@@ -85,7 +85,9 @@ MainWindow::MainWindow(QWidget *parent)
     // Изменение высоты строки ввода собщения при переносе строки
     connect(ui->messageInput, &QTextEdit::textChanged, this, &MainWindow::on_textChanged);
 
-
+    ui->messagesView->setMouseTracking(true);
+    connect(messagesItemDelegate, &ChatMessagesItemDelegate::editMessageRequested, this, &MainWindow::onEditMessageRequested);
+    connect(chatsController, &ChatsController::editMessageFinished, this, &MainWindow::on_editMessageFinished);
 
     ui->chatsView->setModel(chatsListModel);
     ui->chatsView->setItemDelegate(new ChatListItemDelegate(ui->chatsView));
@@ -105,7 +107,6 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
-    //TODO: записывать refreshToken в файл при выходе
     delete ui;
 }
 
@@ -157,6 +158,29 @@ void MainWindow::on_sendMessageBtn_clicked()
             && (!msgToSend.trimmed().isEmpty() || hasDraftAttachments); // Условия для отправки сообщения
     if (condToSendMsg)
     {
+        if (editingMessageId != ULONG_LONG_MAX)
+        {
+            chatsController->requestEditMessage(editingMessageId, currentChatId, msgToSend, accessToken);
+            
+            auto chatIt = chatMessages.find(currentChatId);
+            if (chatIt != chatMessages.end())
+            {
+                for (auto &msg : chatIt.value())
+                {
+                    if (msg.messageId == editingMessageId)
+                    {
+                        msg.message = msgToSend;
+                        msg.edited = true;
+                        break;
+                    }
+                }
+                messagesListModel->setMessages(chatIt.value());
+            }
+            ui->messageInput->clear();
+            editingMessageId = ULONG_LONG_MAX;
+            return;
+        }
+
         ParsedChatMessagesArrayObject localMessage;
         localMessage.chatId = currentChatId;
         localMessage.senderId = myUserId;
@@ -463,7 +487,7 @@ void MainWindow::switchPageWithFadeAnimation(QStackedWidget *stackedWidget, QWid
     fadeOut->setStartValue(1.0);
     fadeOut->setEndValue(0.0);
 
-    connect(fadeOut, &QPropertyAnimation::finished, this, [=]() {
+    connect(fadeOut, &QPropertyAnimation::finished, this, [=, this]() {
         stackedWidget->setCurrentWidget(newPage);
         oldPage->setGraphicsEffect(nullptr);
 
@@ -473,7 +497,7 @@ void MainWindow::switchPageWithFadeAnimation(QStackedWidget *stackedWidget, QWid
         fadeIn->setDuration(300);
         fadeIn->setStartValue(0.0);
         fadeIn->setEndValue(1.0);
-        connect(fadeIn, &QPropertyAnimation::finished, this, [=]() {
+        connect(fadeIn, &QPropertyAnimation::finished, this, [=, this]() {
             newPage->setGraphicsEffect(nullptr);
         });
         fadeIn->start(QAbstractAnimation::DeleteWhenStopped);
@@ -1173,3 +1197,16 @@ void MainWindow::on_downloadFileFinished(const NetworkResult &res, const ParsedD
 
 }
 
+void MainWindow::onEditMessageRequested(quint64 messageId, const QString &currentText)
+{
+    editingMessageId = messageId;
+    ui->messageInput->setText(currentText);
+    ui->messageInput->setFocus();
+}
+
+void MainWindow::on_editMessageFinished(const NetworkResult &res)
+{
+    if (!res.ok) {
+        // TODO: handle error
+    }
+}
