@@ -95,6 +95,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->searchView->setItemDelegate(new SearchItemDelegate(ui->searchView));
     ui->messagesView->setModel(messagesListModel);
     ui->messagesView->setItemDelegate(messagesItemDelegate);
+    ui->messagesView->setResizeMode(QListView::Adjust);
+    ui->messagesView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->loadingAndContentWidgets->setCurrentWidget(ui->loadingPage);
     ui->chatsAndSearchListsWidgets->setCurrentWidget(ui->chatsListPage);
     ui->searchInput->installEventFilter(this);

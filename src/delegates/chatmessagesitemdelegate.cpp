@@ -38,7 +38,7 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
     painter->setRenderHint(QPainter::Antialiasing, true);
 
     const QRect rowRect = option.rect.adjusted(8, 4, -8, -4);
-    const int maxBubbleWidth = static_cast<int>(rowRect.width() * 0.72);
+    const int maxBubbleWidth = qMax(200, static_cast<int>(rowRect.width() * 0.72));
     const int horizontalPadding = 12;
     const int verticalPadding = 8;
 
@@ -282,7 +282,8 @@ QSize ChatMessagesItemDelegate::sizeHint(const QStyleOptionViewItem &option, con
     const bool hasMessage = !messageText.isEmpty();
     const QString safeMessage = hasMessage ? messageText : QString();
 
-    const int maxBubbleWidth = 340;
+    const QRect rowRect = option.rect.adjusted(8, 4, -8, -4);
+    const int maxBubbleWidth = qMax(200, static_cast<int>(rowRect.width() * 0.72));
     const int horizontalPadding = 12;
     const int verticalPadding = 8;
 
