@@ -8,7 +8,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-# Ищем Qt 6
+# Настройка Qt6
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Network WebSockets Multimedia Widgets)
 
 # --- Управление зависимостями ---
@@ -22,10 +22,10 @@ FetchContent_Declare(
 set(BUILD_WITH_QT6 ON CACHE BOOL "Сборка с Qt 6" FORCE)
 set(BUILD_TRANSLATIONS OFF CACHE BOOL "Сборка переводов" FORCE)
 set(BUILD_TEST_APPLICATION OFF CACHE BOOL "Сборка тестового приложения" FORCE)
+
 # Собираем как статическую библиотеку, чтобы избежать проблем с DLL на Windows
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Сборка qtkeychain как статической библиотеки" FORCE) 
 FetchContent_MakeAvailable(qtkeychain)
-# -----------------------------
 
 # Автоматически находим все файлы в нужных папках                                                                                                                                                    
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp")                                                                                                                                             

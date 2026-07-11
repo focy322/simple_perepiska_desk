@@ -359,6 +359,19 @@ bool ChatMessagesItemDelegate::editorEvent(QEvent *event, QAbstractItemModel *mo
                 }
             }
         }
+    } else if (event->type() == QEvent::MouseButtonDblClick) {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+        if (mouseEvent->button() == Qt::LeftButton) {
+            const unsigned long long senderId = index.data(ChatMessagesListModel::SenderIdRole).toULongLong();
+            const bool isMine = senderId == m_currentUserId;
+            
+            if (isMine) {
+                const quint64 messageId = index.data(ChatMessagesListModel::MessageIdRole).toULongLong();
+                const QString messageText = index.data(ChatMessagesListModel::MessageTextRole).toString().trimmed();
+                emit editMessageRequested(messageId, messageText);
+                return true;
+            }
+        }
     }
     return QStyledItemDelegate::editorEvent(event, model, option, index);
 }

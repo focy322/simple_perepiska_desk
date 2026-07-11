@@ -98,6 +98,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->loadingAndContentWidgets->setCurrentWidget(ui->loadingPage);
     ui->chatsAndSearchListsWidgets->setCurrentWidget(ui->chatsListPage);
     ui->searchInput->installEventFilter(this);
+    ui->messageInput->installEventFilter(this);
     setUpLogOutBtn();
 
     tryAuthorize();
@@ -125,6 +126,7 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
         if (chatIt != chatMessages.constEnd())
         {
             messagesListModel->setMessages(chatIt.value());
+            ui->messagesView->scrollToBottom();
         } else
         {
             messagesListModel->clear();
@@ -199,6 +201,7 @@ void MainWindow::on_sendMessageBtn_clicked()
         chatMessages[currentChatId].push_back(localMessage);
         messagesListModel->appendMessage(localMessage);
         websocketController->requestSendMessage(localMessage);
+        ui->messagesView->scrollToBottom();
         ui->messageInput->clear();
         draftsByChatId.remove(currentChatId);
 
@@ -526,6 +529,36 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
             //ui->chatsAndSearchListsWidgets->setCurrentWidget(ui->chatsListPage);
             ui->searchInput->clear();
         }
+    } else if (obj == ui->messageInput && event->type() == QEvent::KeyPress) {
+        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+        if (keyEvent->key() == Qt::Key_Up) {
+            if (ui->messageInput->toPlainText().isEmpty() && editingMessageId == ULONG_LONG_MAX) {
+                if (chatMessages.contains(currentChatId)) {
+                    const auto &msgs = chatMessages[currentChatId];
+                    for (auto it = msgs.rbegin(); it != msgs.rend(); ++it) {
+                        if (it->senderId == myUserId) {
+                            onEditMessageRequested(it->messageId, it->message);
+                            return true;
+                        }
+                    }
+                }
+            }
+        } else if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
+            if (keyEvent->modifiers() & Qt::ShiftModifier || keyEvent->modifiers() & Qt::ControlModifier) {
+                QTextCursor cursor = ui->messageInput->textCursor();
+                cursor.insertBlock();
+                return true;
+            } else {
+                on_sendMessageBtn_clicked();
+                return true;
+            }
+        } else if (keyEvent->key() == Qt::Key_Escape) {
+            if (editingMessageId != ULONG_LONG_MAX) {
+                editingMessageId = ULONG_LONG_MAX;
+                ui->messageInput->clear();
+                return true;
+            }
+        }
     }
 
     return QMainWindow::eventFilter(obj, event); // Важно пробросить событие дальше
@@ -649,8 +682,10 @@ void MainWindow::on_getChatMessagesFinished(const NetworkResult &res, const unsi
             // TODO: одинаковые сообещения накладываются друг на друга сверху
             //chatMessages[chatId].insert(chatMessages[chatId].cbegin(), paObjects.cbegin(), paObjects.cend());
             chatMessages[chatId] = paObjects; // TODO: если работает то что выше то это удалить
-            if (currentChatId == chatId)
+            if (currentChatId == chatId) {
                 messagesListModel->setMessages(chatMessages[chatId]);
+                ui->messagesView->scrollToBottom();
+            }
             //messagesListModel->setMessages(paObjects); // TODO: если работает то что выше то это удалить
         }
         qDebug() << "on_getChatMessagesFinished = true!!!";
