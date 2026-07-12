@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <ui version="4.0">
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
@@ -23,7 +23,7 @@
    <string>MainWindow</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">QMainWindow, QWidget { background-color: #272f39; color: #E6E8EB; font-family: &quot;Segoe UI&quot;; }
+   <string notr="true">QMainWindow, QWidget { background-color: #272f39; color: #E6E8EB; font-family: "Segoe UI"; }
 QLabel { color: #E6E8EB; }
 QLineEdit { background-color: #1B1F24; color: #E6E8EB; border: 1px solid #2A3037; selection-background-color: #2F6BFF; }
 QLineEdit:focus { border: 1px solid #3E7BFF; }
@@ -31,13 +31,6 @@ QTextEdit { background-color: #272f39; color: #E6E8EB; border: none; padding: 6p
 QTextEdit:focus { border: none; }
 QPushButton { background-color: #242A31; color: #E6E8EB; border: 1px solid #2F3740; border-radius: 6px; padding: 6px 10px; }
 QPushButton:hover { background-color: #3a4551; }
-QPushButton#sendMessageBtn 
-{
-    background-color: #272f39;
-    border:none;
-    border-radius:none;
-}
-QPushButton#sendMessageBtn:hover { background-color: #3a4551; }
 QPushButton:pressed { background-color: #1F252B; }
 QListView { background-color: #14181C; border: none; }
 QScrollBar:vertical { background: #111418; width: 10px; margin: 2px; }
@@ -103,7 +96,7 @@ QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #1
               </size>
              </property>
              <property name="text">
-              <string/>
+              <string />
              </property>
              <property name="pixmap">
               <pixmap>:/images/enot.png</pixmap>
@@ -154,7 +147,7 @@ QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #1
             </sizepolicy>
            </property>
            <property name="styleSheet">
-            <string notr="true"/>
+            <string notr="true" />
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_3">
             <property name="leftMargin">
@@ -239,7 +232,7 @@ QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #1
                         </size>
                        </property>
                        <property name="text">
-                        <string/>
+                        <string />
                        </property>
                        <property name="alignment">
                         <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -292,10 +285,10 @@ QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #1
                           </sizepolicy>
                          </property>
                          <property name="text">
-                          <string/>
+                          <string />
                          </property>
                          <property name="icon">
-                          <iconset theme="edit-find"/>
+                          <iconset theme="edit-find" />
                          </property>
                         </widget>
                        </item>
@@ -449,7 +442,7 @@ QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #1
                         </size>
                        </property>
                        <property name="text">
-                        <string/>
+                        <string />
                        </property>
                        <property name="alignment">
                         <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -502,10 +495,10 @@ QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #1
                           </sizepolicy>
                          </property>
                          <property name="text">
-                          <string/>
+                          <string />
                          </property>
                          <property name="icon">
-                          <iconset theme="edit-find"/>
+                          <iconset theme="edit-find" />
                          </property>
                         </widget>
                        </item>
@@ -538,10 +531,10 @@ QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #1
                           </sizepolicy>
                          </property>
                          <property name="text">
-                          <string/>
+                          <string />
                          </property>
                          <property name="icon">
-                          <iconset theme="edit-find"/>
+                          <iconset theme="edit-find" />
                          </property>
                         </widget>
                        </item>
@@ -629,180 +622,210 @@ QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #1
            </layout>
           </widget>
           <widget class="QWidget" name="pageApp">
+           <property name="styleSheet">
+            <string notr="true">QWidget#pageApp { background-color: #0A0A0A; }</string>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
            </property>
-           <layout class="QHBoxLayout" name="horizontalLayout_10" stretch="3,7">
+           <layout class="QHBoxLayout" name="horizontalLayout_10">
             <property name="spacing">
-             <number>0</number>
+             <number>20</number>
             </property>
             <property name="leftMargin">
-             <number>0</number>
+             <number>20</number>
             </property>
             <property name="topMargin">
-             <number>0</number>
+             <number>20</number>
             </property>
             <property name="rightMargin">
-             <number>0</number>
+             <number>20</number>
             </property>
             <property name="bottomMargin">
-             <number>0</number>
+             <number>20</number>
             </property>
             <item>
-             <layout class="QVBoxLayout" name="chatsListWithSearchListAndSearchInputLayout" stretch="0,0">
+         <widget class="QWidget" name="narrowLeftPanel">
+           <property name="styleSheet">
+            <string notr="true">QWidget#narrowLeftPanel { background-color: #141414; border-radius: 20px; }</string>
+           </property>
+          <property name="minimumSize">
+           <size>
+            <width>85</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>85</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_narrowLeft">
+           <property name="spacing">
+            <number>15</number>
+           </property>
+           <property name="leftMargin">
+            <number>20</number>
+           </property>
+           <property name="topMargin">
+            <number>10</number>
+           </property>
+           <property name="bottomMargin">
+            <number>10</number>
+           </property>
+           <property name="rightMargin">
+            <number>15</number>
+           </property>
+           <item>
+             <layout class="QHBoxLayout" name="topPanelLayout">
               <property name="spacing">
-               <number>0</number>
+               <number>10</number>
               </property>
-              <property name="leftMargin">
-               <number>0</number>
-              </property>
-              <item>
-               <widget class="QLineEdit" name="searchInput">
+              <item alignment="Qt::AlignLeft">
+               <widget class="QLabel" name="appIcon">
                 <property name="minimumSize">
                  <size>
-                  <width>0</width>
-                  <height>30</height>
+                  <width>50</width>
+                  <height>50</height>
                  </size>
                 </property>
-                <property name="acceptDrops">
-                 <bool>false</bool>
+                <property name="maximumSize">
+                 <size>
+                  <width>50</width>
+                  <height>50</height>
+                 </size>
                 </property>
-                <property name="placeholderText">
-                 <string>Поиск</string>
+                <property name="styleSheet">
+                 <string notr="true">background-color: transparent;</string>
+                </property>
+                <property name="pixmap">
+                 <pixmap>:/images/enot.png</pixmap>
+                </property>
+                <property name="scaledContents">
+                 <bool>true</bool>
                 </property>
                </widget>
               </item>
               <item>
-               <widget class="QStackedWidget" name="chatsAndSearchListsWidgets">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
+               <widget class="QLineEdit" name="searchInput">
+                <property name="placeholderText">
+                 <string>Поиск...</string>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>0</width>
+                  <height>35</height>
+                 </size>
                 </property>
                 <property name="styleSheet">
-                 <string notr="true">background-color: #14181C;</string>
+                 <string notr="true">QLineEdit { background-color: #1B1F24; color: #E6E8EB; border: 1px solid #2A3037; border-radius: 17px; padding: 0 15px; selection-background-color: #2F6BFF; } QLineEdit:focus { border: 1px solid #3E7BFF; }</string>
                 </property>
-                <property name="currentIndex">
-                 <number>0</number>
-                </property>
-                <widget class="QWidget" name="chatsListPage">
-                 <property name="layoutDirection">
-                  <enum>Qt::LayoutDirection::LeftToRight</enum>
-                 </property>
-                 <property name="autoFillBackground">
-                  <bool>false</bool>
-                 </property>
-                 <layout class="QHBoxLayout" name="horizontalLayout_2">
-                  <property name="spacing">
-                   <number>0</number>
-                  </property>
-                  <property name="leftMargin">
-                   <number>0</number>
-                  </property>
-                  <property name="topMargin">
-                   <number>0</number>
-                  </property>
-                  <property name="rightMargin">
-                   <number>0</number>
-                  </property>
-                  <property name="bottomMargin">
-                   <number>0</number>
-                  </property>
-                  <item>
-                   <widget class="QListView" name="chatsView">
-                    <property name="styleSheet">
-                     <string notr="true">background-color: #14181C;
-border: none;
-border-right: 1px solid #2A3037;
-</string>
-                    </property>
-                    <property name="editTriggers">
-                     <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
-                    </property>
-                    <property name="spacing">
-                     <number>0</number>
-                    </property>
-                   </widget>
-                  </item>
-                 </layout>
-                </widget>
-                <widget class="QWidget" name="searchListPage">
-                 <layout class="QHBoxLayout" name="horizontalLayout_3">
-                  <property name="spacing">
-                   <number>0</number>
-                  </property>
-                  <property name="leftMargin">
-                   <number>0</number>
-                  </property>
-                  <property name="topMargin">
-                   <number>0</number>
-                  </property>
-                  <property name="rightMargin">
-                   <number>0</number>
-                  </property>
-                  <property name="bottomMargin">
-                   <number>0</number>
-                  </property>
-                  <item>
-                   <widget class="QListView" name="searchView">
-                    <property name="styleSheet">
-                     <string notr="true">background-color: #14181C;
-border: none;
-border-right: 1px solid #2A3037;
-</string>
-                    </property>
-                   </widget>
-                  </item>
-                 </layout>
-                </widget>
                </widget>
               </item>
              </layout>
             </item>
-            <item>
-             <layout class="QVBoxLayout" name="messagesViewLayout" stretch="0,10,0">
+           <item>
+            <widget class="QListView" name="chatsView">
+             <property name="styleSheet">
+              <string notr="true">background-color: transparent; border: none;</string>
+             </property>
+             <property name="horizontalScrollBarPolicy">
+              <enum>Qt::ScrollBarAlwaysOff</enum>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QFrame" name="horizontalLine">
+             <property name="frameShape">
+              <enum>QFrame::HLine</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Sunken</enum>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">background-color: #333333;</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="userInfoLayout">
+             <property name="spacing">
+              <number>10</number>
+             </property>
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QLabel" name="currentUserAvatar">
+               <property name="minimumSize">
+                <size>
+                 <width>50</width>
+                 <height>50</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>50</width>
+                 <height>50</height>
+                </size>
+               </property>
+               <property name="styleSheet">
+                <string notr="true">background-color: #333333; border-radius: 25px;</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="currentUserName">
+               <property name="text">
+                <string></string>
+               </property>
+               <property name="styleSheet">
+                <string notr="true">color: #E6E8EB; font-size: 16px; font-weight: bold; background-color: #141414;</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_userInfo">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item><item>
+             <layout class="QGridLayout" name="messagesViewLayout">
               <property name="spacing">
                <number>0</number>
               </property>
-              <item>
-               <widget class="QLabel" name="chatName">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>0</width>
-                  <height>30</height>
-                 </size>
-                </property>
-                <property name="styleSheet">
-                 <string notr="true">background-color: #191E23;
-color: #E6E8EB;
-border-bottom: 1px solid #2A3037;</string>
-                </property>
-                <property name="text">
-                 <string>Выберите чат</string>
-                </property>
-                <property name="alignment">
-                 <set>Qt::AlignmentFlag::AlignCenter</set>
-                </property>
-               </widget>
-              </item>
-              <item>
+              <item row="0" column="0">
                <widget class="ListViewDragNDrop" name="messagesView">
                 <property name="acceptDrops">
                  <bool>true</bool>
                 </property>
                 <property name="styleSheet">
-                 <string notr="true">background-color: #191E23;
-</string>
+                 <string notr="true">background-color: transparent; border: none;</string>
                 </property>
                 <property name="editTriggers">
                  <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
@@ -815,11 +838,159 @@ border-bottom: 1px solid #2A3037;</string>
                 </property>
                </widget>
               </item>
-              <item>
-               <layout class="QHBoxLayout" name="messageInputLayout" stretch="0,0">
+               <item row="0" column="0" alignment="Qt::AlignTop">
+                <widget class="QFrame" name="topMessagesShadow">
+                 <property name="minimumSize">
+                  <size>
+                   <width>0</width>
+                   <height>60</height>
+                  </size>
+                 </property>
+                 <property name="maximumSize">
+                  <size>
+                   <width>16777215</width>
+                   <height>60</height>
+                  </size>
+                 </property>
+                 <property name="styleSheet">
+                  <string notr="true">background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(10, 10, 10, 255), stop:1 rgba(10, 10, 10, 0)); border: none;</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="0" alignment="Qt::AlignTop">
+               <layout class="QHBoxLayout" name="topNameLayout">
                 <property name="spacing">
-                 <number>0</number>
+                 <number>16</number>
                 </property>
+                <property name="topMargin">
+                 <number>10</number>
+                </property>
+                <item>
+                 <spacer name="horizontalSpacerTopLeft">
+                  <property name="orientation">
+                   <enum>Qt::Orientation::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>40</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                 <item>
+                  <widget class="QLabel" name="interlocutorAvatar">
+                   <property name="minimumSize">
+                    <size>
+                     <width>40</width>
+                     <height>40</height>
+                    </size>
+                   </property>
+                   <property name="maximumSize">
+                    <size>
+                     <width>40</width>
+                     <height>40</height>
+                    </size>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">background-color: #333333; border-radius: 20px;</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="interlocutorNameLabel">
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>40</height>
+                   </size>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <family>Segoe UI</family>
+                    <pointsize>10</pointsize>
+                    <bold>true</bold>
+                   </font>
+                  </property>
+                  <property name="styleSheet">
+                   <string notr="true">QLabel#interlocutorNameLabel { background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1E2328, stop:1 #14181C); color: #E6E8EB; border: 1px solid #2A3037; border-top: 1px solid #3a424b; border-radius: 20px; padding: 6px 15px; }</string>
+                  </property>
+                  <property name="text">
+                   <string/>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignmentFlag::AlignCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacerTopRight">
+                  <property name="orientation">
+                   <enum>Qt::Orientation::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>40</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+              <item row="0" column="0" alignment="Qt::AlignBottom">
+               <widget class="QFrame" name="bottomMessagesShadow">
+                <property name="minimumSize">
+                 <size>
+                  <width>0</width>
+                  <height>100</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>16777215</width>
+                  <height>100</height>
+                 </size>
+                </property>
+                <property name="styleSheet">
+                 <string notr="true">background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(10, 10, 10, 0), stop:1 rgba(10, 10, 10, 255)); border: none;</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="0" alignment="Qt::AlignBottom">
+               <layout class="QHBoxLayout" name="messageInputLayout" stretch="0,1,0,0">
+                <property name="bottomMargin"><number>10</number></property><property name="rightMargin"><number>20</number></property><property name="topMargin"><number>10</number></property><property name="leftMargin"><number>20</number></property><property name="spacing">
+                 <number>15</number>
+                </property>
+                <item>
+                 <spacer name="horizontalSpacerInputLeft">
+                  <property name="orientation">
+                   <enum>Qt::Orientation::Horizontal</enum>
+                  </property>
+                 </spacer>
+                </item>
+                 <item>
+                  <widget class="QPushButton" name="attachFileBtn">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="minimumSize">
+                    <size>
+                     <width>40</width>
+                     <height>40</height>
+                    </size>
+                   </property>
+                   <property name="text">
+                    <string>📎</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QPushButton#attachFileBtn { background-color: #141414; color: #E6E8EB; font-size: 20px; border: none; border-radius: 20px; } QPushButton#attachFileBtn:hover { background-color: #333333; }</string>
+                   </property>
+                  </widget>
+                 </item>
                 <item>
                  <widget class="QTextEdit" name="messageInput">
                   <property name="enabled">
@@ -867,7 +1038,7 @@ border-bottom: 1px solid #2A3037;</string>
                   <property name="tabChangesFocus">
                    <bool>true</bool>
                   </property>
-                 </widget>
+                  <property name="styleSheet"><string notr="true">QTextEdit#messageInput { background-color: #141414; color: #E6E8EB; border: 1px solid #333333; border-radius: 20px; padding: 6px 15px; selection-background-color: #555555; } QTextEdit#messageInput:focus { border: 1px solid #666666; }</string></property></widget>
                 </item>
                 <item>
                  <widget class="QPushButton" name="sendMessageBtn">
@@ -889,14 +1060,11 @@ border-bottom: 1px solid #2A3037;</string>
                     <height>0</height>
                    </size>
                   </property>
-                  <property name="styleSheet">
-                   <string notr="true"/>
-                  </property>
                   <property name="text">
-                   <string/>
+                   <string />
                   </property>
                   <property name="icon">
-                   <iconset theme="QIcon::ThemeIcon::MailMessageNew"/>
+                   <iconset theme="QIcon::ThemeIcon::MailMessageNew" />
                   </property>
                   <property name="iconSize">
                    <size>
@@ -904,7 +1072,14 @@ border-bottom: 1px solid #2A3037;</string>
                     <height>16</height>
                    </size>
                   </property>
-                 </widget>
+                  <property name="styleSheet"><string notr="true">QPushButton#sendMessageBtn { background-color: #FFFFFF; border-radius: 20px; } QPushButton#sendMessageBtn:hover { background-color: #E0E0E0; }</string></property></widget>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacerInputRight">
+                  <property name="orientation">
+                   <enum>Qt::Orientation::Horizontal</enum>
+                  </property>
+                 </spacer>
                 </item>
                </layout>
               </item>
@@ -929,7 +1104,7 @@ border-bottom: 1px solid #2A3037;</string>
   </customwidget>
  </customwidgets>
  <resources>
-  <include location="../resources/resources.qrc"/>
+  <include location="../resources/resources.qrc" />
  </resources>
- <connections/>
+ <connections />
 </ui>

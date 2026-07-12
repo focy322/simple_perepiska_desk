@@ -1,4 +1,4 @@
-﻿#include "delegates/searchitemdelegate.h"
+#include "delegates/searchitemdelegate.h"
 #include "models/searchlistmodel.h"
 
 #include <QApplication>
@@ -26,7 +26,9 @@ void SearchItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &op
     style->drawPrimitive(QStyle::PE_PanelItemViewItem, &opt, painter, opt.widget);
 
     const QRect contentRect = opt.rect.adjusted(5, 0, -5, 0);
-    const int avatarSize = 45;
+    QFontMetrics fm(opt.font);
+    const int baseHeight = fm.height();
+    const int avatarSize = qMax(40, static_cast<int>(baseHeight * 2.2));
     const QRect avatarRect(contentRect.left(), contentRect.top() + (contentRect.height() - avatarSize) / 2, avatarSize, avatarSize);
     const QRect textRect = contentRect.adjusted(avatarSize + 10, 0, 0, 0);
 
@@ -112,7 +114,9 @@ void SearchItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &op
 }
 QSize SearchItemDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
-    Q_UNUSED(option);
     Q_UNUSED(index);
-    return QSize(0, 60); // Чуть компактнее, чем основной список чатов
+    QFontMetrics fm(option.font);
+    const int baseHeight = fm.height();
+    const int avatarSize = qMax(40, static_cast<int>(baseHeight * 2.2));
+    return QSize(0, avatarSize + qMax(10, static_cast<int>(baseHeight * 0.6)));
 }

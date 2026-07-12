@@ -21,6 +21,7 @@ public:
     QSet<QString> getFilePaths(unsigned long long chatId) const;
     void clearFilePaths(unsigned long long chatId);
     void clearAllFilePaths();
+    void addPendingFiles(unsigned long long chatId, const QSet<QString> &paths);
     bool hasPendingFiles(unsigned long long chatId) const;
     void removeFileByPath(unsigned long long chatId, const QString &filePath);
 

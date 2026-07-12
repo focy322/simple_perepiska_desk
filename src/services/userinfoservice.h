@@ -1,4 +1,4 @@
-﻿#ifndef USERINFOSERVICE_H
+#ifndef USERINFOSERVICE_H
 #define USERINFOSERVICE_H
 
 #include <QObject>
@@ -28,6 +28,8 @@ public:
 
     // Получить информацию о пользователе
     void getMyUserInfo(const QString &accToken);
+    void getUserInfo(const QString &accToken, unsigned long long userId);
+    void uploadAvatar(const QString &accToken, const QByteArray &imageData);
 
     const std::vector<ParsedFoundUsersObject> parseFoundUsersArray(const QJsonDocument &doc);
     void findUser(const QString &accToken, const QString &input);
@@ -40,7 +42,9 @@ private:
     QString findUserUrl;
 signals:
 
-    void getMyUserInfoFinished(const NetworkResult &res, const QString &username = "", unsigned long long userId = ULONG_LONG_MAX);
+    void getMyUserInfoFinished(const NetworkResult &res, const QString &username = "", unsigned long long userId = ULONG_LONG_MAX, const QString &avatarUrl = "");
+    void getUserInfoFinished(const NetworkResult &res, const ParsedFoundUsersObject &user = {});
+    void uploadAvatarFinished(const NetworkResult &res, const QString &avatarUrl = "");
     void getMyUserInfoInProgress();
     void findUserInProgress();
     void findUserFinished(const NetworkResult &res, const std::vector<ParsedFoundUsersObject>& paObjects = {});

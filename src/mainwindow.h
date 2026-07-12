@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QPushButton>
+#include <QLabel>
 #include <QPropertyAnimation>
 #include <QParallelAnimationGroup>
 #include <QPointer>
@@ -37,7 +38,7 @@ public:
 protected:
 
     /**
-      * При событии resize у MainWindow вызывается resizeEvent базово класса + функция positionLogoutButton
+      * При событии resize у MainWindow вызывается resizeEvent базово класса
       * для изменения позиции конопки "Выход"
       * @param event объект QResizeEvent
       */
@@ -56,7 +57,12 @@ protected:
      */
     bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
 
+private:
+    void toggleLeftPanel();
+    bool isLeftPanelExpanded = false;
+
 private slots:
+    void on_searchInput_textChanged(const QString &arg1);
     /**
       * При выборе чата из списка чатов в messagesView (chatName) выводит его название
       *
@@ -69,6 +75,7 @@ private slots:
       * и обновляет messagesListModel обновленным хранилищем сообщений
       */
     void on_sendMessageBtn_clicked();
+    void on_attachFileBtn_clicked();
 
     // TODO: нормальное описание
     /**
@@ -145,7 +152,7 @@ private slots:
       */
     void on_logOutInProgress();
 
-    void on_logOutBtn_clicked();
+
 
     void on_refreshAccessTokenInProgress();
 
@@ -153,7 +160,13 @@ private slots:
 
     void on_getMyUserInfoInProgress();
 
-    void on_getMyUserInfoFinished(const NetworkResult &res, const QString &username, unsigned long long userId);
+    void on_getMyUserInfoFinished(const NetworkResult &res, const QString &username, unsigned long long userId, const QString &avatarUrl);
+    
+    void on_getUserInfoFinished(const NetworkResult &res, const ParsedFoundUsersObject &user);
+    
+    void on_uploadAvatarFinished(const NetworkResult &res, const QString &avatarUrl);
+    void showAvatarContextMenu(const QPoint &pos);
+    void showUserNameContextMenu(const QPoint &pos);
 
     void on_getMyChatsInProgress();
 
@@ -192,9 +205,7 @@ private slots:
 
     void on_findUserFinished(const NetworkResult &res, const std::vector<ParsedFoundUsersObject>& paObjects = {});
 
-    void on_searchView_clicked(const QModelIndex &index);
 
-    void on_searchInput_returnPressed();
 
     void on_gotDragNDropFiles();
 
@@ -218,6 +229,7 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
+    QLabel *editAnimationLabel = nullptr;
     ChatListModel *chatsListModel;                      //!< Модель чатов с доступом к полям через роли
     SearchListModel *searchListModel;                   //!< Модель списка пользователей при поиске с доступом к полям через роли
     ChatMessagesItemDelegate *messagesItemDelegate;     //!< Делегат сообщений (выравнивание своих/чужих)
@@ -229,11 +241,12 @@ private:
 
     quint64 editingMessageId = ULONG_LONG_MAX;          //!< Id редактируемого в данный момент сообщения
 
-    QPushButton *logOutBtn;                             //!< Кнопка выхода из аккаунта
+
     AuthController *authController;                     //!< Принимает запросы от UI, дергает AuthService, возвращает результат через сигналы.
     bool isAuthorized;                                  //!< Флаг авторизации пользователя
     QString currentUsername;                            //!< Имя пользователя
     unsigned long long myUserId;                          //!< Id пользователя
+    QString currentAvatarUrl;                           //!< Ссылка на текущий аватар пользователя
     UserInfoController *userInfoController;             //!< Принимает запросы от UI, дергает UserInfoService, возвращает результат через сигналы.
     QString accessToken;
     QString refreshToken;
@@ -249,13 +262,13 @@ private:
       * Инициализация кнопки "Выход"
       *
       */
-    void setUpLogOutBtn();
+
 
     /**
       * При resiz'е окна меняет положение кнопки "Выход"
       *
       */
-    void positionLogoutButton();
+
 
     void tryAuthorize();
 
@@ -271,12 +284,16 @@ private:
 
     void switchPageWithSlideAnimation(QStackedWidget *stackedWidget, QWidget *newPage);
     void switchPageWithFadeAnimation(QStackedWidget *stackedWidget, QWidget *newPage);
+    void animateStartupTransition();
 
     void saveDraftForChat(unsigned long long chatId);
     void loadDraftForChat(unsigned long long chatId);
-    void appendAttachmentToDraft(unsigned long long chatId, const ParsedUploadedFileInfo &fileInfo);
+    void appendAttachmentToDraft(unsigned long long chatId, const ParsedUploadedFileInfo &fileInfo, const QString &localPath = QString());
     void updateSendButtonState(unsigned long long chatId);
     QString stripAttachmentMarker(const QString &text) const;
+
+    void autoDownloadImages(const std::vector<ParsedChatMessagesArrayObject>& messages);
+    void autoDownloadImages(const ParsedChatMessagesArrayObject& message);
 
 };
 #endif // MAINWINDOW_H

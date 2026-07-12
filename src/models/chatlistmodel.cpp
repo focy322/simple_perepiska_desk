@@ -1,8 +1,12 @@
-﻿#include "models/chatlistmodel.h"
+#include "models/chatlistmodel.h"
+#include <QtNetwork/QNetworkRequest>
+#include <QUrl>
 
 ChatListModel::ChatListModel(QObject *parent)
     : QAbstractListModel(parent)
-{}
+{
+    m_networkManager = new QNetworkAccessManager(this);
+}
 
 int ChatListModel::rowCount(const QModelIndex &parent) const
 {
@@ -71,6 +75,13 @@ QVariant ChatListModel::data(const QModelIndex &index, int role) const
         return chat.lastMessageAttachmentType;
     case LastMessageAttachmentsCountRole:
         return QVariant::fromValue<qulonglong>(chat.lastMessageAttachmentsCount);
+    case AvatarPixmapRole:
+    {
+        if (!chat.userAvatarFileUrl.isEmpty() && m_avatarCache.contains(chat.userAvatarFileUrl)) {
+            return m_avatarCache[chat.userAvatarFileUrl];
+        }
+        return QVariant();
+    }
     default:
         return {};
     }
@@ -101,6 +112,7 @@ void ChatListModel::setChats(const std::vector<ParsedChatsListArrayObject> &chat
     beginResetModel();
     m_chats = chats;
     endResetModel();
+    fetchAvatars();
 }
 
 void ChatListModel::clear()
@@ -108,4 +120,32 @@ void ChatListModel::clear()
     beginResetModel();
     m_chats.clear();
     endResetModel();
+}
+
+void ChatListModel::fetchAvatars()
+{
+    for (size_t i = 0; i < m_chats.size(); ++i) {
+        QString url = m_chats[i].userAvatarFileUrl;
+        if (!url.isEmpty() && !m_avatarCache.contains(url)) {
+            QNetworkRequest request((QUrl(url)));
+            QNetworkReply *reply = m_networkManager->get(request);
+            connect(reply, &QNetworkReply::finished, this, [this, reply, i, url]() {
+                onAvatarDownloaded(reply, static_cast<int>(i), url);
+            });
+        }
+    }
+}
+
+void ChatListModel::onAvatarDownloaded(QNetworkReply *reply, int row, const QString &url)
+{
+    reply->deleteLater();
+    if (reply->error() == QNetworkReply::NoError) {
+        QByteArray data = reply->readAll();
+        QPixmap pixmap;
+        if (pixmap.loadFromData(data)) {
+            m_avatarCache[url] = pixmap;
+            QModelIndex idx = index(row, 0);
+            emit dataChanged(idx, idx, {AvatarPixmapRole});
+        }
+    }
 }

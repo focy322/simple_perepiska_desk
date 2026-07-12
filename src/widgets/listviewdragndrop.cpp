@@ -1,4 +1,4 @@
-﻿#include "widgets/listviewdragndrop.h"
+#include "widgets/listviewdragndrop.h"
 #include "delegates/chatmessagesitemdelegate.h"
 #include "QScrollBar"
 
@@ -14,6 +14,8 @@ ListViewDragNDrop::ListViewDragNDrop (QWidget *parent)
     setDropIndicatorShown(true);
     setDragDropMode(QAbstractItemView::DropOnly);
     setDefaultDropAction(Qt::CopyAction);
+    setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    verticalScrollBar()->setSingleStep(15);
     scrollStopTimer->setSingleShot(true);
     scrollStopTimer->setInterval(SCROLL_STOP_TIMER_INTERVAL);
     connect(verticalScrollBar(), &QScrollBar::valueChanged, this, [this](){scrollStopTimer->start();});
@@ -39,6 +41,12 @@ bool ListViewDragNDrop::hasPendingFiles(unsigned long long chatId) const
 {
     const auto it = filePathsByChat.constFind(chatId);
     return it != filePathsByChat.constEnd() && !it.value().isEmpty();
+}
+
+void ListViewDragNDrop::addPendingFiles(unsigned long long chatId, const QSet<QString> &paths)
+{
+    filePathsByChat[chatId].unite(paths);
+    emit gotDragNDropFiles();
 }
 
 void ListViewDragNDrop::removeFileByPath(unsigned long long chatId, const QString &filePath)

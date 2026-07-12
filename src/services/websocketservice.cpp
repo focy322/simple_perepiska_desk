@@ -1,4 +1,4 @@
-﻿#include "services/websocketservice.h"
+#include "services/websocketservice.h"
 
 #include <cmath>
 #include <QString>
@@ -92,12 +92,12 @@ void WebsocketService::sendMessage(const ParsedChatMessagesArrayObject &message)
             if (value.isObject())
             {
                 const QJsonObject obj = value.toObject();
-                if (obj.value("file_id").isDouble())
-                    attachmentIds.append(obj.value("file_id").toInt());
+                if (!obj.value("file_id").isUndefined())
+                    attachmentIds.append(obj.value("file_id").toVariant().toLongLong());
             }
             else if (value.isDouble())
             {
-                attachmentIds.append(value.toInt());
+                attachmentIds.append(value.toVariant().toLongLong());
             }
         }
         if (!attachmentIds.isEmpty())

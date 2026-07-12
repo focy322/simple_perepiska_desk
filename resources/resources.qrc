@@ -6,6 +6,9 @@
         <file>enot.png</file>
     </qresource>
     <qresource prefix="/icons">
-        <file>circle.svg</file>
+        <file alias="circle.svg">icons/circle.svg</file>
+        <file alias="search.svg">icons/search.svg</file>
+        <file alias="left_panel_open.svg">icons/left_panel_open.svg</file>
+        <file alias="left_panel_close.svg">icons/left_panel_close.svg</file>
     </qresource>
 </RCC>

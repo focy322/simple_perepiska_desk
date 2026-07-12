@@ -1,8 +1,12 @@
-﻿#ifndef CHATLISTMODEL_H
+#ifndef CHATLISTMODEL_H
 #define CHATLISTMODEL_H
 
 #include <QAbstractListModel>
 #include <vector>
+#include <QPixmap>
+#include <QMap>
+#include <QtNetwork/QNetworkAccessManager>
+#include <QtNetwork/QNetworkReply>
 
 #include "services/chatservice.h"
 
@@ -25,7 +29,8 @@ public:
         UnreadCountRole,
         LastMessageHasAttachmentsRole,
         LastMessageAttachmentTypeRole,
-        LastMessageAttachmentsCountRole
+        LastMessageAttachmentsCountRole,
+        AvatarPixmapRole
     };
 
     explicit ChatListModel(QObject *parent = nullptr);
@@ -37,8 +42,14 @@ public:
     void setChats(const std::vector<ParsedChatsListArrayObject> &chats);
     void clear();
 
+private slots:
+    void onAvatarDownloaded(QNetworkReply *reply, int row, const QString &url);
+
 private:
     std::vector<ParsedChatsListArrayObject> m_chats;
+    QNetworkAccessManager *m_networkManager;
+    QMap<QString, QPixmap> m_avatarCache;
+    void fetchAvatars();
 };
 
 #endif // CHATLISTMODEL_H

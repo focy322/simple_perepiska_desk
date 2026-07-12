@@ -12,15 +12,65 @@
 
 #include <keychain.h>
 
+#include <QNetworkReply>
+#include <QNetworkAccessManager>
+#include "utils/endpoints.h"
+#include <QPropertyAnimation>
+#include <QVariantAnimation>
+#include <QScrollBar>
+#include <QMenu>
+#include <QFileDialog>
+#include <QBuffer>
+#include <QMessageBox>
+#include <QFile>
+#include <QFileInfo>
+#include "widgets/imagecropperdialog.h"
+#include "utils/avatarhelper.h"
 #include <QDebug>
 #include <QDateTime>
 #include <QThread>
 #include <QGraphicsOpacityEffect>
+#include <QGraphicsDropShadowEffect>
 #include <QPauseAnimation>
 #include <QSequentialAnimationGroup>
 #include <QSignalBlocker>
 #include <QJsonObject>
 #include <QDir>
+
+static void crossfadeAppIcon(QLabel *appIcon, const QString &iconPath)
+{
+    if (appIcon->pixmap(Qt::ReturnByValue).isNull()) {
+        if (iconPath.endsWith(".svg")) {
+            appIcon->setPixmap(QIcon(iconPath).pixmap(appIcon->size()));
+        } else {
+            appIcon->setPixmap(QPixmap(iconPath));
+        }
+        return;
+    }
+
+    QLabel *tempLabel = new QLabel(appIcon->parentWidget());
+    tempLabel->setGeometry(appIcon->geometry());
+    tempLabel->setPixmap(appIcon->pixmap(Qt::ReturnByValue));
+    tempLabel->setScaledContents(appIcon->hasScaledContents());
+    tempLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+    tempLabel->setStyleSheet("background-color: transparent;");
+    tempLabel->show();
+
+    if (iconPath.endsWith(".svg")) {
+        appIcon->setPixmap(QIcon(iconPath).pixmap(appIcon->size()));
+    } else {
+        appIcon->setPixmap(QPixmap(iconPath));
+    }
+
+    QGraphicsOpacityEffect *effect = new QGraphicsOpacityEffect(tempLabel);
+    tempLabel->setGraphicsEffect(effect);
+    QPropertyAnimation *anim = new QPropertyAnimation(effect, "opacity");
+    anim->setDuration(200);
+    anim->setStartValue(1.0);
+    anim->setEndValue(0.0);
+    QObject::connect(anim, &QPropertyAnimation::finished, tempLabel, &QObject::deleteLater);
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -33,7 +83,6 @@ MainWindow::MainWindow(QWidget *parent)
     , draftsByChatId()
     , currentChatName()
     , currentChatId(ULONG_LONG_MAX)
-    , logOutBtn(new QPushButton("Выход", nullptr))
     , authController(new AuthController(this))
     , isAuthorized(false)
     , currentUsername("")
@@ -49,12 +98,32 @@ MainWindow::MainWindow(QWidget *parent)
     , filesController(new FilesController(this))
 {
     ui->setupUi(this);
+    
+    editAnimationLabel = new QLabel("Редактирование", this);
+    editAnimationLabel->setAlignment(Qt::AlignCenter);
+    editAnimationLabel->hide();
+    editAnimationLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+    ui->messagesViewLayout->addWidget(editAnimationLabel, 0, 0, Qt::AlignCenter);
+    
+    ui->topMessagesShadow->setAttribute(Qt::WA_TransparentForMouseEvents);
+    ui->bottomMessagesShadow->setAttribute(Qt::WA_TransparentForMouseEvents);
 
     // Оставляем стандартные флаги окна, чтобы Windows продолжала считать окно обычным 
     // (сохраняются нативные анимации, Aero Snap, двойной клик). Рамка будет скрыта через WM_NCCALCSIZE.
     setWindowFlags(Qt::Window | Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
     CustomTitleBar *titleBar = new CustomTitleBar(this);
     setMenuWidget(titleBar);
+
+    ui->appIcon->installEventFilter(this);
+    ui->currentUserAvatar->installEventFilter(this);
+    ui->currentUserName->installEventFilter(this);
+    ui->currentUserName->setCursor(Qt::PointingHandCursor);
+    ui->searchInput->installEventFilter(this);
+    ui->topPanelLayout->setAlignment(Qt::AlignLeft);
+    ui->searchInput->hide();
+    ui->currentUserName->hide();
+    connect(ui->searchInput, &QLineEdit::textChanged, this, &MainWindow::on_searchInput_textChanged);
+    this->isLeftPanelExpanded = false;
 
     notificationSound->setSource(QUrl("qrc:/sounds/newMessageSound"));
     notificationSound->setVolume(1.f);
@@ -72,6 +141,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(userInfoController, &UserInfoController::getMyUserInfoFinished, this, &MainWindow::on_getMyUserInfoFinished);
     connect(userInfoController, &UserInfoController::findUserInProgress, this, &MainWindow::on_findUserInProgress);
     connect(userInfoController, &UserInfoController::findUserFinished, this, &MainWindow::on_findUserFinished);
+    connect(userInfoController, &UserInfoController::getUserInfoFinished, this, &MainWindow::on_getUserInfoFinished);
+    connect(userInfoController, &UserInfoController::uploadAvatarFinished, this, &MainWindow::on_uploadAvatarFinished);
     connect(chatsController, &ChatsController::getMyChatsInProgress, this, &MainWindow::on_getMyChatsInProgress);
     connect(chatsController, &ChatsController::getMyChatsFinished, this, &MainWindow::on_getMyChatsFinished);
     connect(chatsController, &ChatsController::getChatMessagesInProgress, this, &MainWindow::on_getChatMessagesInProgress);
@@ -104,17 +175,38 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->chatsView->setModel(chatsListModel);
     ui->chatsView->setItemDelegate(new ChatListItemDelegate(ui->chatsView));
-    ui->searchView->setModel(searchListModel);
-    ui->searchView->setItemDelegate(new SearchItemDelegate(ui->searchView));
+    ui->chatsView->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    ui->chatsView->verticalScrollBar()->setSingleStep(15);
     ui->messagesView->setModel(messagesListModel);
     ui->messagesView->setItemDelegate(messagesItemDelegate);
     ui->messagesView->setResizeMode(QListView::Adjust);
     ui->messagesView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->interlocutorNameLabel->hide();
+    ui->interlocutorAvatar->hide();
+    ui->messageInput->hide();
+    ui->sendMessageBtn->hide();
+    ui->attachFileBtn->hide();
+
+    QGraphicsDropShadowEffect *nameShadow = new QGraphicsDropShadowEffect(this);
+    nameShadow->setBlurRadius(15);
+    nameShadow->setOffset(0, 4);
+    nameShadow->setColor(QColor(0, 0, 0, 80));
+    ui->interlocutorNameLabel->setGraphicsEffect(nameShadow);
+
+    QGraphicsDropShadowEffect *inputShadow = new QGraphicsDropShadowEffect(this);
+    inputShadow->setBlurRadius(15);
+    inputShadow->setOffset(0, 4);
+    inputShadow->setColor(QColor(0, 0, 0, 80));
+    ui->messageInput->setGraphicsEffect(inputShadow);
+
+    QGraphicsDropShadowEffect *btnShadow = new QGraphicsDropShadowEffect(this);
+    btnShadow->setBlurRadius(15);
+    btnShadow->setOffset(0, 4);
+    btnShadow->setColor(QColor(0, 0, 0, 80));
+    ui->sendMessageBtn->setGraphicsEffect(btnShadow);
+
     ui->loadingAndContentWidgets->setCurrentWidget(ui->loadingPage);
-    ui->chatsAndSearchListsWidgets->setCurrentWidget(ui->chatsListPage);
-    ui->searchInput->installEventFilter(this);
     ui->messageInput->installEventFilter(this);
-    setUpLogOutBtn();
 
     tryAuthorize();
 
@@ -128,15 +220,46 @@ MainWindow::~MainWindow()
 
 
 
+void MainWindow::on_searchInput_textChanged(const QString &arg1)
+{
+    if (arg1.isEmpty()) {
+        searchListModel->clear();
+    } else {
+        userInfoController->requestFindUser(accessToken, arg1);
+    }
+}
+
 void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
 {
     if (chatItem.isValid())
     {
+        if (ui->chatsView->model() == searchListModel) {
+            unsigned long long userId = chatItem.data(SearchListModel::UserIdRole).toULongLong();
+            chatsController->requestCreateDirectChat(userId, accessToken);
+            ui->searchInput->clear();
+            ui->searchInput->clearFocus();
+            return;
+        }
+
         saveDraftForChat(currentChatId);
         currentChatId = chatItem.data(ChatListModel::ChatIdRole).toULongLong();
         ui->messagesView->setCurrentChatId(currentChatId);
         currentChatName = chatItem.data(ChatListModel::ChatNameRole).toString().trimmed();
-        ui->chatName->setText(currentChatName);
+        
+        // Сначала установка стандартного названия чата
+        ui->interlocutorNameLabel->setText(currentChatName);
+        ui->interlocutorNameLabel->show();
+        ui->interlocutorAvatar->show();
+        ui->messageInput->show();
+        ui->sendMessageBtn->show();
+        ui->attachFileBtn->show();
+        
+        // Получить информацию о пользователе, чтобы узнать время последнего посещения
+        unsigned long long userId = chatItem.data(ChatListModel::UserIdRole).toULongLong();
+        if (userId != ULONG_LONG_MAX && userId != 0) {
+            userInfoController->requestUserInfo(accessToken, userId);
+        }
+        
         auto chatIt = chatMessages.constFind(currentChatId); // Итератор на список сообщений (vector<ParsedChatMessagesArrayObject>) для чата с выбранным chatId
         if (chatIt != chatMessages.constEnd())
         {
@@ -164,6 +287,19 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
     }
 }
 
+
+void MainWindow::on_attachFileBtn_clicked()
+{
+    if (currentChatId == ULONG_LONG_MAX)
+        return;
+
+    QStringList files = QFileDialog::getOpenFileNames(this, "Выберите файлы для отправки", "", "Все файлы (*.*)");
+    if (files.isEmpty())
+        return;
+
+    QSet<QString> paths(files.begin(), files.end());
+    ui->messagesView->addPendingFiles(currentChatId, paths);
+}
 
 void MainWindow::on_sendMessageBtn_clicked()
 {
@@ -296,30 +432,6 @@ void MainWindow::on_switchToRegistrationBtn_clicked()
     ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageRegistration);
 }
 
-void MainWindow::setUpLogOutBtn()
-{
-
-    logOutBtn->setParent(ui->pageApp);
-    logOutBtn->setFixedSize(90, 30); // Размеры кнопки (может в namespace вынести? хз)
-    logOutBtn->raise(); // Поднять по Z
-    logOutBtn->show();
-    positionLogoutButton();
-    connect(logOutBtn, &QPushButton::clicked, this, &MainWindow::on_logOutBtn_clicked);
-}
-
-void MainWindow::positionLogoutButton()
-{
-    const int margin = 8;
-
-    // Габариты MainWindow (Почему то через appPage не выходит (походу геометрия до конца не формируется к моменту вызова функции))
-    const QRect r = this->rect();
-
-    // В левый нижний угол
-    const int x = margin;
-    const int y = r.height() - logOutBtn->height() - margin;
-
-    logOutBtn->move(x, y);
-}
 
 void MainWindow::tryAuthorize()
 {
@@ -355,7 +467,6 @@ void MainWindow::checkAuthorization(const NetworkResult &res, const QString &acc
         isAuthorized = res.ok;
         accessToken = accToken;
         refreshToken = refToken;
-        switchPageWithFadeAnimation(ui->loadingAndContentWidgets, ui->contentPage);
         getMyInfo();
         ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
         getChatsList();
@@ -524,6 +635,76 @@ void MainWindow::switchPageWithFadeAnimation(QStackedWidget *stackedWidget, QWid
     fadeOut->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
+void MainWindow::animateStartupTransition()
+{
+    if (ui->loadingAndContentWidgets->currentWidget() != ui->loadingPage) {
+        return;
+    }
+
+    QLabel *floatingLogo = new QLabel(this);
+    floatingLogo->setPixmap(QPixmap(":/images/enot.png"));
+    floatingLogo->setScaledContents(true);
+
+    QPoint startPos = ui->loadingLabel->mapTo(this, QPoint(0, 0));
+    QRect startGeometry(startPos, ui->loadingLabel->size());
+    floatingLogo->setGeometry(startGeometry);
+    floatingLogo->show();
+
+    // Скрыть оригинальное лого
+    ui->loadingLabel->hide();
+
+    ui->loadingAndContentWidgets->setCurrentWidget(ui->contentPage);
+    ui->contentPage->setGeometry(ui->loadingAndContentWidgets->rect());
+    ui->contentPage->layout()->activate();
+
+    QPoint endPos = ui->appIcon->mapTo(this, QPoint(0, 0));
+    QRect endGeometry(endPos, ui->appIcon->size());
+
+    // Переключиться обратно
+    ui->loadingAndContentWidgets->setCurrentWidget(ui->loadingPage);
+
+    if (endGeometry.width() == 0) {
+        endGeometry = QRect(10, 10, 40, 40);
+    }
+
+    ui->appIcon->hide();
+
+    auto *effect = new QGraphicsOpacityEffect(ui->loadingPage);
+    ui->loadingPage->setGraphicsEffect(effect);
+    auto *fadeOut = new QPropertyAnimation(effect, "opacity");
+    fadeOut->setDuration(300);
+    fadeOut->setStartValue(1.0);
+    fadeOut->setEndValue(0.0);
+
+    QPropertyAnimation *flyAnim = new QPropertyAnimation(floatingLogo, "geometry");
+    flyAnim->setDuration(600);
+    flyAnim->setStartValue(startGeometry);
+    flyAnim->setEndValue(endGeometry);
+    flyAnim->setEasingCurve(QEasingCurve::InOutQuad);
+
+    connect(fadeOut, &QPropertyAnimation::finished, this, [=, this]() {
+        ui->loadingAndContentWidgets->setCurrentWidget(ui->contentPage);
+        ui->loadingPage->setGraphicsEffect(nullptr);
+
+        auto *effect2 = new QGraphicsOpacityEffect(ui->contentPage);
+        ui->contentPage->setGraphicsEffect(effect2);
+        auto *fadeIn = new QPropertyAnimation(effect2, "opacity");
+        fadeIn->setDuration(300);
+        fadeIn->setStartValue(0.0);
+        fadeIn->setEndValue(1.0);
+        connect(fadeIn, &QPropertyAnimation::finished, this, [=, this]() {
+            ui->contentPage->setGraphicsEffect(nullptr);
+            ui->appIcon->show();
+            floatingLogo->deleteLater();
+            ui->loadingLabel->show();
+        });
+        fadeIn->start(QAbstractAnimation::DeleteWhenStopped);
+    });
+
+    fadeOut->start(QAbstractAnimation::DeleteWhenStopped);
+    flyAnim->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
 bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
 {
 #ifdef Q_OS_WIN
@@ -620,24 +801,52 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
-    positionLogoutButton();
 }
 
 bool MainWindow::eventFilter(QObject *obj, QEvent *event)
 {
-    if (obj == ui->searchInput) { // Проверяем, что событие пришло именно от нашего поля
+    if (obj == ui->currentUserAvatar && event->type() == QEvent::MouseButtonRelease) {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+        if (mouseEvent->button() == Qt::LeftButton) {
+            showAvatarContextMenu(ui->currentUserAvatar->mapToGlobal(mouseEvent->pos()));
+            return true;
+        }
+    }
+
+    if (obj == ui->currentUserName && event->type() == QEvent::MouseButtonRelease) {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+        if (mouseEvent->button() == Qt::LeftButton) {
+            showUserNameContextMenu(ui->currentUserName->mapToGlobal(mouseEvent->pos()));
+            return true;
+        }
+    }
+
+    if (obj == ui->appIcon) {
+        if (event->type() == QEvent::Enter) {
+            crossfadeAppIcon(ui->appIcon, isLeftPanelExpanded ? ":/icons/left_panel_close.svg" : ":/icons/left_panel_open.svg");
+            return true;
+        } else if (event->type() == QEvent::Leave) {
+            crossfadeAppIcon(ui->appIcon, ":/images/enot.png");
+            return true;
+        } else if (event->type() == QEvent::MouseButtonPress) {
+            toggleLeftPanel();
+            return true;
+        }
+    }
+
+    if (obj == ui->searchInput) {
         if (event->type() == QEvent::FocusIn) {
-            // Когда пользователь кликнул в поле или перешел Tab-ом
-            switchPageWithSlideAnimation(ui->chatsAndSearchListsWidgets, ui->searchListPage);
-            //ui->chatsAndSearchListsWidgets->setCurrentWidget(ui->searchListPage); // Индекс страницы, на которую нужно перейти
+            ui->chatsView->setModel(searchListModel);
+            ui->chatsView->setItemDelegate(new SearchItemDelegate(ui->chatsView));
+        } else if (event->type() == QEvent::FocusOut) {
+            if (ui->searchInput->text().isEmpty()) {
+                ui->chatsView->setModel(chatsListModel);
+                ui->chatsView->setItemDelegate(new ChatListItemDelegate(ui->chatsView));
+            }
         }
-        else if (event->type() == QEvent::FocusOut) {
-            // Возвращаем основную страницу
-            switchPageWithSlideAnimation(ui->chatsAndSearchListsWidgets, ui->chatsListPage);
-            //ui->chatsAndSearchListsWidgets->setCurrentWidget(ui->chatsListPage);
-            ui->searchInput->clear();
-        }
-    } else if (obj == ui->messageInput && event->type() == QEvent::KeyPress) {
+    }
+
+    if (obj == ui->messageInput && event->type() == QEvent::KeyPress) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
         if (keyEvent->key() == Qt::Key_Up) {
             if (ui->messageInput->toPlainText().isEmpty() && editingMessageId == ULONG_LONG_MAX) {
@@ -665,6 +874,20 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
                 editingMessageId = ULONG_LONG_MAX;
                 ui->messageInput->clear();
                 return true;
+            } else if (currentChatId != ULONG_LONG_MAX) {
+                saveDraftForChat(currentChatId);
+                currentChatId = ULONG_LONG_MAX;
+                currentChatName = "";
+                ui->interlocutorNameLabel->hide();
+                ui->interlocutorAvatar->hide();
+                ui->messageInput->clear();
+                ui->messageInput->hide();
+                ui->sendMessageBtn->hide();
+                ui->attachFileBtn->hide();
+                ui->chatsView->clearSelection();
+                messagesListModel->clear();
+                ui->messagesView->setCurrentChatId(ULONG_LONG_MAX);
+                return true;
             }
         }
     }
@@ -672,10 +895,56 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
     return QMainWindow::eventFilter(obj, event); // Важно пробросить событие дальше
 }
 
-void MainWindow::on_logOutBtn_clicked()
+void MainWindow::toggleLeftPanel()
 {
-    authController->requestLogOut(accessToken, refreshToken);
+    if (isLeftPanelExpanded) {
+        QPropertyAnimation *anim = new QPropertyAnimation(ui->narrowLeftPanel, "minimumWidth");
+        anim->setDuration(300);
+        anim->setStartValue(ui->narrowLeftPanel->width());
+        anim->setEndValue(85);
+        anim->setEasingCurve(QEasingCurve::InOutCubic);
+        
+        QPropertyAnimation *anim2 = new QPropertyAnimation(ui->narrowLeftPanel, "maximumWidth");
+        anim2->setDuration(300);
+        anim2->setStartValue(ui->narrowLeftPanel->width());
+        anim2->setEndValue(85);
+        anim2->setEasingCurve(QEasingCurve::InOutCubic);
+
+        QParallelAnimationGroup *group = new QParallelAnimationGroup(this);
+        group->addAnimation(anim);
+        group->addAnimation(anim2);
+        group->start(QAbstractAnimation::DeleteWhenStopped);
+
+        isLeftPanelExpanded = false;
+        ui->searchInput->hide();
+        ui->currentUserName->hide();
+        ui->searchInput->clear();
+        crossfadeAppIcon(ui->appIcon, ":/icons/left_panel_open.svg");
+    } else {
+        QPropertyAnimation *anim = new QPropertyAnimation(ui->narrowLeftPanel, "minimumWidth");
+        anim->setDuration(300);
+        anim->setStartValue(ui->narrowLeftPanel->width());
+        anim->setEndValue(250);
+        anim->setEasingCurve(QEasingCurve::InOutCubic);
+        
+        QPropertyAnimation *anim2 = new QPropertyAnimation(ui->narrowLeftPanel, "maximumWidth");
+        anim2->setDuration(300);
+        anim2->setStartValue(ui->narrowLeftPanel->width());
+        anim2->setEndValue(250);
+        anim2->setEasingCurve(QEasingCurve::InOutCubic);
+
+        QParallelAnimationGroup *group = new QParallelAnimationGroup(this);
+        group->addAnimation(anim);
+        group->addAnimation(anim2);
+        group->start(QAbstractAnimation::DeleteWhenStopped);
+
+        isLeftPanelExpanded = true;
+        ui->searchInput->show();
+        ui->currentUserName->show();
+        crossfadeAppIcon(ui->appIcon, ":/icons/left_panel_close.svg");
+    }
 }
+
 
 void MainWindow::on_refreshAccessTokenInProgress()
 {
@@ -710,13 +979,41 @@ void MainWindow::on_getMyUserInfoInProgress()
 
 }
 
-void MainWindow::on_getMyUserInfoFinished(const NetworkResult &res, const QString &username, unsigned long long userId)
+void MainWindow::on_getMyUserInfoFinished(const NetworkResult &res, const QString &username, unsigned long long userId, const QString &avatarUrl)
 {
     if (res.ok)
     {
         currentUsername = username;
         this->myUserId = userId;
+        this->currentAvatarUrl = avatarUrl;
         messagesItemDelegate->setCurrentUserId(this->myUserId);
+        ui->currentUserName->setText(currentUsername);
+        
+        // Если аватара нет, устанавливаем заглушку
+        if (avatarUrl.isEmpty()) {
+            ui->currentUserAvatar->setPixmap(AvatarHelper::generatePlaceholder(currentUsername, 50));
+        } else {
+            // TODO: Скачать настоящий аватар и реализовать кэширование.
+            QString fullUrl = avatarUrl;
+            if (!fullUrl.startsWith("http")) {
+                fullUrl = baseHttpUrl + fullUrl;
+            }
+            QNetworkAccessManager *manager = new QNetworkAccessManager(this);
+            QNetworkRequest request((QUrl(fullUrl)));
+            QNetworkReply *reply = manager->get(request);
+            connect(reply, &QNetworkReply::finished, this, [this, reply, manager]() {
+                if (reply->error() == QNetworkReply::NoError) {
+                    QByteArray data = reply->readAll();
+                    QPixmap pixmap;
+                    if (pixmap.loadFromData(data)) {
+                        ui->currentUserAvatar->setPixmap(AvatarHelper::makeRoundImage(pixmap, 50));
+                    }
+                }
+                reply->deleteLater();
+                manager->deleteLater();
+            });
+        }
+        
 #ifdef QT_DEBUG
         qDebug() << "currentUsername" << currentUsername;
         qDebug() << "currentUserId" << this->myUserId;
@@ -727,6 +1024,129 @@ void MainWindow::on_getMyUserInfoFinished(const NetworkResult &res, const QStrin
 #ifdef QT_DEBUG
         qDebug() << "on_getMyUserInfoFinished = false";
 #endif
+    }
+}
+
+void MainWindow::showAvatarContextMenu(const QPoint &pos)
+{
+    QMenu contextMenu(this);
+    
+    auto uploadFunc = [this]() {
+        QString filePath = QFileDialog::getOpenFileName(this, "Выберите аватар", "", "Изображения (*.png *.jpg *.jpeg)");
+        if (!filePath.isEmpty()) {
+            QPixmap pixmap(filePath);
+            if (!pixmap.isNull()) {
+                ImageCropperDialog cropper(pixmap, this);
+                if (cropper.exec() == QDialog::Accepted) {
+                    QPixmap cropped = cropper.getCroppedImage();
+                    
+                    QByteArray imageData;
+                    QBuffer buffer(&imageData);
+                    buffer.open(QIODevice::WriteOnly);
+                    bool saveOk = cropped.save(&buffer, "PNG");
+                    if (!saveOk || imageData.isEmpty()) {
+                        QMessageBox::warning(this, "Ошибка", "Не удалось обработать изображение. Попробуйте другой файл.");
+                        return;
+                    }
+                    
+                    userInfoController->requestUploadAvatar(accessToken, imageData);
+                }
+            }
+        }
+    };
+
+    if (this->currentAvatarUrl.isEmpty()) {
+        QAction *uploadAction = contextMenu.addAction("Загрузить аватар");
+        connect(uploadAction, &QAction::triggered, this, uploadFunc);
+    } else {
+        QAction *changeAction = contextMenu.addAction("Сменить аватар");
+        connect(changeAction, &QAction::triggered, this, uploadFunc);
+
+        QAction *deleteAction = contextMenu.addAction("Удалить аватар");
+        connect(deleteAction, &QAction::triggered, this, [this]() {
+            QMessageBox::information(this, "Информация", "К сожалению, сервер пока не поддерживает удаление аватара. Попробуйте установить новый.");
+        });
+    }
+    
+    contextMenu.exec(pos);
+}
+
+void MainWindow::showUserNameContextMenu(const QPoint &pos)
+{
+    QMenu contextMenu(this);
+    
+    QAction *logoutAction = contextMenu.addAction("Выйти из аккаунта");
+    connect(logoutAction, &QAction::triggered, this, [this]() {
+        authController->requestLogOut(accessToken, refreshToken);
+    });
+    
+    contextMenu.exec(pos);
+}
+
+void MainWindow::on_uploadAvatarFinished(const NetworkResult &res, const QString &avatarUrl)
+{
+    if (res.ok) {
+        // Запрашиваем информацию о пользователе, чтобы обновить аватар
+        userInfoController->requestMyUserInfo(accessToken);
+    } else {
+        QMessageBox::warning(this, "Ошибка", "Не удалось загрузить аватар: " + res.message);
+    }
+}
+
+void MainWindow::on_getUserInfoFinished(const NetworkResult &res, const ParsedFoundUsersObject &user)
+{
+    if (res.ok && !user.lastSeen.isEmpty())
+    {
+        QDateTime dt = QDateTime::fromString(user.lastSeen, Qt::ISODateWithMs);
+        if (!dt.isValid())
+            dt = QDateTime::fromString(user.lastSeen, Qt::ISODate);
+            
+        QString lastSeenText;
+        if (dt.isValid()) {
+            QDateTime now = QDateTime::currentDateTime();
+            if (dt.daysTo(now) == 0) {
+                lastSeenText = "Был(а) сегодня в " + dt.toLocalTime().toString("HH:mm");
+            } else if (dt.daysTo(now) == 1) {
+                lastSeenText = "Был(а) вчера в " + dt.toLocalTime().toString("HH:mm");
+            } else {
+                lastSeenText = "Был(а) " + dt.toLocalTime().toString("dd.MM.yyyy в HH:mm");
+            }
+        } else {
+            lastSeenText = user.lastSeen;
+        }
+
+        QString richText = QString("<div style='text-align: center;'>"
+                                   "<span style='font-size: 10pt; font-weight: bold; color: #E6E8EB;'>%1</span><br>"
+                                   "<span style='font-size: 8pt; font-weight: normal; color: #8C96A0;'>%2</span>"
+                                   "</div>")
+                               .arg(currentChatName.toHtmlEscaped())
+                               .arg(lastSeenText.toHtmlEscaped());
+        
+        ui->interlocutorNameLabel->setText(richText);
+        
+        if (user.avatarFileUrl.isEmpty() || user.avatarFileUrl.isNull()) {
+            ui->interlocutorAvatar->setPixmap(AvatarHelper::generatePlaceholder(user.nickname.isEmpty() ? user.username : user.nickname, 40));
+        } else {
+            // TODO: Загрузить актуальный аватар собеседника
+            QString fullUrl = user.avatarFileUrl;
+            if (!fullUrl.startsWith("http")) {
+                fullUrl = baseHttpUrl + fullUrl;
+            }
+            QNetworkAccessManager *manager = new QNetworkAccessManager(this);
+            QNetworkRequest request((QUrl(fullUrl)));
+            QNetworkReply *reply = manager->get(request);
+            connect(reply, &QNetworkReply::finished, this, [this, reply, manager]() {
+                if (reply->error() == QNetworkReply::NoError) {
+                    QByteArray data = reply->readAll();
+                    QPixmap pixmap;
+                    if (pixmap.loadFromData(data)) {
+                        ui->interlocutorAvatar->setPixmap(AvatarHelper::makeRoundImage(pixmap, 40));
+                    }
+                }
+                reply->deleteLater();
+                manager->deleteLater();
+            });
+        }
     }
 }
 
@@ -766,11 +1186,15 @@ void MainWindow::on_getMyChatsFinished(const NetworkResult &res, const std::vect
         chatsListModel->clear();
         currentChatName.clear();
         currentChatId = ULONG_LONG_MAX;
-        ui->chatName->setText("Выберите чат");
+        currentChatId = ULONG_LONG_MAX;
         messagesListModel->clear();
 #ifdef QT_DEBUG
         qDebug() << "on_getMyChatsFinished = false!!!";
 #endif
+    }
+    
+    if (ui->loadingAndContentWidgets->currentWidget() == ui->loadingPage) {
+        animateStartupTransition();
     }
 }
 
@@ -795,6 +1219,7 @@ void MainWindow::on_getChatMessagesFinished(const NetworkResult &res, const unsi
                 ui->messagesView->scrollToBottom();
             }
             //messagesListModel->setMessages(paObjects); // TODO: если работает то что выше то это удалить
+            autoDownloadImages(paObjects);
         }
         qDebug() << "on_getChatMessagesFinished = true!!!";
     }
@@ -881,6 +1306,8 @@ void MainWindow::on_newMessageRecieved(const ParsedChatMessagesArrayObject &newM
     }
     if (currentChatId != newMsgChatId)
         notificationSound->play();
+
+    autoDownloadImages(newMessage);
 
     //TODO: сделать обновление на клиенте двигая локальный вектор, а если нет чата такого то только тогда вызвать этот метод
     getChatsList();
@@ -1011,7 +1438,6 @@ void MainWindow::on_logInFinished(const NetworkResult &res, const QString &accTo
         refreshToken = refToken;
         ui->succesLogInLabel->setStyleSheet("color: red;");
         ui->succesLogInLabel->setText(res.message);
-        ui->chatName->setText("Выберите чат");
         currentChatName = "";
     }
     ui->logInBtn->setEnabled(true);
@@ -1033,7 +1459,6 @@ void MainWindow::on_logOutFinished(const NetworkResult &res)
         chatsListModel->clear();
         messagesListModel->clear();
         currentChatName.clear();
-        ui->chatName->clear();
         currentChatId = ULONG_LONG_MAX;
         myUserId = ULONG_LONG_MAX;
         ui->messageInput->clear();
@@ -1066,47 +1491,7 @@ void MainWindow::on_logOutInProgress()
     //TODO: Реализация
 }
 
-void MainWindow::on_searchView_clicked(const QModelIndex &user)
-{
-    if (user.isValid())
-    {
-        unsigned long long userId = user.data(SearchListModel::UserIdRole).toULongLong();
-        for (const auto &chatListItem : std::as_const(chatsList))
-        {
-            if (chatListItem.userId == userId)
-            {
-                saveDraftForChat(currentChatId);
-                currentChatId = chatListItem.chatId;
-                ui->messagesView->setCurrentChatId(currentChatId);
-                currentChatName = chatListItem.chatName;
-                ui->chatName->setText(currentChatName);
-                auto chatIt = chatMessages.constFind(currentChatId); // Итератор на список сообщений (vector<ParsedChatMessagesArrayObject>) для чата с выбранным chatId
-                if (chatIt != chatMessages.constEnd())
-                {
-                    messagesListModel->setMessages(chatIt.value());
-                } else
-                {
-                    messagesListModel->clear();
-                    // Честно говоря не уверен когда нужно вызвать ее ведь у меня есть вебсокет по сути это лишняя нагрузка на сервер всегда ее вызывать поэтому пока ее else ветку засунул
-                    // но может быть нужно ее вызывать и при каждом клике на чат для актуализации сообщений, хз
-                    // по крайней мере пока не будет кэша сообщений придется вызывать
-                    getChatMessages(currentChatId);
-                }
-                loadDraftForChat(currentChatId);
-                updateSendButtonState(currentChatId);
-                ui->searchInput->clearFocus();
-                return;
-            }
-        }
-        createDirectChat(userId);
-        ui->searchInput->clearFocus();
-    }
-    else
-    {
-        // По сути он невалидным быть не может поэтому хз что тут добавить
-        ui->searchInput->clearFocus();
-    }
-}
+
 
 void MainWindow::saveDraftForChat(unsigned long long chatId)
 {
@@ -1175,7 +1560,7 @@ void MainWindow::loadDraftForChat(unsigned long long chatId)
     on_textChanged();
 }
 
-void MainWindow::appendAttachmentToDraft(unsigned long long chatId, const ParsedUploadedFileInfo &fileInfo)
+void MainWindow::appendAttachmentToDraft(unsigned long long chatId, const ParsedUploadedFileInfo &fileInfo, const QString &localPath)
 {
     if (chatId == ULONG_LONG_MAX)
         return;
@@ -1185,6 +1570,9 @@ void MainWindow::appendAttachmentToDraft(unsigned long long chatId, const Parsed
     QJsonObject attachment;
     attachment.insert("file_id", static_cast<qint64>(fileInfo.fileId));
     attachment.insert("filename", fileInfo.filename);
+    if (!localPath.isEmpty()) {
+        attachment.insert("local_path", localPath);
+    }
     draft.attachments.append(attachment);
     draft.attachmentsCount = static_cast<unsigned int>(draft.attachments.size());
     draft.hasAttachments = !draft.attachments.isEmpty();
@@ -1214,17 +1602,7 @@ QString MainWindow::stripAttachmentMarker(const QString &text) const
 }
 
 
-void MainWindow::on_searchInput_returnPressed()
-{
-    QString input = ui->searchInput->text();
-    bool condToFindUser = !input.trimmed().isEmpty(); // Возможно нужно будет добавить поболее условий по типу проверки что конкретно написано только пока хз каких
-    if (condToFindUser)
-    {
-        userInfoController->requestFindUser(accessToken, input);
-    }
-    else
-        ui->searchInput->clear();
-}
+
 
 void MainWindow::on_gotDragNDropFiles()
 {
@@ -1260,9 +1638,13 @@ void MainWindow::on_uploadFileFinished(const NetworkResult &res, const QString &
     ui->messagesView->removeFileByPath(chatId, filePath);
     if (res.ok)
     {
-        appendAttachmentToDraft(chatId, fileInfo);
+        appendAttachmentToDraft(chatId, fileInfo, filePath);
         if (currentChatId == chatId)
             loadDraftForChat(chatId);
+    }
+    else
+    {
+        QMessageBox::warning(this, "Ошибка загрузки файла", QString("Не удалось загрузить файл.\nНомер ошибки: %1\nОписание: %2").arg(res.error).arg(res.message));
     }
 
     if (currentChatId == chatId)
@@ -1337,7 +1719,9 @@ void MainWindow::on_downloadFileInProgress()
 
 void MainWindow::on_downloadFileFinished(const NetworkResult &res, const ParsedDownloadedFileInfo &fileInfo)
 {
-
+    if (res.ok) {
+        ui->messagesView->viewport()->update();
+    }
 }
 
 void MainWindow::onEditMessageRequested(quint64 messageId, const QString &currentText)
@@ -1345,6 +1729,34 @@ void MainWindow::onEditMessageRequested(quint64 messageId, const QString &curren
     editingMessageId = messageId;
     ui->messageInput->setText(currentText);
     ui->messageInput->setFocus();
+    
+    editAnimationLabel->raise();
+    editAnimationLabel->show();
+    
+    QVariantAnimation *anim = new QVariantAnimation(this);
+    anim->setStartValue(0.0);
+    anim->setEndValue(1.0);
+    anim->setDuration(400); // Анимация редактирования
+    
+    connect(anim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value){
+        qreal v = value.toReal();
+        int fontSize = 24 + int(60 * v); // Увеличиваем шрифт с 24 до 84
+        qreal opacity = 1.0;
+        if (v < 0.2) {
+            opacity = v / 0.2; // Быстрое появление
+        } else {
+            opacity = 1.0 - (v - 0.2) / 0.8; // Плавное растворение
+        }
+        int alpha = int(opacity * 255);
+        editAnimationLabel->setStyleSheet(QString("color: rgba(255, 255, 255, %1); font-size: %2px; font-weight: bold; background: transparent;").arg(alpha).arg(fontSize));
+    });
+    
+    connect(anim, &QVariantAnimation::finished, this, [this, anim](){
+        editAnimationLabel->hide();
+        anim->deleteLater();
+    });
+    
+    anim->start();
 }
 
 void MainWindow::on_editMessageFinished(const NetworkResult &res)
@@ -1352,4 +1764,44 @@ void MainWindow::on_editMessageFinished(const NetworkResult &res)
     if (!res.ok) {
         // TODO: handle error
     }
+}
+
+void MainWindow::autoDownloadImages(const std::vector<ParsedChatMessagesArrayObject>& messages)
+{
+    std::vector<quint64> imageFileIds;
+    for (const auto& msg : messages) {
+        if (!msg.hasAttachments) continue;
+        for (const auto& attachmentValue : std::as_const(msg.attachments)) {
+            QJsonObject obj = attachmentValue.toObject();
+            QString fileName = obj.value("filename").toString();
+            bool isImage = fileName.endsWith(".png", Qt::CaseInsensitive)  ||
+                           fileName.endsWith(".jpg", Qt::CaseInsensitive)  ||
+                           fileName.endsWith(".jpeg", Qt::CaseInsensitive) ||
+                           fileName.endsWith(".bmp", Qt::CaseInsensitive)  ||
+                           fileName.endsWith(".gif", Qt::CaseInsensitive);
+            
+            if (isImage) {
+                QString localPath = obj.value("local_path").toString();
+                if (!localPath.isEmpty() && QFileInfo::exists(localPath)) continue;
+
+                QString path = appDownloadsDir + "/" + fileName;
+                if (!QFileInfo::exists(path)) {
+                    quint64 fileId = static_cast<quint64>(obj.value("file_id").toInteger(-1));
+                    if (fileId != static_cast<quint64>(-1)) {
+                        imageFileIds.push_back(fileId);
+                    }
+                }
+            }
+        }
+    }
+    
+    if (!imageFileIds.empty()) {
+        filesController->requestDownloadFileInfo(accessToken, imageFileIds);
+    }
+}
+
+void MainWindow::autoDownloadImages(const ParsedChatMessagesArrayObject& message)
+{
+    std::vector<ParsedChatMessagesArrayObject> messages = {message};
+    autoDownloadImages(messages);
 }

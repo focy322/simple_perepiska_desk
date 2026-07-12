@@ -4,6 +4,52 @@
 #include <QWindow>
 #include <QIcon>
 #include <QSpacerItem>
+#include <QPainter>
+#include <QEnterEvent>
+
+class TitleBarButton : public QPushButton {
+public:
+    TitleBarButton(const QColor& defaultColor, const QColor& hoverBgColor, QWidget* parent = nullptr)
+        : QPushButton(parent), m_defaultColor(defaultColor), m_hoverBgColor(hoverBgColor), m_isHovered(false) {
+        setFixedSize(16, 16);
+        setCursor(Qt::PointingHandCursor);
+    }
+
+protected:
+    void paintEvent(QPaintEvent* event) override {
+        Q_UNUSED(event);
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+
+        if (m_isHovered) {
+            painter.setBrush(m_hoverBgColor);
+            painter.setPen(Qt::NoPen);
+            painter.drawEllipse(0, 0, width(), height());
+        }
+
+        painter.setBrush(m_defaultColor);
+        painter.setPen(Qt::NoPen);
+        // Рисуем внутренний круг
+        painter.drawEllipse(4, 4, width() - 8, height() - 8);
+    }
+
+    void enterEvent(QEnterEvent* event) override {
+        m_isHovered = true;
+        update();
+        QPushButton::enterEvent(event);
+    }
+
+    void leaveEvent(QEvent* event) override {
+        m_isHovered = false;
+        update();
+        QPushButton::leaveEvent(event);
+    }
+
+private:
+    QColor m_defaultColor;
+    QColor m_hoverBgColor;
+    bool m_isHovered;
+};
 
 CustomTitleBar::CustomTitleBar(QWidget *parent)
     : QWidget(parent)
@@ -17,25 +63,11 @@ CustomTitleBar::CustomTitleBar(QWidget *parent)
     // Добавляем пружину слева, чтобы кнопки были справа
     layout->addSpacerItem(new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum));
 
-    QIcon circleIcon(":/icons/circle.svg");
+    QColor defaultCircleColor(150, 150, 150);
 
-    m_minimizeBtn = new QPushButton(this);
-    m_minimizeBtn->setIcon(circleIcon);
-    m_minimizeBtn->setFixedSize(16, 16);
-    m_minimizeBtn->setStyleSheet("QPushButton { border: none; background-color: transparent; } QPushButton:hover { background-color: rgba(255, 255, 255, 30); border-radius: 8px; }");
-    m_minimizeBtn->setCursor(Qt::PointingHandCursor);
-
-    m_maximizeBtn = new QPushButton(this);
-    m_maximizeBtn->setIcon(circleIcon);
-    m_maximizeBtn->setFixedSize(16, 16);
-    m_maximizeBtn->setStyleSheet("QPushButton { border: none; background-color: transparent; } QPushButton:hover { background-color: rgba(255, 255, 255, 30); border-radius: 8px; }");
-    m_maximizeBtn->setCursor(Qt::PointingHandCursor);
-
-    m_closeBtn = new QPushButton(this);
-    m_closeBtn->setIcon(circleIcon);
-    m_closeBtn->setFixedSize(16, 16);
-    m_closeBtn->setStyleSheet("QPushButton { border: none; background-color: transparent; } QPushButton:hover { background-color: rgba(255, 0, 0, 100); border-radius: 8px; }");
-    m_closeBtn->setCursor(Qt::PointingHandCursor);
+    m_minimizeBtn = new TitleBarButton(defaultCircleColor, QColor(255, 255, 255, 30), this);
+    m_maximizeBtn = new TitleBarButton(defaultCircleColor, QColor(255, 255, 255, 30), this);
+    m_closeBtn = new TitleBarButton(defaultCircleColor, QColor(255, 0, 0, 100), this);
 
     layout->addWidget(m_minimizeBtn);
     layout->addWidget(m_maximizeBtn);

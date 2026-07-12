@@ -1,4 +1,4 @@
-﻿#include "models/chatmessageslistmodel.h"
+#include "models/chatmessageslistmodel.h"
 
 ChatMessagesListModel::ChatMessagesListModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -90,6 +90,10 @@ void ChatMessagesListModel::appendMessage(const ParsedChatMessagesArrayObject &m
     beginInsertRows(QModelIndex(), insertRow, insertRow);
     m_messages.push_back(message);
     endInsertRows();
+
+    if (insertRow > 0) {
+        emit dataChanged(index(insertRow - 1, 0), index(insertRow - 1, 0), {Qt::SizeHintRole});
+    }
 }
 
 void ChatMessagesListModel::clear()

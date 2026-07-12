@@ -1,4 +1,4 @@
-﻿#include "services/fileservice.h"
+#include "services/fileservice.h"
 #include "utils/paths.h"
 
 #include <QUrlQuery>
@@ -67,7 +67,7 @@ void FileService::uploadFile(const QString &accessToken, const QSet<QString> &fi
             QJsonDocument doc = QJsonDocument::fromJson(raw, &pe);
             if (pe.error || !doc.isObject())
             {
-                NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+                NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, QString("JSON/HTTP Error %1: %2").arg(httpCode).arg(QString(raw))};
                 emit uploadFileFinished(res, filePath, chatId);
                 reply->deleteLater();
                 return;
@@ -81,7 +81,7 @@ void FileService::uploadFile(const QString &accessToken, const QSet<QString> &fi
                 reply->deleteLater();
                 return;
             }
-            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, QString("HTTP Error %1: %2").arg(httpCode).arg(QString(raw))};
             emit uploadFileFinished(res, filePath, chatId);
             reply->deleteLater();
         });
@@ -151,7 +151,7 @@ void FileService::downloadFile(const ParsedDownloadedFileInfo &fileInfo)
         QByteArray raw = reply->readAll();
         //QDir().mkpath(appDownloadsDir); хз как будто лишнее как будто нет хз
         QString filePath = appDownloadsDir + "/" + fileInfo.filename;
-        QSaveFile saveFile(std::filesystem::path(filePath.toStdString()), this);
+        QSaveFile saveFile(filePath, this);
         if (saveFile.open(QIODevice::WriteOnly))
         {
             if (saveFile.write(raw) != fileInfo.fileSize)
