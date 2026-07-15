@@ -19,7 +19,9 @@
 #include <QVariantAnimation>
 #include <QScrollBar>
 #include <QMenu>
+#include <QDesktopServices>
 #include <QFileDialog>
+#include <QCheckBox>
 #include <QBuffer>
 #include <QMessageBox>
 #include <QFile>
@@ -99,11 +101,25 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     
-    editAnimationLabel = new QLabel("Редактирование", this);
-    editAnimationLabel->setAlignment(Qt::AlignCenter);
-    editAnimationLabel->hide();
-    editAnimationLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
-    ui->messagesViewLayout->addWidget(editAnimationLabel, 0, 0, Qt::AlignCenter);
+    editStatusLabel = new QLabel("Редактирование", this);
+    editStatusLabel->setStyleSheet("background-color: #141414; color: #E6E8EB; border: 1px solid #333333; border-radius: 12px; padding: 4px 15px; font-size: 11px;");
+    editStatusLabel->hide();
+    
+    QVBoxLayout *inputVBox = new QVBoxLayout();
+    inputVBox->setContentsMargins(0,0,0,0);
+    inputVBox->setSpacing(5);
+    
+    QHBoxLayout *editStatusLayout = new QHBoxLayout();
+    editStatusLayout->setContentsMargins(0,0,0,0);
+    editStatusLayout->addWidget(editStatusLabel);
+    editStatusLayout->addStretch();
+    
+    inputVBox->addLayout(editStatusLayout);
+    inputVBox->addWidget(ui->messageInput);
+    
+    ui->messageInputLayout->insertLayout(2, inputVBox);
+    ui->messageInputLayout->setAlignment(ui->attachFileBtn, Qt::AlignBottom);
+    ui->messageInputLayout->setAlignment(ui->sendMessageBtn, Qt::AlignBottom);
     
     ui->topMessagesShadow->setAttribute(Qt::WA_TransparentForMouseEvents);
     ui->bottomMessagesShadow->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -115,10 +131,14 @@ MainWindow::MainWindow(QWidget *parent)
     setMenuWidget(titleBar);
 
     ui->appIcon->installEventFilter(this);
+    QSizePolicy spAppIcon = ui->appIcon->sizePolicy();
+    spAppIcon.setRetainSizeWhenHidden(true);
+    ui->appIcon->setSizePolicy(spAppIcon);
     ui->currentUserAvatar->installEventFilter(this);
     ui->currentUserName->installEventFilter(this);
     ui->currentUserName->setCursor(Qt::PointingHandCursor);
     ui->searchInput->installEventFilter(this);
+    ui->messagesView->installEventFilter(this);
     ui->topPanelLayout->setAlignment(Qt::AlignLeft);
     ui->searchInput->hide();
     ui->currentUserName->hide();
@@ -147,8 +167,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(chatsController, &ChatsController::getMyChatsFinished, this, &MainWindow::on_getMyChatsFinished);
     connect(chatsController, &ChatsController::getChatMessagesInProgress, this, &MainWindow::on_getChatMessagesInProgress);
     connect(chatsController, &ChatsController::getChatMessagesFinished, this, &MainWindow::on_getChatMessagesFinished);
-    connect(chatsController, &ChatsController::createDirectChatInProgress, this, &MainWindow::on_createDirectChatInProgress);
     connect(chatsController, &ChatsController::createDirectChatFinished, this, &MainWindow::on_createDirectChatFinished);
+    connect(chatsController, &ChatsController::editMessageFinished, this, &MainWindow::on_editMessageFinished);
+    connect(chatsController, &ChatsController::deleteMessageFinished, this, &MainWindow::on_deleteMessageFinished);
     connect(websocketController, &WebsocketController::socketConnectionInProgress, this, &MainWindow::on_socketConnectionInProgress);
     connect(websocketController, &WebsocketController::socketConnectionFinished, this, &MainWindow::on_socketConnectionFinished);
     connect(websocketController, &WebsocketController::socketDisonnectionInProgress, this, &MainWindow::on_socketDisonnectionInProgress);
@@ -168,9 +189,25 @@ MainWindow::MainWindow(QWidget *parent)
     connect(filesController, &FilesController::downloadFileFinished, this, &MainWindow::on_downloadFileFinished);
     // Изменение высоты строки ввода собщения при переносе строки
     connect(ui->messageInput, &QTextEdit::textChanged, this, &MainWindow::on_textChanged);
+    
+    // Авторизация по Enter
+    connect(ui->logInPassword, &QLineEdit::returnPressed, ui->logInBtn, &QPushButton::click);
 
+    // Оформление полей ввода пароля: кнопка показа пароля внутри поля
+    auto setupRevealBtn = [](QLineEdit* lineEdit, QPushButton* btn) {
+        QHBoxLayout *layout = new QHBoxLayout(lineEdit);
+        layout->setContentsMargins(0, 0, 10, 0);
+        layout->addWidget(btn, 0, Qt::AlignRight | Qt::AlignVCenter);
+        btn->setCursor(Qt::PointingHandCursor);
+    };
+    setupRevealBtn(ui->logInPassword, ui->revealLogInPasswordBtn);
+    setupRevealBtn(ui->registrationPassword, ui->revealRegistrationPasswordBtn);
+    setupRevealBtn(ui->registrationPasswordConfirm, ui->revealRegistrationPasswordConfirmBtn);
     ui->messagesView->setMouseTracking(true);
+    messagesItemDelegate = new ChatMessagesItemDelegate(ui->messagesView);
+    ui->messagesView->setItemDelegate(messagesItemDelegate);
     connect(messagesItemDelegate, &ChatMessagesItemDelegate::editMessageRequested, this, &MainWindow::onEditMessageRequested);
+    connect(messagesItemDelegate, &ChatMessagesItemDelegate::deleteMessageRequested, this, &MainWindow::onDeleteMessageRequested);
     connect(chatsController, &ChatsController::editMessageFinished, this, &MainWindow::on_editMessageFinished);
 
     ui->chatsView->setModel(chatsListModel);
@@ -208,6 +245,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->loadingAndContentWidgets->setCurrentWidget(ui->loadingPage);
     ui->messageInput->installEventFilter(this);
 
+    ui->messageInput->setPlaceholderText("Сообщение...");
+
     tryAuthorize();
 
 
@@ -242,6 +281,8 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
         }
 
         saveDraftForChat(currentChatId);
+        editingMessageId = ULONG_LONG_MAX;
+        hideEditStatusLabelSmoothly();
         currentChatId = chatItem.data(ChatListModel::ChatIdRole).toULongLong();
         ui->messagesView->setCurrentChatId(currentChatId);
         currentChatName = chatItem.data(ChatListModel::ChatNameRole).toString().trimmed();
@@ -307,9 +348,22 @@ void MainWindow::on_sendMessageBtn_clicked()
     QString msgToSend = stripAttachmentMarker(ui->messageInput->toPlainText());
     const auto draftIt = draftsByChatId.constFind(currentChatId);
     bool hasDraftAttachments = draftIt != draftsByChatId.constEnd() && !draftIt.value().attachments.isEmpty();
-    bool condToSendMsg = currentChatId != ULONG_LONG_MAX
-            && (!msgToSend.trimmed().isEmpty() || hasDraftAttachments); // Условия для отправки сообщения
-    if (condToSendMsg)
+    bool isMessageEmpty = msgToSend.trimmed().isEmpty() && !hasDraftAttachments;
+
+    if (currentChatId == ULONG_LONG_MAX)
+        return;
+
+    if (editingMessageId != ULONG_LONG_MAX && isMessageEmpty)
+    {
+        quint64 msgIdToDelete = editingMessageId;
+        editingMessageId = ULONG_LONG_MAX;
+        hideEditStatusLabelSmoothly();
+        ui->messageInput->clear();
+        onDeleteMessageRequested(msgIdToDelete);
+        return;
+    }
+
+    if (!isMessageEmpty)
     {
         if (editingMessageId != ULONG_LONG_MAX)
         {
@@ -331,6 +385,7 @@ void MainWindow::on_sendMessageBtn_clicked()
             }
             ui->messageInput->clear();
             editingMessageId = ULONG_LONG_MAX;
+            hideEditStatusLabelSmoothly();
             return;
         }
 
@@ -846,6 +901,8 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
         }
     }
 
+
+
     if (obj == ui->messageInput && event->type() == QEvent::KeyPress) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
         if (keyEvent->key() == Qt::Key_Up) {
@@ -872,27 +929,70 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
         } else if (keyEvent->key() == Qt::Key_Escape) {
             if (editingMessageId != ULONG_LONG_MAX) {
                 editingMessageId = ULONG_LONG_MAX;
+                hideEditStatusLabelSmoothly();
                 ui->messageInput->clear();
                 return true;
             } else if (currentChatId != ULONG_LONG_MAX) {
-                saveDraftForChat(currentChatId);
-                currentChatId = ULONG_LONG_MAX;
-                currentChatName = "";
-                ui->interlocutorNameLabel->hide();
-                ui->interlocutorAvatar->hide();
-                ui->messageInput->clear();
-                ui->messageInput->hide();
-                ui->sendMessageBtn->hide();
-                ui->attachFileBtn->hide();
-                ui->chatsView->clearSelection();
-                messagesListModel->clear();
-                ui->messagesView->setCurrentChatId(ULONG_LONG_MAX);
+                closeCurrentChat();
                 return true;
             }
         }
     }
 
-    return QMainWindow::eventFilter(obj, event); // Важно пробросить событие дальше
+    if (obj == ui->messagesView && event->type() == QEvent::KeyPress) {
+        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+        if (keyEvent->key() == Qt::Key_Escape) {
+            if (currentChatId != ULONG_LONG_MAX) {
+                closeCurrentChat();
+                return true;
+            }
+        }
+    }
+
+    return QMainWindow::eventFilter(obj, event); // важно пробросить событие дальше
+}
+
+void MainWindow::hideEditStatusLabelSmoothly()
+{
+    if (editStatusLabel && !editStatusLabel->isHidden()) {
+        QGraphicsOpacityEffect *effect = qobject_cast<QGraphicsOpacityEffect*>(editStatusLabel->graphicsEffect());
+        if (!effect) {
+            effect = new QGraphicsOpacityEffect(editStatusLabel);
+            editStatusLabel->setGraphicsEffect(effect);
+        }
+        
+        QPropertyAnimation *anim = new QPropertyAnimation(effect, "opacity", this);
+        anim->setDuration(200);
+        anim->setStartValue(effect->opacity());
+        anim->setEndValue(0.0);
+        
+        connect(anim, &QPropertyAnimation::finished, this, [this, anim]() {
+            editStatusLabel->hide();
+            anim->deleteLater();
+        });
+        
+        anim->start();
+    }
+}
+
+void MainWindow::closeCurrentChat()
+{
+    if (currentChatId != ULONG_LONG_MAX) {
+        editingMessageId = ULONG_LONG_MAX;
+        hideEditStatusLabelSmoothly();
+        saveDraftForChat(currentChatId);
+        currentChatId = ULONG_LONG_MAX;
+        currentChatName = "";
+        ui->interlocutorNameLabel->hide();
+        ui->interlocutorAvatar->hide();
+        ui->messageInput->clear();
+        ui->messageInput->hide();
+        ui->sendMessageBtn->hide();
+        ui->attachFileBtn->hide();
+        ui->chatsView->clearSelection();
+        messagesListModel->clear();
+        ui->messagesView->setCurrentChatId(ULONG_LONG_MAX);
+    }
 }
 
 void MainWindow::toggleLeftPanel()
@@ -909,16 +1009,40 @@ void MainWindow::toggleLeftPanel()
         anim2->setStartValue(ui->narrowLeftPanel->width());
         anim2->setEndValue(85);
         anim2->setEasingCurve(QEasingCurve::InOutCubic);
+        
+        QGraphicsOpacityEffect *nameEffect = new QGraphicsOpacityEffect(ui->currentUserName);
+        ui->currentUserName->setGraphicsEffect(nameEffect);
+        QPropertyAnimation *nameFade = new QPropertyAnimation(nameEffect, "opacity");
+        nameFade->setDuration(300);
+        nameFade->setStartValue(1.0);
+        nameFade->setEndValue(0.0);
+        
+        QGraphicsOpacityEffect *searchEffect = new QGraphicsOpacityEffect(ui->searchInput);
+        ui->searchInput->setGraphicsEffect(searchEffect);
+        QPropertyAnimation *searchFade = new QPropertyAnimation(searchEffect, "opacity");
+        searchFade->setDuration(300);
+        searchFade->setStartValue(1.0);
+        searchFade->setEndValue(0.0);
 
         QParallelAnimationGroup *group = new QParallelAnimationGroup(this);
         group->addAnimation(anim);
         group->addAnimation(anim2);
+        group->addAnimation(nameFade);
+        group->addAnimation(searchFade);
+        
+        connect(group, &QParallelAnimationGroup::finished, this, [this]() {
+            if (!isLeftPanelExpanded) {
+                ui->searchInput->hide();
+                ui->currentUserName->hide();
+                ui->searchInput->clear();
+                ui->currentUserName->setGraphicsEffect(nullptr);
+                ui->searchInput->setGraphicsEffect(nullptr);
+            }
+        });
+        
         group->start(QAbstractAnimation::DeleteWhenStopped);
 
         isLeftPanelExpanded = false;
-        ui->searchInput->hide();
-        ui->currentUserName->hide();
-        ui->searchInput->clear();
         crossfadeAppIcon(ui->appIcon, ":/icons/left_panel_open.svg");
     } else {
         QPropertyAnimation *anim = new QPropertyAnimation(ui->narrowLeftPanel, "minimumWidth");
@@ -932,10 +1056,34 @@ void MainWindow::toggleLeftPanel()
         anim2->setStartValue(ui->narrowLeftPanel->width());
         anim2->setEndValue(250);
         anim2->setEasingCurve(QEasingCurve::InOutCubic);
+        
+        QGraphicsOpacityEffect *nameEffect = new QGraphicsOpacityEffect(ui->currentUserName);
+        ui->currentUserName->setGraphicsEffect(nameEffect);
+        QPropertyAnimation *nameFade = new QPropertyAnimation(nameEffect, "opacity");
+        nameFade->setDuration(300);
+        nameFade->setStartValue(0.0);
+        nameFade->setEndValue(1.0);
+        
+        QGraphicsOpacityEffect *searchEffect = new QGraphicsOpacityEffect(ui->searchInput);
+        ui->searchInput->setGraphicsEffect(searchEffect);
+        QPropertyAnimation *searchFade = new QPropertyAnimation(searchEffect, "opacity");
+        searchFade->setDuration(300);
+        searchFade->setStartValue(0.0);
+        searchFade->setEndValue(1.0);
 
         QParallelAnimationGroup *group = new QParallelAnimationGroup(this);
         group->addAnimation(anim);
         group->addAnimation(anim2);
+        group->addAnimation(nameFade);
+        group->addAnimation(searchFade);
+        
+        connect(group, &QParallelAnimationGroup::finished, this, [this]() {
+            if (isLeftPanelExpanded) {
+                ui->currentUserName->setGraphicsEffect(nullptr);
+                ui->searchInput->setGraphicsEffect(nullptr);
+            }
+        });
+
         group->start(QAbstractAnimation::DeleteWhenStopped);
 
         isLeftPanelExpanded = true;
@@ -1726,43 +1874,72 @@ void MainWindow::on_downloadFileFinished(const NetworkResult &res, const ParsedD
 
 void MainWindow::onEditMessageRequested(quint64 messageId, const QString &currentText)
 {
+    bool wasAlreadyEditing = (editingMessageId != ULONG_LONG_MAX);
+    
     editingMessageId = messageId;
     ui->messageInput->setText(currentText);
     ui->messageInput->setFocus();
     
-    editAnimationLabel->raise();
-    editAnimationLabel->show();
-    
-    QVariantAnimation *anim = new QVariantAnimation(this);
-    anim->setStartValue(0.0);
-    anim->setEndValue(1.0);
-    anim->setDuration(400); // Анимация редактирования
-    
-    connect(anim, &QVariantAnimation::valueChanged, this, [this](const QVariant &value){
-        qreal v = value.toReal();
-        int fontSize = 24 + int(60 * v); // Увеличиваем шрифт с 24 до 84
-        qreal opacity = 1.0;
-        if (v < 0.2) {
-            opacity = v / 0.2; // Быстрое появление
-        } else {
-            opacity = 1.0 - (v - 0.2) / 0.8; // Плавное растворение
+    if (wasAlreadyEditing) {
+        if (editStatusLabel) {
+            editStatusLabel->show();
+            editStatusLabel->setGraphicsEffect(nullptr);
         }
-        int alpha = int(opacity * 255);
-        editAnimationLabel->setStyleSheet(QString("color: rgba(255, 255, 255, %1); font-size: %2px; font-weight: bold; background: transparent;").arg(alpha).arg(fontSize));
-    });
+        return;
+    }
     
-    connect(anim, &QVariantAnimation::finished, this, [this, anim](){
-        editAnimationLabel->hide();
-        anim->deleteLater();
-    });
-    
-    anim->start();
+    if (editStatusLabel) {
+        editStatusLabel->show();
+        QGraphicsOpacityEffect *effect = new QGraphicsOpacityEffect(editStatusLabel);
+        editStatusLabel->setGraphicsEffect(effect);
+        QPropertyAnimation *opacityAnim = new QPropertyAnimation(effect, "opacity");
+        opacityAnim->setDuration(300);
+        opacityAnim->setStartValue(0.0);
+        opacityAnim->setEndValue(1.0);
+        opacityAnim->start(QAbstractAnimation::DeleteWhenStopped);
+    }
 }
 
 void MainWindow::on_editMessageFinished(const NetworkResult &res)
 {
     if (!res.ok) {
         // TODO: handle error
+    }
+}
+
+void MainWindow::onDeleteMessageRequested(quint64 messageId)
+{
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle("Удаление сообщения");
+    msgBox.setText("Вы уверены, что хотите удалить это сообщение?");
+    msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+    msgBox.setDefaultButton(QMessageBox::No);
+
+    QCheckBox *cb = new QCheckBox("Удалить у всех", &msgBox);
+    msgBox.setCheckBox(cb);
+
+    if (msgBox.exec() == QMessageBox::Yes) {
+        bool deleteForAll = cb->isChecked();
+        std::vector<quint64> ids = {messageId};
+        chatsController->requestDeleteMessage(ids, currentChatId, deleteForAll, accessToken);
+        
+        auto chatIt = chatMessages.find(currentChatId);
+        if (chatIt != chatMessages.end()) {
+            auto &msgs = chatIt.value();
+            msgs.erase(std::remove_if(msgs.begin(), msgs.end(),
+                [messageId](const ParsedChatMessagesArrayObject& m) { return m.messageId == messageId; }),
+                msgs.end());
+            messagesListModel->setMessages(msgs);
+        }
+    }
+}
+
+void MainWindow::on_deleteMessageFinished(const NetworkResult &res)
+{
+    if (!res.ok) {
+        if (currentChatId != ULONG_LONG_MAX) {
+            chatsController->requestChatMessages(currentChatId, accessToken);
+        }
     }
 }
 

@@ -137,7 +137,6 @@ void WebsocketService::sendMessage(const ParsedChatMessagesArrayObject &message)
 
 void WebsocketService::fillHandlersMap()
 {
-    handlersMapByTypeOfMessage.insert(QString("pong"), &WebsocketService::on_pong);
     handlersMapByTypeOfMessage.insert(QString("chat.message"), &WebsocketService::on_newMessage);
     handlersMapByTypeOfMessage.insert(QString("chat.message.send.accepted"), &WebsocketService::on_messageAccepted);
     handlersMapByTypeOfMessage.insert(QString("chat.message.ack.result"), &WebsocketService::on_ackResult);
@@ -146,11 +145,6 @@ void WebsocketService::fillHandlersMap()
     handlersMapByTypeOfMessage.insert(QString("message.deleted"), &WebsocketService::on_messageDeleted);
     handlersMapByTypeOfMessage.insert(QString("user.status"), &WebsocketService::on_userStatus);
     handlersMapByTypeOfMessage.insert(QString("error"), &WebsocketService::on_error);
-
-}
-
-void WebsocketService::on_pong(const QJsonObject &payload)
-{
 
 }
 

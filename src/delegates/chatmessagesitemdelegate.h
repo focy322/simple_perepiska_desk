@@ -19,12 +19,15 @@ public:
 
 signals:
     void editMessageRequested(quint64 messageId, const QString &currentText);
+    void deleteMessageRequested(quint64 messageId);
 
 private:
     void setLastReadMessage(const quint64 chatId, const quint64 MessageId) const;
     unsigned long long m_currentUserId;
+    QString appDownloadsDir;
     mutable std::pair<quint64, quint64> lastReadMessage;  //!< Последнее прочитанное сообщение ChatId | MessageId
     mutable QHash<quint64, QRect> m_editBtnRects;
+    mutable QHash<quint64, QRect> m_deleteBtnRects;
 };
 
 #endif // CHATMESSAGESITEMDELEGATE_H

@@ -147,7 +147,14 @@ QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #1
             </sizepolicy>
            </property>
            <property name="styleSheet">
-            <string notr="true" />
+            <string notr="true">QWidget#pageAuth, QWidget#pageLogIn, QWidget#pageRegistration, QWidget#logInWidget, QWidget#registrationWidget, QLabel#succesLogInLabel, QLabel#succesRegistrationLabel { background-color: #0A0A0A; }
+QLineEdit#logInLogIn, QLineEdit#registrationLogin { background-color: #1B1F24; color: #E6E8EB; border: 1px solid #2A3037; border-radius: 15px; padding: 0 15px; selection-background-color: #2F6BFF; }
+QLineEdit#logInPassword, QLineEdit#registrationPassword, QLineEdit#registrationPasswordConfirm { background-color: #1B1F24; color: #E6E8EB; border: 1px solid #2A3037; border-radius: 15px; padding: 0 35px 0 15px; selection-background-color: #2F6BFF; }
+QLineEdit#logInLogIn:focus, QLineEdit#logInPassword:focus, QLineEdit#registrationLogin:focus, QLineEdit#registrationPassword:focus, QLineEdit#registrationPasswordConfirm:focus { border: 1px solid #3E7BFF; }
+QPushButton#logInBtn, QPushButton#switchToRegistrationBtn, QPushButton#registrationBtn, QPushButton#switchToLogInBtn { background-color: #242A31; color: #E6E8EB; border: 1px solid #2F3740; border-radius: 15px; padding: 6px 10px; }
+QPushButton#logInBtn:hover, QPushButton#switchToRegistrationBtn:hover, QPushButton#registrationBtn:hover, QPushButton#switchToLogInBtn:hover { background-color: #3a4551; }
+QPushButton#logInBtn:pressed, QPushButton#switchToRegistrationBtn:pressed, QPushButton#registrationBtn:pressed, QPushButton#switchToLogInBtn:pressed { background-color: #1F252B; }
+QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, QPushButton#revealRegistrationPasswordConfirmBtn { background: transparent; border: none; }</string>
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_3">
             <property name="leftMargin">
@@ -283,6 +290,9 @@ QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #1
                            <horstretch>0</horstretch>
                            <verstretch>0</verstretch>
                           </sizepolicy>
+                         </property>
+                         <property name="focusPolicy">
+                          <enum>Qt::FocusPolicy::NoFocus</enum>
                          </property>
                          <property name="text">
                           <string />
@@ -494,6 +504,9 @@ QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #1
                            <verstretch>0</verstretch>
                           </sizepolicy>
                          </property>
+                         <property name="focusPolicy">
+                          <enum>Qt::FocusPolicy::NoFocus</enum>
+                         </property>
                          <property name="text">
                           <string />
                          </property>
@@ -529,6 +542,9 @@ QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #1
                            <horstretch>0</horstretch>
                            <verstretch>0</verstretch>
                           </sizepolicy>
+                         </property>
+                         <property name="focusPolicy">
+                          <enum>Qt::FocusPolicy::NoFocus</enum>
                          </property>
                          <property name="text">
                           <string />

@@ -28,15 +28,8 @@ void ChatListItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
     bool isCollapsed = opt.rect.width() < baseHeight * 6;
     const int avatarSize = qMax(40, static_cast<int>(baseHeight * 2.5));
     
-    QRect avatarRect;
-    if (isCollapsed) {
-        avatarRect = QRect(opt.rect.left() + (opt.rect.width() - avatarSize) / 2,
-                           opt.rect.top() + (opt.rect.height() - avatarSize) / 2,
-                           avatarSize, avatarSize);
-    } else {
-        const QRect contentRect = opt.rect.adjusted(5, 0, -5, 0);
-        avatarRect = QRect(contentRect.left(), contentRect.top() + (contentRect.height() - avatarSize) / 2, avatarSize, avatarSize);
-    }
+    const QRect contentRect = opt.rect.adjusted(5, 0, -5, 0);
+    const QRect avatarRect = QRect(contentRect.left(), contentRect.top() + (contentRect.height() - avatarSize) / 2, avatarSize, avatarSize);
 
     bool isHovered = (opt.state & QStyle::State_MouseOver);
     bool isSelected = (opt.state & QStyle::State_Selected);
@@ -95,7 +88,6 @@ void ChatListItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
     }
 
     if (!isCollapsed) {
-        const QRect contentRect = opt.rect.adjusted(5, 0, -5, 0);
         const QRect textRect = contentRect.adjusted(avatarSize + 10, 0, 0, 0);
         const int timestampWidth = 50;
         const QRect timestampRect(textRect.right() - timestampWidth, avatarRect.top(), timestampWidth, avatarRect.height() / 2 + 5);

@@ -63,7 +63,7 @@ CustomTitleBar::CustomTitleBar(QWidget *parent)
     // Добавляем пружину слева, чтобы кнопки были справа
     layout->addSpacerItem(new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum));
 
-    QColor defaultCircleColor(150, 150, 150);
+    QColor defaultCircleColor(250, 249, 246);
 
     m_minimizeBtn = new TitleBarButton(defaultCircleColor, QColor(255, 255, 255, 30), this);
     m_maximizeBtn = new TitleBarButton(defaultCircleColor, QColor(255, 255, 255, 30), this);
@@ -77,8 +77,8 @@ CustomTitleBar::CustomTitleBar(QWidget *parent)
     connect(m_maximizeBtn, &QPushButton::clicked, this, &CustomTitleBar::onMaximizeRestoreClicked);
     connect(m_closeBtn, &QPushButton::clicked, this, &CustomTitleBar::onCloseClicked);
 
-    // Стиль самой полоски (можно оставить прозрачной или задать цвет)
-    setStyleSheet("background-color: transparent;");
+    // Стиль самой полоски
+    setStyleSheet("background-color: #141414; border-top-left-radius: 0px; border-top-right-radius: 0px;");
 }
 
 void CustomTitleBar::onMinimizeClicked()

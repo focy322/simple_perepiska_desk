@@ -36,10 +36,61 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
     const quint64 messageId = index.data(ChatMessagesListModel::MessageIdRole).toULongLong();
     const quint64 chatId = index.data(ChatMessagesListModel::ChatIdRole).toULongLong();
 
+    bool showDateBadge = false;
+    QString dateBadgeText;
+    if (!timestampIso.isEmpty()) {
+        QDateTime currentDt = QDateTime::fromString(timestampIso, Qt::ISODateWithMs);
+        if (!currentDt.isValid()) currentDt = QDateTime::fromString(timestampIso, Qt::ISODate);
+        if (currentDt.isValid()) {
+            QDateTime prevDt;
+            if (index.row() > 0) {
+                QString prevDateStr = index.model()->index(index.row() - 1, 0).data(ChatMessagesListModel::TimestampRole).toString().trimmed();
+                prevDt = QDateTime::fromString(prevDateStr, Qt::ISODateWithMs);
+                if (!prevDt.isValid()) prevDt = QDateTime::fromString(prevDateStr, Qt::ISODate);
+            }
+            if (index.row() == 0 || (prevDt.isValid() && currentDt.toLocalTime().date() != prevDt.toLocalTime().date())) {
+                showDateBadge = true;
+                QDate today = QDate::currentDate();
+                QDate msgDate = currentDt.toLocalTime().date();
+                if (msgDate == today) {
+                    dateBadgeText = "Сегодня";
+                } else if (msgDate == today.addDays(-1)) {
+                    dateBadgeText = "Вчера";
+                } else {
+                    QStringList months = {"января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"};
+                    if (msgDate.year() == today.year()) {
+                        dateBadgeText = QString("%1 %2").arg(msgDate.day()).arg(months.at(msgDate.month() - 1));
+                    } else {
+                        dateBadgeText = QString("%1 %2 %3").arg(msgDate.day()).arg(months.at(msgDate.month() - 1)).arg(msgDate.year());
+                    }
+                }
+            }
+        }
+    }
+    const int dateBadgeHeight = showDateBadge ? 36 : 0;
+
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
 
-    const QRect rowRect = option.rect.adjusted(2, 4, -8, -4);
+    if (showDateBadge) {
+        QFont badgeFont = option.font;
+        badgeFont.setPointSize(qMax(8, badgeFont.pointSize() - 1));
+        QFontMetrics badgeFm(badgeFont);
+        int textWidth = badgeFm.horizontalAdvance(dateBadgeText);
+        int badgeWidth = textWidth + 30;
+        int badgeHeight = 24;
+        QRect badgeRect(option.rect.left() + (option.rect.width() - badgeWidth) / 2, option.rect.top() + 6, badgeWidth, badgeHeight);
+        
+        painter->setPen(QPen(QColor(51, 51, 51), 1));
+        painter->setBrush(QColor(20, 20, 20));
+        painter->drawRoundedRect(badgeRect, 12, 12);
+        
+        painter->setPen(QColor(230, 232, 235));
+        painter->setFont(badgeFont);
+        painter->drawText(badgeRect, Qt::AlignCenter, dateBadgeText);
+    }
+
+    const QRect rowRect = option.rect.adjusted(2, 4 + dateBadgeHeight, -8, -4);
     const int maxBubbleWidth = qMax(200, static_cast<int>(rowRect.width() * 0.72));
 
     QFont textFont = option.font;
@@ -331,25 +382,51 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
         {
             const int btnSize = qMax(24, static_cast<int>(baseHeight * 1.5));
             QRect editBtnRect(bubbleX - btnSize - 8, bubbleRect.center().y() - btnSize / 2, btnSize, btnSize);
+            QRect deleteBtnRect(editBtnRect.left() - btnSize - 8, bubbleRect.center().y() - btnSize / 2, btnSize, btnSize);
             painter->setPen(Qt::NoPen);
             painter->setBrush(QColor(255, 255, 255, 30));
             painter->drawEllipse(editBtnRect);
+            painter->drawEllipse(deleteBtnRect);
             
             painter->setPen(QColor(200, 200, 200));
             QFont iconFont = option.font;
             iconFont.setPointSize(12);
             painter->setFont(iconFont);
             painter->drawText(editBtnRect, Qt::AlignCenter, "✎");
+            painter->drawText(deleteBtnRect, Qt::AlignCenter, "🗑");
             m_editBtnRects[messageId] = editBtnRect;
+            m_deleteBtnRects[messageId] = deleteBtnRect;
         } else {
             m_editBtnRects.remove(messageId);
+            m_deleteBtnRects.remove(messageId);
         }
     }
     else
     {
-        m_editBtnRects.remove(messageId);
         if (!isRead)
             setLastReadMessage(chatId, messageId);
+
+        if (option.state & QStyle::State_MouseOver)
+        {
+            const int btnSize = qMax(24, static_cast<int>(baseHeight * 1.5));
+            QRect deleteBtnRect(bubbleRect.right() + 8, bubbleRect.center().y() - btnSize / 2, btnSize, btnSize);
+            
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(QColor(255, 255, 255, 30));
+            painter->drawEllipse(deleteBtnRect);
+            
+            painter->setPen(QColor(200, 200, 200));
+            QFont iconFont = option.font;
+            iconFont.setPointSize(12);
+            painter->setFont(iconFont);
+            painter->drawText(deleteBtnRect, Qt::AlignCenter, "🗑");
+            
+            m_editBtnRects.remove(messageId);
+            m_deleteBtnRects[messageId] = deleteBtnRect;
+        } else {
+            m_editBtnRects.remove(messageId);
+            m_deleteBtnRects.remove(messageId);
+        }
     }
 
     painter->restore();
@@ -357,6 +434,25 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
 
 QSize ChatMessagesItemDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
+    const QString timestampIso = index.data(ChatMessagesListModel::TimestampRole).toString().trimmed();
+    bool showDateBadge = false;
+    if (!timestampIso.isEmpty()) {
+        QDateTime currentDt = QDateTime::fromString(timestampIso, Qt::ISODateWithMs);
+        if (!currentDt.isValid()) currentDt = QDateTime::fromString(timestampIso, Qt::ISODate);
+        if (currentDt.isValid()) {
+            QDateTime prevDt;
+            if (index.row() > 0) {
+                QString prevDateStr = index.model()->index(index.row() - 1, 0).data(ChatMessagesListModel::TimestampRole).toString().trimmed();
+                prevDt = QDateTime::fromString(prevDateStr, Qt::ISODateWithMs);
+                if (!prevDt.isValid()) prevDt = QDateTime::fromString(prevDateStr, Qt::ISODate);
+            }
+            if (index.row() == 0 || (prevDt.isValid() && currentDt.toLocalTime().date() != prevDt.toLocalTime().date())) {
+                showDateBadge = true;
+            }
+        }
+    }
+    const int dateBadgeHeight = showDateBadge ? 36 : 0;
+
     const QString messageText = index.data(ChatMessagesListModel::MessageTextRole).toString().trimmed();
     const bool isPending = index.data(ChatMessagesListModel::IsPendingRole).toBool();
     const QJsonArray attachments = index.data(ChatMessagesListModel::AttachmentsRole).toJsonArray();
@@ -447,7 +543,7 @@ QSize ChatMessagesItemDelegate::sizeHint(const QStyleOptionViewItem &option, con
         + (hasAttachments ? attachmentsHeight : 0)
         + (hasAttachments && hasMessage ? attachmentsBlockSpacing : 0);
 
-    int finalHeight = qMax(44, rowHeight);
+    int finalHeight = qMax(44, rowHeight) + dateBadgeHeight;
     if (index.row() == index.model()->rowCount() - 1) {
         finalHeight += 80;
     }
@@ -466,14 +562,22 @@ bool ChatMessagesItemDelegate::editorEvent(QEvent *event, QAbstractItemModel *mo
         if (mouseEvent->button() == Qt::LeftButton) {
             const unsigned long long senderId = index.data(ChatMessagesListModel::SenderIdRole).toULongLong();
             const bool isMine = senderId == m_currentUserId;
+            const quint64 messageId = index.data(ChatMessagesListModel::MessageIdRole).toULongLong();
+            QRect editBtnRect = m_editBtnRects.value(messageId);
+            QRect deleteBtnRect = m_deleteBtnRects.value(messageId);
             
             if (isMine) {
-                const quint64 messageId = index.data(ChatMessagesListModel::MessageIdRole).toULongLong();
-                QRect editBtnRect = m_editBtnRects.value(messageId);
-                
                 if (editBtnRect.isValid() && editBtnRect.contains(mouseEvent->pos())) {
                     const QString messageText = index.data(ChatMessagesListModel::MessageTextRole).toString().trimmed();
                     emit editMessageRequested(messageId, messageText);
+                    return true;
+                } else if (deleteBtnRect.isValid() && deleteBtnRect.contains(mouseEvent->pos())) {
+                    emit deleteMessageRequested(messageId);
+                    return true;
+                }
+            } else {
+                if (deleteBtnRect.isValid() && deleteBtnRect.contains(mouseEvent->pos())) {
+                    emit deleteMessageRequested(messageId);
                     return true;
                 }
             }

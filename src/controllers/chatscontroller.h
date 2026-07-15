@@ -15,6 +15,7 @@ public:
     void requestCreateDirectChat(const unsigned long long &userId, const QString &accToken);
     void requestMarkMessageRead(const std::pair<quint64, quint64> &msg, const QString &accToken);
     void requestEditMessage(const quint64 messageId, const quint64 chatId, const QString &newText, const QString &accToken);
+    void requestDeleteMessage(const std::vector<quint64>& messageIds, const quint64 chatId, const bool deleteForAll, const QString &accToken);
 
 
 private:
@@ -28,6 +29,7 @@ signals:
     void createDirectChatInProgress();
     void createDirectChatFinished(const NetworkResult &res);
     void editMessageFinished(const NetworkResult &res);
+    void deleteMessageFinished(const NetworkResult &res);
 };
 
 #endif // CHATSCONTROLLER_H

@@ -11,6 +11,7 @@ ChatsController::ChatsController(QObject *parent)
     connect(chatService, &ChatService::createDirectChatInProgress, this, &ChatsController::createDirectChatInProgress);
     connect(chatService, &ChatService::createDirectChatFinished, this, &ChatsController::createDirectChatFinished);
     connect(chatService, &ChatService::editMessageFinished, this, &ChatsController::editMessageFinished);
+    connect(chatService, &ChatService::deleteMessageFinished, this, &ChatsController::deleteMessageFinished);
 
 }
 
@@ -37,4 +38,9 @@ void ChatsController::requestMarkMessageRead(const std::pair<quint64, quint64> &
 void ChatsController::requestEditMessage(const quint64 messageId, const quint64 chatId, const QString &newText, const QString &accToken)
 {
     chatService->editMessage(messageId, chatId, newText, accToken);
+}
+
+void ChatsController::requestDeleteMessage(const std::vector<quint64>& messageIds, const quint64 chatId, const bool deleteForAll, const QString &accToken)
+{
+    chatService->deleteMessage(messageIds, chatId, deleteForAll, accToken);
 }

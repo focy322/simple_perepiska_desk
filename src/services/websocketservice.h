@@ -1,4 +1,4 @@
-﻿#ifndef WEBSOCKETSERVICE_H
+#ifndef WEBSOCKETSERVICE_H
 #define WEBSOCKETSERVICE_H
 
 #include <QObject>
@@ -44,7 +44,6 @@ private:
     QHash<QString, Handler> handlersMapByTypeOfMessage; //!< хэш таблица для обработчиков по типу получаемого сообщения
 
     //!< Обработчики
-    void on_pong(const QJsonObject &payload);
     void on_newMessage(const QJsonObject &payload);
     void on_messageAccepted(const QJsonObject &payload);
     void on_ackResult(const QJsonObject &payload);

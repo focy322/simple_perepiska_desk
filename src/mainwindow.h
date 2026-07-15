@@ -58,6 +58,8 @@ protected:
     bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
 
 private:
+    void closeCurrentChat();
+    void hideEditStatusLabelSmoothly();
     void toggleLeftPanel();
     bool isLeftPanelExpanded = false;
 
@@ -189,7 +191,9 @@ private slots:
     void on_socketDisonnectionFinished(const NetworkResult &res);
 
     void onEditMessageRequested(quint64 messageId, const QString &currentText);
+    void onDeleteMessageRequested(quint64 messageId);
     void on_editMessageFinished(const NetworkResult &res);
+    void on_deleteMessageFinished(const NetworkResult &res);
 
     void on_sendingMessageInProgress();
 
@@ -229,7 +233,7 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
-    QLabel *editAnimationLabel = nullptr;
+    QLabel *editStatusLabel = nullptr;
     ChatListModel *chatsListModel;                      //!< Модель чатов с доступом к полям через роли
     SearchListModel *searchListModel;                   //!< Модель списка пользователей при поиске с доступом к полям через роли
     ChatMessagesItemDelegate *messagesItemDelegate;     //!< Делегат сообщений (выравнивание своих/чужих)
@@ -257,18 +261,6 @@ private:
     QSoundEffect *notificationSound;
     FilesController *filesController;
     QPointer<QParallelAnimationGroup> pageSwitchAnimation;
-
-    /**
-      * Инициализация кнопки "Выход"
-      *
-      */
-
-
-    /**
-      * При resiz'е окна меняет положение кнопки "Выход"
-      *
-      */
-
 
     void tryAuthorize();
 

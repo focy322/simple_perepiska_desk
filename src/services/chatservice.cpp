@@ -281,12 +281,15 @@ void ChatService::createDirectChat(const unsigned long long &userId, const QStri
 void ChatService::markMessageRead(const std::pair<quint64, quint64> &msg, const QString &accToken)
 {
     QUrl url(baseUrl + markMessageReadUrl.arg(msg.first));
-    QUrlQuery query;
-    query.addQueryItem("last_read_message_id", QString::number(msg.second));
-    url.setQuery(query);
     QNetworkRequest req(url);
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     req.setRawHeader("Authorization", "Bearer " + accToken.toUtf8());
-    QNetworkReply * reply = network->sendCustomRequest(req, "PATCH", QByteArray("{}"));
+
+    QJsonObject json;
+    json["last_read_message_id"] = static_cast<qint64>(msg.second);
+    QJsonDocument doc(json);
+
+    QNetworkReply * reply = network->sendCustomRequest(req, "PATCH", doc.toJson());
     connect(reply, &QNetworkReply::finished, this, [this, reply](){
         auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
@@ -350,6 +353,48 @@ void ChatService::editMessage(const quint64 messageId, const quint64 chatId, con
         {
             NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit editMessageFinished(res);
+        }
+        reply->deleteLater();
+    });
+}
+
+void ChatService::deleteMessage(const std::vector<quint64>& messageIds, const quint64 chatId, const bool deleteForAll, const QString &accToken)
+{
+    QUrl url(baseUrl + "/api/messages/");
+
+    QNetworkRequest req(url);
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    req.setRawHeader("Authorization", "Bearer " + accToken.toUtf8());
+
+    QJsonArray msgIdsArray;
+    for (auto id : messageIds) {
+        msgIdsArray.append(static_cast<qint64>(id));
+    }
+    
+    QJsonObject json;
+    json["message_id"] = msgIdsArray;
+    json["chat_id"] = static_cast<qint64>(chatId);
+    QJsonDocument doc(json);
+
+    QNetworkReply *reply = network->sendCustomRequest(req, "DELETE", doc.toJson());
+    connect(reply, &QNetworkReply::finished, this, [this, reply](){
+        auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (reply->error() != QNetworkReply::NoError && httpCode == 0)
+        {
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            emit deleteMessageFinished(res);
+            reply->deleteLater();
+            return;
+        }
+        if (httpCode == 200)
+        {
+            NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
+            emit deleteMessageFinished(res);
+        }
+        else
+        {
+            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            emit deleteMessageFinished(res);
         }
         reply->deleteLater();
     });

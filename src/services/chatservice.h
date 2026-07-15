@@ -70,6 +70,7 @@ public:
     void markMessageRead(const std::pair<quint64, quint64> &msg, const QString &accToken);
 
     void editMessage(const quint64 messageId, const quint64 chatId, const QString &newText, const QString &accToken);
+    void deleteMessage(const std::vector<quint64>& messageIds, const quint64 chatId, const bool deleteForAll, const QString &accToken);
 
 
 private:
@@ -89,6 +90,7 @@ signals:
     void createDirectChatInProgress();
     void createDirectChatFinished(const NetworkResult &res);
     void editMessageFinished(const NetworkResult &res);
+    void deleteMessageFinished(const NetworkResult &res);
 };
 
 
