@@ -54,7 +54,8 @@ private:
 CustomTitleBar::CustomTitleBar(QWidget *parent)
     : QWidget(parent)
 {
-    setFixedHeight(20);
+    // Толщина полоски
+    setFixedHeight(23);
 
     QHBoxLayout *layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 8, 0);
@@ -77,8 +78,11 @@ CustomTitleBar::CustomTitleBar(QWidget *parent)
     connect(m_maximizeBtn, &QPushButton::clicked, this, &CustomTitleBar::onMaximizeRestoreClicked);
     connect(m_closeBtn, &QPushButton::clicked, this, &CustomTitleBar::onCloseClicked);
 
-    // Стиль самой полоски
-    setStyleSheet("background-color: #141414; border-top-left-radius: 0px; border-top-right-radius: 0px;");
+    // Поддержка QSS для кастомного QWidget
+    setAttribute(Qt::WA_StyledBackground, true);
+
+    // Стиль полоски
+    setStyleSheet("CustomTitleBar { background-color: #0A0A0A; border-top-left-radius: 0px; border-top-right-radius: 0px; }");
 }
 
 void CustomTitleBar::onMinimizeClicked()

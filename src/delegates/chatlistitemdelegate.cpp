@@ -88,11 +88,18 @@ void ChatListItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
     }
 
     if (!isCollapsed) {
+        const int unreadCount = index.data(ChatListModel::UnreadCountRole).toInt();
+
         const QRect textRect = contentRect.adjusted(avatarSize + 10, 0, 0, 0);
         const int timestampWidth = 50;
         const QRect timestampRect(textRect.right() - timestampWidth, avatarRect.top(), timestampWidth, avatarRect.height() / 2 + 5);
         const QRect titleRect(textRect.left(), avatarRect.top(), textRect.width() - timestampWidth - 6, avatarRect.height() / 2 + 5);
-        const QRect subtitleRect(textRect.left(), titleRect.bottom(), textRect.width(), avatarRect.height() / 2 - 10);
+        
+        int subtitleRightPadding = 0;
+        if (unreadCount > 0) {
+            subtitleRightPadding = 30;
+        }
+        const QRect subtitleRect(textRect.left(), titleRect.bottom(), textRect.width() - subtitleRightPadding, textRect.bottom() - titleRect.bottom());
 
         painter->setFont(titleFont);
         painter->setPen(titleColor);
@@ -101,7 +108,7 @@ void ChatListItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
 
         painter->setFont(subtitleFont);
         painter->setPen(subtitleColor);
-        painter->drawText(subtitleRect, Qt::AlignLeft | Qt::AlignBottom,
+        painter->drawText(subtitleRect, Qt::AlignLeft | Qt::AlignTop,
                           QFontMetrics(subtitleFont).elidedText(subtitle, Qt::ElideRight, subtitleRect.width()));
 
         QFont timeFont = subtitleFont;
@@ -120,6 +127,33 @@ void ChatListItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
         }
         painter->drawText(timestampRect, Qt::AlignRight | Qt::AlignTop,
                           QFontMetrics(timeFont).elidedText(timeDisplay, Qt::ElideLeft, timestampRect.width()));
+
+        if (unreadCount > 0) {
+            QString badgeText = QString::number(unreadCount);
+            if (unreadCount > 99) {
+                badgeText = "99+";
+            }
+            
+            QFont badgeFont = subtitleFont;
+            badgeFont.setPointSize(std::max(7, badgeFont.pointSize() - 1));
+            badgeFont.setBold(true);
+            QFontMetrics badgeFm(badgeFont);
+            
+            int textWidth = badgeFm.horizontalAdvance(badgeText);
+            int badgeHeight = 20;
+            int badgeSize = std::max(badgeHeight, textWidth + 10);
+            
+            // Выравнивае круга по правому краю текста
+            QRect badgeRect(textRect.right() - badgeSize, avatarRect.bottom() - badgeHeight, badgeSize, badgeHeight);
+            
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(QColor(250, 249, 246)); // кремовый цвет
+            painter->drawRoundedRect(badgeRect, badgeHeight / 2, badgeHeight / 2);
+            
+            painter->setPen(QColor(0, 0, 0)); // чёрный цвет
+            painter->setFont(badgeFont);
+            painter->drawText(badgeRect, Qt::AlignCenter, badgeText);
+        }
     }
 
 

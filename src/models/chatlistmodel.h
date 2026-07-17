@@ -41,6 +41,8 @@ public:
 
     void setChats(const std::vector<ParsedChatsListArrayObject> &chats);
     void clear();
+    void decreaseUnreadCount(quint64 chatId, int count);
+    void setUnreadCount(quint64 chatId, int count);
 
 private slots:
     void onAvatarDownloaded(QNetworkReply *reply, int row, const QString &url);

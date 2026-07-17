@@ -16,6 +16,7 @@ public:
     bool editorEvent(QEvent *event, QAbstractItemModel *model, const QStyleOptionViewItem &option, const QModelIndex &index) override;
 
     const std::pair<quint64, quint64>& getLastReadMessage() { return lastReadMessage; };
+    void resetLastReadMessage() const { lastReadMessage = {ULONG_LONG_MAX, ULONG_LONG_MAX}; }
 
 signals:
     void editMessageRequested(quint64 messageId, const QString &currentText);

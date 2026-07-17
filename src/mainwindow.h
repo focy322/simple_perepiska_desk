@@ -10,6 +10,8 @@
 #include <QStackedWidget>
 #include <QUuid>
 #include <QSoundEffect>
+#include <QVariantAnimation>
+#include <QPointer>
 
 #include "models/chatlistmodel.h"
 #include "models/chatmessageslistmodel.h"
@@ -108,6 +110,7 @@ private slots:
     void on_switchToLogInBtn_clicked();
 
     void on_switchToRegistrationBtn_clicked();
+    void on_logInPassword_returnPressed();
 
     /**
       * Вызывается при получении сигнала о завершении регистрации
@@ -261,6 +264,8 @@ private:
     QSoundEffect *notificationSound;
     FilesController *filesController;
     QPointer<QParallelAnimationGroup> pageSwitchAnimation;
+    QPointer<QVariantAnimation> logInBtnAnimation;
+    bool isLogInEnterPressed = false;
 
     void tryAuthorize();
 

@@ -191,7 +191,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->messageInput, &QTextEdit::textChanged, this, &MainWindow::on_textChanged);
     
     // Авторизация по Enter
-    connect(ui->logInPassword, &QLineEdit::returnPressed, ui->logInBtn, &QPushButton::click);
+    connect(ui->logInPassword, &QLineEdit::returnPressed, this, &MainWindow::on_logInPassword_returnPressed);
 
     // Оформление полей ввода пароля: кнопка показа пароля внутри поля
     auto setupRevealBtn = [](QLineEdit* lineEdit, QPushButton* btn) {
@@ -199,6 +199,7 @@ MainWindow::MainWindow(QWidget *parent)
         layout->setContentsMargins(0, 0, 10, 0);
         layout->addWidget(btn, 0, Qt::AlignRight | Qt::AlignVCenter);
         btn->setCursor(Qt::PointingHandCursor);
+        btn->setIcon(QIcon(":/icons/search.svg"));
     };
     setupRevealBtn(ui->logInPassword, ui->revealLogInPasswordBtn);
     setupRevealBtn(ui->registrationPassword, ui->revealRegistrationPasswordBtn);
@@ -429,6 +430,12 @@ void MainWindow::on_registrationBtn_clicked()
 
     authController->requestRegistration(login, password, passwordConfirm);
 
+}
+
+void MainWindow::on_logInPassword_returnPressed()
+{
+    isLogInEnterPressed = true;
+    ui->logInBtn->click();
 }
 
 void MainWindow::on_logInBtn_clicked()
@@ -768,33 +775,20 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
         if (msg->wParam == TRUE) {
             NCCALCSIZE_PARAMS *params = reinterpret_cast<NCCALCSIZE_PARAMS *>(msg->lParam);
             if (IsZoomed(msg->hwnd)) {
-                HMONITOR monitor = MonitorFromWindow(msg->hwnd, MONITOR_DEFAULTTONULL);
-                if (monitor) {
-                    MONITORINFO mi;
-                    mi.cbSize = sizeof(mi);
-                    GetMonitorInfoW(monitor, &mi);
-                    params->rgrc[0] = mi.rcWork;
-                }
+                // Windows увеличивает окно за пределы монитора, а мы сжимаем клиентскую область, 
+                // чтобы она идеально совпадала с экраном.
+                int borderWidth = GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+                int borderHeight = GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+                
+                params->rgrc[0].left += borderWidth;
+                params->rgrc[0].top += borderHeight;
+                params->rgrc[0].right -= borderWidth;
+                params->rgrc[0].bottom -= borderHeight;
             }
             *result = 0;
             return true;
         }
         return false;
-    }
-
-    if (msg->message == WM_GETMINMAXINFO) {
-        MINMAXINFO *mmi = reinterpret_cast<MINMAXINFO *>(msg->lParam);
-        HMONITOR monitor = MonitorFromWindow(msg->hwnd, MONITOR_DEFAULTTONEAREST);
-        MONITORINFO mi;
-        mi.cbSize = sizeof(MONITORINFO);
-        if (GetMonitorInfoW(monitor, &mi)) {
-            mmi->ptMaxPosition.x = mi.rcWork.left - mi.rcMonitor.left;
-            mmi->ptMaxPosition.y = mi.rcWork.top - mi.rcMonitor.top;
-            mmi->ptMaxSize.x = mi.rcWork.right - mi.rcWork.left;
-            mmi->ptMaxSize.y = mi.rcWork.bottom - mi.rcWork.top;
-            *result = 0;
-            return true;
-        }
     }
 
     if (msg->message == WM_NCHITTEST) {
@@ -1001,22 +995,17 @@ void MainWindow::toggleLeftPanel()
         QPropertyAnimation *anim = new QPropertyAnimation(ui->narrowLeftPanel, "minimumWidth");
         anim->setDuration(300);
         anim->setStartValue(ui->narrowLeftPanel->width());
-        anim->setEndValue(85);
+        anim->setEndValue(86);
         anim->setEasingCurve(QEasingCurve::InOutCubic);
         
         QPropertyAnimation *anim2 = new QPropertyAnimation(ui->narrowLeftPanel, "maximumWidth");
         anim2->setDuration(300);
         anim2->setStartValue(ui->narrowLeftPanel->width());
-        anim2->setEndValue(85);
+        anim2->setEndValue(86);
         anim2->setEasingCurve(QEasingCurve::InOutCubic);
         
-        QGraphicsOpacityEffect *nameEffect = new QGraphicsOpacityEffect(ui->currentUserName);
-        ui->currentUserName->setGraphicsEffect(nameEffect);
-        QPropertyAnimation *nameFade = new QPropertyAnimation(nameEffect, "opacity");
-        nameFade->setDuration(300);
-        nameFade->setStartValue(1.0);
-        nameFade->setEndValue(0.0);
         
+
         QGraphicsOpacityEffect *searchEffect = new QGraphicsOpacityEffect(ui->searchInput);
         ui->searchInput->setGraphicsEffect(searchEffect);
         QPropertyAnimation *searchFade = new QPropertyAnimation(searchEffect, "opacity");
@@ -1027,16 +1016,14 @@ void MainWindow::toggleLeftPanel()
         QParallelAnimationGroup *group = new QParallelAnimationGroup(this);
         group->addAnimation(anim);
         group->addAnimation(anim2);
-        group->addAnimation(nameFade);
         group->addAnimation(searchFade);
         
         connect(group, &QParallelAnimationGroup::finished, this, [this]() {
             if (!isLeftPanelExpanded) {
                 ui->searchInput->hide();
-                ui->currentUserName->hide();
                 ui->searchInput->clear();
-                ui->currentUserName->setGraphicsEffect(nullptr);
                 ui->searchInput->setGraphicsEffect(nullptr);
+                ui->currentUserName->hide();
             }
         });
         
@@ -1048,22 +1035,17 @@ void MainWindow::toggleLeftPanel()
         QPropertyAnimation *anim = new QPropertyAnimation(ui->narrowLeftPanel, "minimumWidth");
         anim->setDuration(300);
         anim->setStartValue(ui->narrowLeftPanel->width());
-        anim->setEndValue(250);
+        anim->setEndValue(280);
         anim->setEasingCurve(QEasingCurve::InOutCubic);
         
         QPropertyAnimation *anim2 = new QPropertyAnimation(ui->narrowLeftPanel, "maximumWidth");
         anim2->setDuration(300);
         anim2->setStartValue(ui->narrowLeftPanel->width());
-        anim2->setEndValue(250);
+        anim2->setEndValue(280);
         anim2->setEasingCurve(QEasingCurve::InOutCubic);
         
-        QGraphicsOpacityEffect *nameEffect = new QGraphicsOpacityEffect(ui->currentUserName);
-        ui->currentUserName->setGraphicsEffect(nameEffect);
-        QPropertyAnimation *nameFade = new QPropertyAnimation(nameEffect, "opacity");
-        nameFade->setDuration(300);
-        nameFade->setStartValue(0.0);
-        nameFade->setEndValue(1.0);
         
+
         QGraphicsOpacityEffect *searchEffect = new QGraphicsOpacityEffect(ui->searchInput);
         ui->searchInput->setGraphicsEffect(searchEffect);
         QPropertyAnimation *searchFade = new QPropertyAnimation(searchEffect, "opacity");
@@ -1074,12 +1056,10 @@ void MainWindow::toggleLeftPanel()
         QParallelAnimationGroup *group = new QParallelAnimationGroup(this);
         group->addAnimation(anim);
         group->addAnimation(anim2);
-        group->addAnimation(nameFade);
         group->addAnimation(searchFade);
         
         connect(group, &QParallelAnimationGroup::finished, this, [this]() {
             if (isLeftPanelExpanded) {
-                ui->currentUserName->setGraphicsEffect(nullptr);
                 ui->searchInput->setGraphicsEffect(nullptr);
             }
         });
@@ -1135,7 +1115,11 @@ void MainWindow::on_getMyUserInfoFinished(const NetworkResult &res, const QStrin
         this->myUserId = userId;
         this->currentAvatarUrl = avatarUrl;
         messagesItemDelegate->setCurrentUserId(this->myUserId);
-        ui->currentUserName->setText(currentUsername);
+        
+        QFontMetrics metrics(ui->currentUserName->font());
+        QString elidedName = metrics.elidedText(currentUsername, Qt::ElideRight, 184);
+        ui->currentUserName->setText(elidedName);
+        ui->currentUserName->setToolTip(currentUsername);
         
         // Если аватара нет, устанавливаем заглушку
         if (avatarUrl.isEmpty()) {
@@ -1588,6 +1572,14 @@ void MainWindow::on_logInFinished(const NetworkResult &res, const QString &accTo
         ui->succesLogInLabel->setText(res.message);
         currentChatName = "";
     }
+
+    if (logInBtnAnimation && logInBtnAnimation->state() == QAbstractAnimation::Running)
+    {
+        logInBtnAnimation->stop();
+        ui->logInBtn->setStyleSheet("");
+    }
+    isLogInEnterPressed = false;
+
     ui->logInBtn->setEnabled(true);
     ui->switchToRegistrationBtn->setEnabled(true);
 }
@@ -1596,6 +1588,8 @@ void MainWindow::on_logOutFinished(const NetworkResult &res)
 {
     if (res.ok)
     {
+        closeCurrentChat();
+        
         // TODO: Очистить пользовательские данные и поля
         isAuthorized = false;
         ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);
@@ -1632,6 +1626,42 @@ void MainWindow::on_logInProgress()
     // Заморозка кнопок на время авторизации
     ui->logInBtn->setEnabled(false);
     ui->switchToRegistrationBtn->setEnabled(false);
+
+    if (isLogInEnterPressed)
+    {
+        if (!logInBtnAnimation)
+        {
+            logInBtnAnimation = new QVariantAnimation(this);
+            logInBtnAnimation->setDuration(1500);
+            logInBtnAnimation->setLoopCount(-1);
+            logInBtnAnimation->setKeyValueAt(0.0, QColor("#141414"));
+            logInBtnAnimation->setKeyValueAt(0.5, QColor("#E6E8EB"));
+            logInBtnAnimation->setKeyValueAt(1.0, QColor("#141414"));
+
+            connect(logInBtnAnimation, &QVariantAnimation::valueChanged, this, [this](const QVariant &value){
+                QColor bgColor = value.value<QColor>();
+
+                qreal progress = qAbs(bgColor.red() - 20) / (qreal)(230 - 20);
+
+                int rFG = 230 - progress * (230 - 20);
+                int gFG = 232 - progress * (232 - 20);
+                int bFG = 235 - progress * (235 - 20);
+                QColor fgC(rFG, gFG, bFG);
+
+                ui->logInBtn->setStyleSheet(QString(
+                    "QPushButton { "
+                    "background-color: %1; "
+                    "color: %2; "
+                    "border: 1px solid #333333; "
+                    "border-radius: 15px; "
+                    "padding: 6px 10px; "
+                    "outline: none; "
+                    "}"
+                ).arg(bgColor.name(), fgC.name()));
+            });
+        }
+        logInBtnAnimation->start();
+    }
 }
 
 void MainWindow::on_logOutInProgress()
@@ -1821,32 +1851,59 @@ void MainWindow::on_messagesView_clicked(const QModelIndex &index)
 void MainWindow::on_needReadLastMessage(const std::pair<quint64, quint64> &message)
 {
     chatsController->requestMarkMessageRead(message, accessToken);
+    on_messageMarkedRead(myUserId, message.first, message.second);
 }
 
 void MainWindow::on_messageMarkedRead(const quint64 userId, const quint64 chatId, const quint64 lastReadMessageId)
 {
-    Q_UNUSED(userId);
     auto chatIt = chatMessages.find(chatId);
     if (chatIt != chatMessages.end())
     {
         auto &messages = chatIt.value();
-        //Возможно есть какой-то более красивый алгоритм чем перебор всего вектора сообщений
+        int readCount = 0;
+
+        quint64 lastInterlocutorMsgId = 0;
         for (auto &message : messages)
         {
-            if ((message.senderId == myUserId) && (message.messageId <= lastReadMessageId) && !message.read)
+            if (message.senderId != myUserId)
             {
-                message.read = true;
-                if (message.messageId == lastReadMessageId)
+                if (message.messageId > lastInterlocutorMsgId) {
+                    lastInterlocutorMsgId = message.messageId;
+                }
+            }
+
+            if (userId != myUserId)
+            {
+                // Собеседник прочитал наши сообщения
+                if ((message.senderId == myUserId) && (message.messageId <= lastReadMessageId) && !message.read)
                 {
-                    if (currentChatId == chatId)
-                    {
-                        messagesListModel->setMessages(messages);
-                    }
-                    return;
+                    message.read = true;
+                }
+            }
+            else
+            {
+                // Мы прочитали сообщения собеседника
+                if ((message.senderId != myUserId) && (message.messageId <= lastReadMessageId) && !message.read)
+                {
+                    message.read = true;
+                    readCount++;
                 }
             }
         }
 
+        if (currentChatId == chatId)
+        {
+            messagesListModel->setMessages(messages);
+        }
+
+        if (userId == myUserId)
+        {
+            if (lastInterlocutorMsgId > 0 && lastReadMessageId >= lastInterlocutorMsgId) {
+                chatsListModel->setUnreadCount(chatId, 0);
+            } else if (readCount > 0) {
+                chatsListModel->decreaseUnreadCount(chatId, readCount);
+            }
+        }
     }
 }
 

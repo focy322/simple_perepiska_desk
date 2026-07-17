@@ -23,13 +23,13 @@
    <string>MainWindow</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">QMainWindow, QWidget { background-color: #272f39; color: #E6E8EB; font-family: "Segoe UI"; }
+   <string notr="true">QMainWindow, QWidget { background-color: #0A0A0A; color: #E6E8EB; font-family: "Segoe UI"; }
 QLabel { color: #E6E8EB; }
 QLineEdit { background-color: #1B1F24; color: #E6E8EB; border: 1px solid #2A3037; selection-background-color: #2F6BFF; }
 QLineEdit:focus { border: 1px solid #3E7BFF; }
-QTextEdit { background-color: #272f39; color: #E6E8EB; border: none; padding: 6px 8px; selection-background-color: #2F6BFF; }
+QTextEdit { background-color: #0A0A0A; color: #E6E8EB; border: none; padding: 6px 8px; selection-background-color: #2F6BFF; }
 QTextEdit:focus { border: none; }
-QPushButton { background-color: #242A31; color: #E6E8EB; border: 1px solid #2F3740; border-radius: 6px; padding: 6px 10px; }
+QPushButton { background-color: #242A31; color: #E6E8EB; border: 1px solid #2F3740; border-radius: 6px; padding: 6px 10px; outline: none; }
 QPushButton:hover { background-color: #3a4551; }
 QPushButton:pressed { background-color: #1F252B; }
 QListView { background-color: #14181C; border: none; }
@@ -148,12 +148,12 @@ QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #1
            </property>
            <property name="styleSheet">
             <string notr="true">QWidget#pageAuth, QWidget#pageLogIn, QWidget#pageRegistration, QWidget#logInWidget, QWidget#registrationWidget, QLabel#succesLogInLabel, QLabel#succesRegistrationLabel { background-color: #0A0A0A; }
-QLineEdit#logInLogIn, QLineEdit#registrationLogin { background-color: #1B1F24; color: #E6E8EB; border: 1px solid #2A3037; border-radius: 15px; padding: 0 15px; selection-background-color: #2F6BFF; }
-QLineEdit#logInPassword, QLineEdit#registrationPassword, QLineEdit#registrationPasswordConfirm { background-color: #1B1F24; color: #E6E8EB; border: 1px solid #2A3037; border-radius: 15px; padding: 0 35px 0 15px; selection-background-color: #2F6BFF; }
-QLineEdit#logInLogIn:focus, QLineEdit#logInPassword:focus, QLineEdit#registrationLogin:focus, QLineEdit#registrationPassword:focus, QLineEdit#registrationPasswordConfirm:focus { border: 1px solid #3E7BFF; }
-QPushButton#logInBtn, QPushButton#switchToRegistrationBtn, QPushButton#registrationBtn, QPushButton#switchToLogInBtn { background-color: #242A31; color: #E6E8EB; border: 1px solid #2F3740; border-radius: 15px; padding: 6px 10px; }
-QPushButton#logInBtn:hover, QPushButton#switchToRegistrationBtn:hover, QPushButton#registrationBtn:hover, QPushButton#switchToLogInBtn:hover { background-color: #3a4551; }
-QPushButton#logInBtn:pressed, QPushButton#switchToRegistrationBtn:pressed, QPushButton#registrationBtn:pressed, QPushButton#switchToLogInBtn:pressed { background-color: #1F252B; }
+QLineEdit#logInLogIn, QLineEdit#registrationLogin { background-color: #141414; color: #E6E8EB; border: 1px solid #333333; border-radius: 15px; padding: 0 15px; selection-background-color: #555555; }
+QLineEdit#logInPassword, QLineEdit#registrationPassword, QLineEdit#registrationPasswordConfirm { background-color: #141414; color: #E6E8EB; border: 1px solid #333333; border-radius: 15px; padding: 0 35px 0 15px; selection-background-color: #555555; }
+QLineEdit#logInLogIn:focus, QLineEdit#logInPassword:focus, QLineEdit#registrationLogin:focus, QLineEdit#registrationPassword:focus, QLineEdit#registrationPasswordConfirm:focus { border: 1px solid #666666; }
+QPushButton#logInBtn, QPushButton#switchToRegistrationBtn, QPushButton#registrationBtn, QPushButton#switchToLogInBtn { background-color: #141414; color: #E6E8EB; border: 1px solid #333333; border-radius: 15px; padding: 6px 10px; }
+QPushButton#logInBtn:hover, QPushButton#switchToRegistrationBtn:hover, QPushButton#registrationBtn:hover, QPushButton#switchToLogInBtn:hover { background-color: #1F1F1F; }
+QPushButton#logInBtn:pressed, QPushButton#switchToRegistrationBtn:pressed, QPushButton#registrationBtn:pressed, QPushButton#switchToLogInBtn:pressed { background-color: #0F0F0F; }
 QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, QPushButton#revealRegistrationPasswordConfirmBtn { background: transparent; border: none; }</string>
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_3">
@@ -297,9 +297,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                          <property name="text">
                           <string />
                          </property>
-                         <property name="icon">
-                          <iconset theme="edit-find" />
-                         </property>
                         </widget>
                        </item>
                       </layout>
@@ -311,6 +308,9 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                        </property>
                        <item>
                         <widget class="QPushButton" name="logInBtn">
+                         <property name="focusPolicy">
+                          <enum>Qt::FocusPolicy::NoFocus</enum>
+                         </property>
                          <property name="sizePolicy">
                           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                            <horstretch>0</horstretch>
@@ -336,6 +336,9 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                        </item>
                        <item>
                         <widget class="QPushButton" name="switchToRegistrationBtn">
+                         <property name="focusPolicy">
+                          <enum>Qt::FocusPolicy::NoFocus</enum>
+                         </property>
                          <property name="sizePolicy">
                           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                            <horstretch>0</horstretch>
@@ -510,9 +513,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                          <property name="text">
                           <string />
                          </property>
-                         <property name="icon">
-                          <iconset theme="edit-find" />
-                         </property>
                         </widget>
                        </item>
                       </layout>
@@ -549,9 +549,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                          <property name="text">
                           <string />
                          </property>
-                         <property name="icon">
-                          <iconset theme="edit-find" />
-                         </property>
                         </widget>
                        </item>
                       </layout>
@@ -563,6 +560,9 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                        </property>
                        <item>
                         <widget class="QPushButton" name="registrationBtn">
+                         <property name="focusPolicy">
+                          <enum>Qt::FocusPolicy::NoFocus</enum>
+                         </property>
                          <property name="sizePolicy">
                           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                            <horstretch>0</horstretch>
@@ -588,6 +588,9 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                        </item>
                        <item>
                         <widget class="QPushButton" name="switchToLogInBtn">
+                         <property name="focusPolicy">
+                          <enum>Qt::FocusPolicy::NoFocus</enum>
+                         </property>
                          <property name="sizePolicy">
                           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                            <horstretch>0</horstretch>
@@ -652,7 +655,7 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
              <number>20</number>
             </property>
             <property name="leftMargin">
-             <number>20</number>
+             <number>30</number>
             </property>
             <property name="topMargin">
              <number>20</number>
@@ -661,47 +664,47 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
              <number>20</number>
             </property>
             <property name="bottomMargin">
-             <number>20</number>
+             <number>30</number>
             </property>
             <item>
          <widget class="QWidget" name="narrowLeftPanel">
            <property name="styleSheet">
-            <string notr="true">QWidget#narrowLeftPanel { background-color: #141414; border-radius: 20px; }</string>
+            <string notr="true">QWidget#narrowLeftPanel { background-color: #141414; border-radius: 25px; }</string>
            </property>
-          <property name="minimumSize">
-           <size>
-            <width>85</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>85</width>
-            <height>16777215</height>
-           </size>
-          </property>
+           <property name="minimumSize">
+            <size>
+             <width>86</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>86</width>
+             <height>16777215</height>
+            </size>
+           </property>
           <layout class="QVBoxLayout" name="verticalLayout_narrowLeft">
            <property name="spacing">
             <number>15</number>
            </property>
-           <property name="leftMargin">
-            <number>20</number>
-           </property>
-           <property name="topMargin">
-            <number>10</number>
-           </property>
-           <property name="bottomMargin">
-            <number>10</number>
-           </property>
-           <property name="rightMargin">
-            <number>15</number>
-           </property>
-           <item>
+            <property name="leftMargin">
+             <number>18</number>
+            </property>
+            <property name="topMargin">
+             <number>10</number>
+            </property>
+            <property name="bottomMargin">
+             <number>10</number>
+            </property>
+            <property name="rightMargin">
+             <number>18</number>
+            </property>
+            <item>
              <layout class="QHBoxLayout" name="topPanelLayout">
               <property name="spacing">
                <number>10</number>
               </property>
-              <item alignment="Qt::AlignLeft">
+              <item alignment="Qt::AlignCenter">
                <widget class="QLabel" name="appIcon">
                 <property name="minimumSize">
                  <size>
@@ -743,6 +746,19 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                </widget>
               </item>
              </layout>
+            </item>
+            <item>
+             <widget class="QFrame" name="topHorizontalLine">
+              <property name="frameShape">
+               <enum>QFrame::HLine</enum>
+              </property>
+              <property name="frameShadow">
+               <enum>QFrame::Sunken</enum>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">background-color: #333333;</string>
+              </property>
+             </widget>
             </item>
            <item>
             <widget class="QListView" name="chatsView">
@@ -799,12 +815,18 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                 </size>
                </property>
                <property name="styleSheet">
-                <string notr="true">background-color: #333333; border-radius: 25px;</string>
+                <string notr="true">background: transparent;</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="currentUserName">
+               <widget class="QLabel" name="currentUserName">
+               <property name="minimumSize">
+                <size>
+                 <width>1</width>
+                 <height>0</height>
+                </size>
+               </property>
                <property name="text">
                 <string></string>
                </property>
@@ -820,7 +842,7 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
-                 <width>40</width>
+                 <width>50</width>
                  <height>20</height>
                 </size>
                </property>
@@ -888,7 +910,7 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                   </property>
                   <property name="sizeHint" stdset="0">
                    <size>
-                    <width>40</width>
+                    <width>50</width>
                     <height>20</height>
                    </size>
                   </property>
@@ -909,7 +931,7 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                     </size>
                    </property>
                    <property name="styleSheet">
-                    <string notr="true">background-color: #333333; border-radius: 20px;</string>
+                    <string notr="true">background: transparent;</string>
                    </property>
                   </widget>
                  </item>
@@ -918,7 +940,7 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>40</height>
+                    <height>50</height>
                    </size>
                   </property>
                   <property name="font">
@@ -929,7 +951,7 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                    </font>
                   </property>
                   <property name="styleSheet">
-                   <string notr="true">QLabel#interlocutorNameLabel { background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1E2328, stop:1 #14181C); color: #E6E8EB; border: 1px solid #2A3037; border-top: 1px solid #3a424b; border-radius: 20px; padding: 6px 15px; }</string>
+                   <string notr="true">QLabel#interlocutorNameLabel { background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1E2328, stop:1 #14181C); color: #E6E8EB; border: 1px solid #2A3037; border-top: 1px solid #3a424b; border-radius: 25px; padding: 6px 15px; }</string>
                   </property>
                   <property name="text">
                    <string/>
@@ -946,7 +968,7 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                   </property>
                   <property name="sizeHint" stdset="0">
                    <size>
-                    <width>40</width>
+                    <width>50</width>
                     <height>20</height>
                    </size>
                   </property>
@@ -974,7 +996,7 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                </widget>
               </item>
               <item row="0" column="0" alignment="Qt::AlignBottom">
-               <layout class="QHBoxLayout" name="messageInputLayout" stretch="0,1,0,0">
+               <layout class="QHBoxLayout" name="messageInputLayout" stretch="0,0,1,0,0">
                 <property name="bottomMargin"><number>10</number></property><property name="rightMargin"><number>20</number></property><property name="topMargin"><number>10</number></property><property name="leftMargin"><number>20</number></property><property name="spacing">
                  <number>15</number>
                 </property>
@@ -985,28 +1007,34 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                   </property>
                  </spacer>
                 </item>
-                 <item>
-                  <widget class="QPushButton" name="attachFileBtn">
-                   <property name="sizePolicy">
-                    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                     <horstretch>0</horstretch>
-                     <verstretch>0</verstretch>
-                    </sizepolicy>
-                   </property>
-                   <property name="minimumSize">
-                    <size>
-                     <width>40</width>
-                     <height>40</height>
-                    </size>
-                   </property>
-                   <property name="text">
-                    <string>📎</string>
-                   </property>
-                   <property name="styleSheet">
-                    <string notr="true">QPushButton#attachFileBtn { background-color: #141414; color: #E6E8EB; font-size: 20px; border: none; border-radius: 20px; } QPushButton#attachFileBtn:hover { background-color: #333333; }</string>
-                   </property>
-                  </widget>
-                 </item>
+                <item alignment="Qt::AlignVCenter">
+                 <widget class="QPushButton" name="attachFileBtn">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="minimumSize">
+                   <size>
+                    <width>40</width>
+                    <height>40</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>40</width>
+                    <height>40</height>
+                   </size>
+                  </property>
+                  <property name="text">
+                   <string>📎</string>
+                  </property>
+                  <property name="styleSheet">
+                   <string notr="true">QPushButton#attachFileBtn { background-color: #141414; color: #E6E8EB; font-size: 20px; border: none; border-radius: 20px; } QPushButton#attachFileBtn:hover { background-color: #333333; }</string>
+                  </property>
+                 </widget>
+                </item>
                 <item>
                  <widget class="QTextEdit" name="messageInput">
                   <property name="enabled">
@@ -1056,7 +1084,7 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                   </property>
                   <property name="styleSheet"><string notr="true">QTextEdit#messageInput { background-color: #141414; color: #E6E8EB; border: 1px solid #333333; border-radius: 20px; padding: 6px 15px; selection-background-color: #555555; } QTextEdit#messageInput:focus { border: 1px solid #666666; }</string></property></widget>
                 </item>
-                <item>
+                <item alignment="Qt::AlignVCenter">
                  <widget class="QPushButton" name="sendMessageBtn">
                   <property name="sizePolicy">
                    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -1065,6 +1093,12 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                    </sizepolicy>
                   </property>
                   <property name="minimumSize">
+                   <size>
+                    <width>40</width>
+                    <height>40</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
                    <size>
                     <width>40</width>
                     <height>40</height>

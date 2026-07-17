@@ -110,21 +110,28 @@ void ListViewDragNDrop::dropEvent(QDropEvent *event)
 
 void ListViewDragNDrop::paintEvent(QPaintEvent *event)
 {
-    QListView::paintEvent(event);
     ChatMessagesItemDelegate* delegate = qobject_cast<ChatMessagesItemDelegate*>(itemDelegate());
+    if (delegate)
+        delegate->resetLastReadMessage();
+
+    QListView::paintEvent(event);
     if (delegate)
     {
         const std::pair<quint64, quint64> lastReadMessage = delegate->getLastReadMessage();
-        if (lastReadMessage.second != ULONG_LONG_MAX)
+        if (lastReadMessage.second != ULONG_LONG_MAX) {
             setLastReadMessage(lastReadMessage.first, lastReadMessage.second);
+            scrollStopTimer->start();
+        }
     }
 
 }
 
 void ListViewDragNDrop::on_scrollStop()
 {
-    if (lastReadMessage_.second != ULONG_LONG_MAX)
+    if (lastReadMessage_.second != ULONG_LONG_MAX && lastReadMessage_ != lastSentReadMessage_) {
+        lastSentReadMessage_ = lastReadMessage_;
         emit needReadLastMessage(lastReadMessage_);
+    }
 }
 
 void ListViewDragNDrop::setLastReadMessage(const quint64 chatId, const quint64 messageId)

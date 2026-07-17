@@ -37,6 +37,7 @@ private:
     QTimer *scrollStopTimer;
     inline static constexpr uint SCROLL_STOP_TIMER_INTERVAL = 500;
     std::pair<quint64, quint64> lastReadMessage_;
+    std::pair<quint64, quint64> lastSentReadMessage_{ULONG_LONG_MAX, ULONG_LONG_MAX};
     void on_scrollStop();
     void setLastReadMessage(const quint64 chatId, const quint64 messageId);
 

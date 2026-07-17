@@ -122,6 +122,34 @@ void ChatListModel::clear()
     endResetModel();
 }
 
+void ChatListModel::decreaseUnreadCount(quint64 chatId, int count)
+{
+    for (size_t i = 0; i < m_chats.size(); ++i) {
+        if (m_chats[i].chatId == chatId) {
+            if (m_chats[i].unreadCount >= static_cast<unsigned int>(count)) {
+                m_chats[i].unreadCount -= count;
+            } else {
+                m_chats[i].unreadCount = 0;
+            }
+            QModelIndex idx = index(static_cast<int>(i), 0);
+            emit dataChanged(idx, idx, {UnreadCountRole});
+            break;
+        }
+    }
+}
+
+void ChatListModel::setUnreadCount(quint64 chatId, int count)
+{
+    for (size_t i = 0; i < m_chats.size(); ++i) {
+        if (m_chats[i].chatId == chatId) {
+            m_chats[i].unreadCount = count;
+            QModelIndex idx = index(static_cast<int>(i), 0);
+            emit dataChanged(idx, idx, {UnreadCountRole});
+            break;
+        }
+    }
+}
+
 void ChatListModel::fetchAvatars()
 {
     for (size_t i = 0; i < m_chats.size(); ++i) {
