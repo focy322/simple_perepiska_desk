@@ -139,5 +139,20 @@ void ListViewDragNDrop::setLastReadMessage(const quint64 chatId, const quint64 m
     lastReadMessage_ = {chatId, messageId};
 }
 
+void ListViewDragNDrop::mouseMoveEvent(QMouseEvent *event)
+{
+    QListView::mouseMoveEvent(event);
+    QModelIndex idx = indexAt(event->pos());
+    if (idx.isValid()) {
+        update(idx);
+    }
+}
+
+void ListViewDragNDrop::leaveEvent(QEvent *event)
+{
+    QListView::leaveEvent(event);
+    update();
+}
+
 
 

@@ -4,6 +4,7 @@
     </qresource>
     <qresource prefix="/images">
         <file>enot.png</file>
+        <file>enot_windows.ico</file>
     </qresource>
     <qresource prefix="/icons">
         <file alias="circle.svg">icons/circle.svg</file>

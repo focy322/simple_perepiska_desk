@@ -1,5 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include <QApplication>
+#include <QCloseEvent>
 #include "delegates/chatlistitemdelegate.h"
 #include "delegates/searchitemdelegate.h"
 #include "utils/paths.h"
@@ -247,6 +249,19 @@ MainWindow::MainWindow(QWidget *parent)
     ui->messageInput->installEventFilter(this);
 
     ui->messageInput->setPlaceholderText("Сообщение...");
+
+    trayIcon = new QSystemTrayIcon(this);
+    trayIcon->setIcon(QIcon(":/images/enot_windows.ico"));
+    
+    trayIconMenu = new QMenu(this);
+    quitAction = new QAction("Выйти из приложения", this);
+    connect(quitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
+    trayIconMenu->addAction(quitAction);
+    
+    trayIcon->setContextMenu(trayIconMenu);
+    trayIcon->show();
+
+    connect(trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::onTrayIconActivated);
 
     tryAuthorize();
 
@@ -2038,4 +2053,22 @@ void MainWindow::autoDownloadImages(const ParsedChatMessagesArrayObject& message
 {
     std::vector<ParsedChatMessagesArrayObject> messages = {message};
     autoDownloadImages(messages);
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    if (trayIcon->isVisible()) {
+        hide();
+        event->ignore();
+    } else {
+        event->accept();
+    }
+}
+
+void MainWindow::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason)
+{
+    if (reason == QSystemTrayIcon::Trigger || reason == QSystemTrayIcon::DoubleClick) {
+        showNormal();
+        activateWindow();
+    }
 }

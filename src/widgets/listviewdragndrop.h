@@ -4,6 +4,7 @@
 #include "qtimer.h"
 #include <QListView>
 #include <QDragEnterEvent>
+#include <QMouseEvent>
 #include <QMimeData>
 #include <QDropEvent>
 #include <QFileInfo>
@@ -30,6 +31,8 @@ protected:
     void dragMoveEvent(QDragMoveEvent *event) override;
     void dropEvent(QDropEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void leaveEvent(QEvent *event) override;
 
 private:
     QHash<unsigned long long, QSet<QString>> filePathsByChat;

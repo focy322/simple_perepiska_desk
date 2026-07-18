@@ -12,6 +12,10 @@
 #include <QSoundEffect>
 #include <QVariantAnimation>
 #include <QPointer>
+#include <QSystemTrayIcon>
+#include <QMenu>
+#include <QAction>
+#include <QCloseEvent>
 
 #include "models/chatlistmodel.h"
 #include "models/chatmessageslistmodel.h"
@@ -58,6 +62,11 @@ protected:
      * Обработка нативных событий Windows для изменения размера окна
      */
     bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
+
+    /**
+     * Обработка события закрытия окна
+     */
+    void closeEvent(QCloseEvent *event) override;
 
 private:
     void closeCurrentChat();
@@ -234,6 +243,8 @@ private slots:
 
     void on_downloadFileFinished(const NetworkResult &res, const ParsedDownloadedFileInfo& fileInfo = {});
 
+    void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
+
 private:
     Ui::MainWindow *ui;
     QLabel *editStatusLabel = nullptr;
@@ -292,5 +303,8 @@ private:
     void autoDownloadImages(const std::vector<ParsedChatMessagesArrayObject>& messages);
     void autoDownloadImages(const ParsedChatMessagesArrayObject& message);
 
+    QSystemTrayIcon *trayIcon;
+    QMenu *trayIconMenu;
+    QAction *quitAction;
 };
 #endif // MAINWINDOW_H

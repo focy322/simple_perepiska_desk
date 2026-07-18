@@ -67,7 +67,18 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
             }
         }
     }
-    const int dateBadgeHeight = showDateBadge ? 36 : 0;
+    
+    int dateBadgeHeight = 0;
+    int dateBadgeTopOffset = 6;
+    if (showDateBadge) {
+        if (index.row() == 0) {
+            dateBadgeHeight = 116; // 36 + 80px отступа сверху
+            dateBadgeTopOffset = 86;
+        } else {
+            dateBadgeHeight = 36;
+            dateBadgeTopOffset = 6;
+        }
+    }
 
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
@@ -79,7 +90,7 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
         int textWidth = badgeFm.horizontalAdvance(dateBadgeText);
         int badgeWidth = textWidth + 30;
         int badgeHeight = 24;
-        QRect badgeRect(option.rect.left() + (option.rect.width() - badgeWidth) / 2, option.rect.top() + 6, badgeWidth, badgeHeight);
+        QRect badgeRect(option.rect.left() + (option.rect.width() - badgeWidth) / 2, option.rect.top() + dateBadgeTopOffset, badgeWidth, badgeHeight);
         
         painter->setPen(QPen(QColor(51, 51, 51), 1));
         painter->setBrush(QColor(20, 20, 20));
@@ -378,7 +389,19 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
             painter->drawLine(p2, p3);
         }
 
-        if (option.state & QStyle::State_MouseOver)
+        bool isHoveringMessage = false;
+        if (option.state & QStyle::State_MouseOver) {
+            if (const QWidget* w = option.widget) {
+                QPoint localPos = w->mapFromGlobal(QCursor::pos());
+                if (localPos.y() >= option.rect.top() + dateBadgeHeight) {
+                    isHoveringMessage = true;
+                }
+            } else {
+                isHoveringMessage = true;
+            }
+        }
+
+        if (isHoveringMessage)
         {
             const int btnSize = qMax(24, static_cast<int>(baseHeight * 1.5));
             QRect editBtnRect(bubbleX - btnSize - 8, bubbleRect.center().y() - btnSize / 2, btnSize, btnSize);
@@ -406,7 +429,19 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
         if (!isRead)
             setLastReadMessage(chatId, messageId);
 
-        if (option.state & QStyle::State_MouseOver)
+        bool isHoveringMessage = false;
+        if (option.state & QStyle::State_MouseOver) {
+            if (const QWidget* w = option.widget) {
+                QPoint localPos = w->mapFromGlobal(QCursor::pos());
+                if (localPos.y() >= option.rect.top() + dateBadgeHeight) {
+                    isHoveringMessage = true;
+                }
+            } else {
+                isHoveringMessage = true;
+            }
+        }
+
+        if (isHoveringMessage)
         {
             const int btnSize = qMax(24, static_cast<int>(baseHeight * 1.5));
             QRect deleteBtnRect(bubbleRect.right() + 8, bubbleRect.center().y() - btnSize / 2, btnSize, btnSize);
@@ -451,7 +486,11 @@ QSize ChatMessagesItemDelegate::sizeHint(const QStyleOptionViewItem &option, con
             }
         }
     }
-    const int dateBadgeHeight = showDateBadge ? 36 : 0;
+    
+    int dateBadgeHeight = 0;
+    if (showDateBadge) {
+        dateBadgeHeight = (index.row() == 0) ? 116 : 36;
+    }
 
     const QString messageText = index.data(ChatMessagesListModel::MessageTextRole).toString().trimmed();
     const bool isPending = index.data(ChatMessagesListModel::IsPendingRole).toBool();

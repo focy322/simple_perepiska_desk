@@ -11,6 +11,7 @@ set(CMAKE_AUTOUIC ON)
 # Настройка Qt6
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Network WebSockets Multimedia Widgets)
 
+
 # --- Управление зависимостями ---
 include(FetchContent)
 FetchContent_Declare(
@@ -64,3 +65,38 @@ target_include_directories(vent PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
+
+
+# --- Установка и генерация инсталлера ---
+# Установка самого .exe файла в корень директории установки
+install(TARGETS vent DESTINATION .)
+
+# Подтягивание .dll библиотек Qt
+if(WIN32)
+    # Путь к windeployqt
+    get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
+    get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
+    find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${_qt_bin_dir}")
+
+    # Запуск windeployqt
+    install(CODE "
+        message(STATUS \"Running windeployqt to resolve dependencies...\")
+        execute_process(
+            COMMAND \"${WINDEPLOYQT_EXECUTABLE}\" \"\${CMAKE_INSTALL_PREFIX}/vent.exe\"
+        )
+    ")
+endif()
+
+# Настройка CPack для создания инсталлера через NSIS
+set(CPACK_PACKAGE_NAME "Vent")
+set(CPACK_PACKAGE_VENDOR "Vent")
+set(CPACK_PACKAGE_VERSION "0.0.1")
+set(CPACK_PACKAGE_FILE_NAME "Vent-Installer-0.0.1")
+set(CPACK_GENERATOR "NSIS")
+
+# Специфичные настройки NSIS
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "Vent")        # Имя папки в Program Files
+set(CPACK_NSIS_MUI_FINISHPAGE_RUN "vent.exe")      # Файл для запуска по завершении
+set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON) # Удалять старую версию перед новой
+
+include(CPack)
