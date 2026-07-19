@@ -4,23 +4,40 @@
 #include <QWidget>
 #include <QPushButton>
 
+/**
+ * \brief Кастомный заголовок окна (Title Bar).
+ *
+ * Заменяет стандартный заголовок ОС, содержит кнопки управления окном.
+ */
 class CustomTitleBar : public QWidget
 {
     Q_OBJECT
 public:
     explicit CustomTitleBar(QWidget *parent = nullptr);
 
-
-
 private slots:
+    // --- Внутренние обработчики ---
+
+    /**
+     * \brief Обработчик нажатия на кнопку "Свернуть"
+     */
     void onMinimizeClicked();
+
+    /**
+     * \brief Обработчик нажатия на кнопку "Развернуть/Восстановить"
+     */
     void onMaximizeRestoreClicked();
+
+    /**
+     * \brief Обработчик нажатия на кнопку "Закрыть"
+     */
     void onCloseClicked();
 
 private:
-    QPushButton *m_minimizeBtn;
-    QPushButton *m_maximizeBtn;
-    QPushButton *m_closeBtn;
+    // --- Элементы UI ---
+    QPushButton *m_minimizeBtn; //!< Кнопка сворачивания окна
+    QPushButton *m_maximizeBtn; //!< Кнопка разворачивания/восстановления окна
+    QPushButton *m_closeBtn;    //!< Кнопка закрытия окна
 };
 
 #endif // CUSTOMTITLEBAR_H

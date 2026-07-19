@@ -1,4 +1,4 @@
-﻿#ifndef AUTHSERVICE_H
+#ifndef AUTHSERVICE_H
 #define AUTHSERVICE_H
 #include "utils/errortypes.h"
 #include <QObject>
@@ -8,7 +8,10 @@
 #include <QJsonObject>
 #include "utils/endpoints.h"
 
-// Содержит правила регистрации/входа и работу с данными пользователей, без UI-зависимостей.
+/**
+ * Сервис для взаимодействия с API авторизации.
+ * Содержит логику сетевых запросов (регистрация, вход, выход, обновление токенов) без привязки к UI.
+ */
 class AuthService : public QObject
 {
     Q_OBJECT
@@ -16,55 +19,106 @@ public:
     explicit AuthService(QObject *parent = nullptr);
 
     /**
-      * Выполняет запрос на регистрацию
-      * @param login - Введенный логин
-      * @param password - Введенный пароль
-      * @param passwordConfirm - Введенное подтверждение пароля
-      * @return
-      */
+     * Выполняет сетевой запрос на регистрацию нового пользователя.
+     * \param login введенный логин
+     * \param password введенный пароль
+     */
     void registerUser(const QString &login, const QString &password);
 
     /**
-      * Выполняет запрос на авторизацию
-      * @param login - Введенный логин
-      * @param password - Введенный пароль
-      * @return
-      */
+     * Выполняет сетевой запрос на авторизацию (вход) пользователя.
+     * \param login введенный логин
+     * \param password введенный пароль
+     */
     void logIn(const QString &login, const QString &password);
 
     /**
-      * Пока нема
-      *
-      * @return
-      */
+     * Выполняет POST-запрос на завершение сессии (отзыв refresh токена).
+     * \param accToken текущий access токен (Access Token)
+     * \param refToken текущий refresh токен (Refresh Token)
+     */
     void logOut(const QString &accToken, const QString &refToken);
 
-
     /**
-      * Обновление токенов авторизации
-      *
-      * @return запись в токен-файлы новых токенов
-      */
+     * Выполняет сетевой запрос на обновление токенов доступа.
+     * \param refToken текущий refresh токен (Refresh Token)
+     */
     void refreshAccessToken(const QString &refToken);
 
-    void writeRefreshTokenToKeychain(QObject *parent, const QString &token);
+signals:
+    // --- Сигналы процессов ---
+    
+    /**
+     * Сигнал о начале сетевого запроса регистрации.
+     */
+    void registrationInProgress();
+
+    /**
+     * Сигнал о начале сетевого запроса авторизации.
+     */
+    void logInProgress();
+
+    /**
+     * Сигнал о начале сетевого запроса выхода.
+     */
+    void logOutInProgress();
+
+    /**
+     * Сигнал о начале сетевого запроса обновления токена.
+     */
+    void refreshAccessTokenInProgress();
+
+    // --- Сигналы завершения запросов ---
+
+    /**
+     * Сигнал об окончании сетевого запроса регистрации.
+     * \param res результат выполнения запроса
+     * \param accToken новый access токен при успехе
+     * \param refToken новый refresh токен при успехе
+     */
+    void registrationFinished(const NetworkResult &res, const QString &accToken = "", const QString &refToken = "");
+    
+    /**
+     * Сигнал об окончании сетевого запроса авторизации.
+     * \param res результат выполнения запроса
+     * \param accToken новый access токен при успехе
+     * \param refToken новый refresh токен при успехе
+     */
+    void logInFinished(const NetworkResult &res, const QString &accToken = "", const QString &refToken = "");
+    
+    /**
+     * Сигнал об окончании сетевого запроса выхода из аккаунта.
+     * \param res результат выполнения запроса
+     */
+    void logOutFinished(const NetworkResult &res);
+    
+    /**
+     * Сигнал об окончании сетевого запроса обновления токена.
+     * \param res результат выполнения запроса
+     * \param accToken новый access токен при успехе
+     * \param refToken новый refresh токен при успехе
+     */
+    void refreshAccessTokenFinished(const NetworkResult &res, const QString &accToken = "", const QString &refToken = "");
 
 private:
-    QNetworkAccessManager *network; //!< Указатель на объект для работы с запросами
-    QString baseUrl;                //!< Базовый адрес API
-    QString registerUrl;            //!< Адрес для регистрации
-    QString logInUrl;               //!< Адрес для авторизации
-    QString refreshAccessTokenUrl;  //!< Адрес для обновления токена
-    QString logOutUrl;              //!< Адрес для выхода из аккаунта
-signals:
-    void registrationFinished(const NetworkResult &res, const QString &accToken = "", const QString &refToken = ""); //!< Сигнал о завершении регистрации (может быть как успешным так и нет)
-    void logInFinished(const NetworkResult &res, const QString &accToken = "", const QString &refToken = "");        //!< Сигнал о завершении авторизации (может быть как успешным так и нет)
-    void logOutFinished(const NetworkResult &res);       //!< Сигнал о завершении выхода из аккаунта (может быть как успешным так и нет)
-    void registrationInProgress();                    //!< Сигнал о том что регистрация в процессе и нужно заморозить кнопки
-    void logInProgress();                             //!< Сигнал о том что авторизация в процессе и нужно заморозить кнопки
-    void logOutInProgress();                          //!< Сигнал о том что выход из аккаунта в процессе и нужно заморозить кнопки
-    void refreshAccessTokenInProgress();
-    void refreshAccessTokenFinished(const NetworkResult &res, const QString &accToken = "", const QString &refToken = "");
+    // --- Утилиты ---
+
+    /**
+     * Сохраняет refresh токен в безопасное хранилище (Keychain).
+     * \param parent родительский объект
+     * \param token токен для сохранения
+     */
+    void writeRefreshTokenToKeychain(QObject *parent, const QString &token);
+
+    // --- Внутренние объекты сети ---
+    QNetworkAccessManager *network;                       //!< Менеджер сети для выполнения HTTP-запросов
+
+    // --- Адреса API (Endpoints) ---
+    QString                baseUrl;                       //!< Базовый адрес API
+    QString                registerUrl;                   //!< Путь API для регистрации
+    QString                logInUrl;                      //!< Путь API для авторизации
+    QString                refreshAccessTokenUrl;         //!< Путь API для обновления токена
+    QString                logOutUrl;                     //!< Путь API для выхода из аккаунта
 };
 
 #endif // AUTHSERVICE_H

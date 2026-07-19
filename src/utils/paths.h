@@ -4,8 +4,8 @@
 #include <QStandardPaths>
 
 
-inline const QString downloadsDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
-inline const QString appDownloadsDir = downloadsDir + "/Vent Downloads";
+inline const QString downloadsDir    = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation); //!< Стандартная директория загрузок ОС
+inline const QString appDownloadsDir = downloadsDir + "/Vent Downloads";                                   //!< Директория загрузок приложения
 
 
 #endif // PATHS_H
