@@ -16,6 +16,7 @@
  */
 struct ParsedChatsListArrayObject
 {
+    //TODO: Вова добавил новое поле надо распарсить + добавить отрисовку галочек/ожидания
     QString            chatName;                          //!< Имя чата
     QString            type;                              //!< Тип чата
     QString            username;                          //!< Логин собеседника
@@ -32,6 +33,7 @@ struct ParsedChatsListArrayObject
     unsigned long long lastMessageAttachmentsCount = 0;   //!< Количество вложений в последнем сообщении
     unsigned int       unreadCount = 0;                   //!< Количество непрочитанных сообщений
     bool               lastMessageHasAttachments = false; //!< Наличие вложений в последнем сообщении
+    bool               isPending = false;                 //!< При отправке сообщения для отрисовки значка ожидания
 };
 
 /**
@@ -45,6 +47,7 @@ struct ParsedChatMessagesArrayObject
     QString            editedAt;                          //!< Временная метка редактирования
     QString            Uuid;                              //!< UUID сообщения
     QString            readAt;                            //!< Временная метка прочтения
+    //TODO : распарсить на вектор чтобы было читабельней а то хуй знает какие поля тут есть
     QJsonArray         attachments;                       //!< Массив вложений
     unsigned long long messageId = ULONG_LONG_MAX;        //!< Идентификатор сообщения
     unsigned long long senderId = ULONG_LONG_MAX;         //!< Идентификатор отправителя

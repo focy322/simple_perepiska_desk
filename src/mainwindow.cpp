@@ -481,6 +481,8 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
         }
         if (ui->chatsView->model() == searchListModel) {
             unsigned long long userId = chatItem.data(SearchListModel::UserIdRole).toULongLong();
+            // fixIt: вместо того чтобы делать запрос на создание чата можно сначало пройтись по списку чатов на наличие уже существуещего
+            // и если чат с таким userId уже есть то просто переключиться на него не запрашивая создания чата
             chatsController->requestCreateDirectChat(userId, accessToken);
             ui->searchInput->clear();
             ui->searchInput->clearFocus();
@@ -619,6 +621,9 @@ void MainWindow::on_sendMessageBtn_clicked()
         ui->messageInput->clear();
         draftsByChatId.remove(currentChatId);
         updateStagingCloudsUI(currentChatId);
+
+        auto currentChatIt = chatsList.find(currentChatId);
+        refreshChatState(currentChatIt, localMessage, true, false);
 
     }
     else
@@ -1740,6 +1745,7 @@ void MainWindow::on_createDirectChatFinished(const NetworkResult &res)
     if (res.ok)
     {
         qDebug() << "on_createDirectChatFinished = true!!!";
+        //TODO: можно и тут локально сделать доставая инфу о пользователе при попытки создания чата но как будто впадлу
         getChatsList();
     }
     else
@@ -1813,8 +1819,11 @@ void MainWindow::on_newMessageRecieved(const ParsedChatMessagesArrayObject &newM
 
     autoDownloadImages(newMessage);
 
-    //TODO: сделать обновление на клиенте двигая локальный вектор, а если нет чата такого то только тогда вызвать этот метод
-    getChatsList();
+    auto chatIt = chatsList.find(newMsgChatId);
+    if (chatIt != chatsList.end())
+        refreshChatState(chatIt, newMessage, true, true);
+    else
+        getChatsList();
 }
 
 void MainWindow::on_messageAccepted(const ParsedMessageAcceptedObject &msgAccObj)
@@ -1845,8 +1854,8 @@ void MainWindow::on_messageAccepted(const ParsedMessageAcceptedObject &msgAccObj
             //TODO: может быть можно как то перерисовать без переприсваивания вектора
             messagesListModel->setMessages(messages);
 
-        //TODO: на клиенте переставлсять все
-        getChatsList();
+        auto currentChatIt = chatsList.find(msgAccObj.chatId);
+        refreshChatState(currentChatIt, *rit, false, false);
         return;
     }
 }
@@ -1911,7 +1920,6 @@ void MainWindow::on_registrationFinished(const NetworkResult &res, const QString
         refreshToken = refToken;
         isAuthorized = true;
         getMyInfo();
-        getChatsList();
         websocketController->requestConnectSocket(accessToken);
     }
     else
@@ -2737,11 +2745,10 @@ void MainWindow::on_messageMarkedRead(const quint64 userId, const quint64 chatId
 
         if (userId == myUserId)
         {
-            if (lastInterlocutorMsgId > 0 && lastReadMessageId >= lastInterlocutorMsgId) {
-                chatsListModel->setUnreadCount(chatId, 0);
-            } else if (readCount > 0) {
-                chatsListModel->decreaseUnreadCount(chatId, readCount);
-            }
+            if (lastInterlocutorMsgId > 0 && lastReadMessageId >= lastInterlocutorMsgId)
+                setUnreadCount(chatId, 0);
+            else if (readCount > 0)
+                decreaseUnreadCount(chatId, readCount);
         }
     }
 }
@@ -2875,6 +2882,7 @@ void MainWindow::autoDownloadImages(const std::vector<ParsedChatMessagesArrayObj
 
 void MainWindow::autoDownloadImages(const ParsedChatMessagesArrayObject& message)
 {
+    //FixIt: целый вектор ради одного сообщения либо сделать тут одельную реализацию под одно сообщение либо что то придумать с оберткой потому что это смех какой то
     std::vector<ParsedChatMessagesArrayObject> messages = {message};
     autoDownloadImages(messages);
 }
@@ -3068,4 +3076,85 @@ void MainWindow::updateInterlocutorAvatarOutline()
         interlocutorAvatarOutlineAnim->setEndValue(targetAlpha);
         interlocutorAvatarOutlineAnim->start();
     }
+}
+
+void MainWindow::refreshChatState(QHash<unsigned long long, ParsedChatsListArrayObject>::iterator &chatIt,
+    const ParsedChatMessagesArrayObject &newMessage, bool isNeedRotation, bool isNeedIncrementUnread)
+{
+    //TODO: При acctept сообщения можно просто timeStamp и pending менять
+    chatIt.value().lastMessage = newMessage.message;
+    chatIt.value().lastMessageTimestamp = newMessage.timestamp;
+    if (isNeedIncrementUnread)
+        chatIt.value().unreadCount += 1;
+    chatIt.value().isPending = newMessage.isPending;
+    chatIt.value().lastMessageId = newMessage.messageId;
+    chatIt.value().lastMessageSenderId = newMessage.senderId;
+    chatIt.value().lastMessageAttachmentsCount = newMessage.attachmentsCount;
+    chatIt.value().lastMessageHasAttachments = newMessage.hasAttachments;
+    if (!newMessage.hasAttachments)
+        chatIt.value().lastMessageAttachmentType = "";
+    else
+    {
+        bool hasImage = false;
+        bool hasFile = false;
+        bool hasVideo = false;
+        for (const auto& attachmentValue : std::as_const(newMessage.attachments)) 
+        {
+            QJsonObject obj = attachmentValue.toObject();
+            QString fileName = obj.value("filename").toString();
+            bool isImage = fileName.endsWith(".png", Qt::CaseInsensitive)  ||
+                            fileName.endsWith(".jpg", Qt::CaseInsensitive)  ||
+                            fileName.endsWith(".jpeg", Qt::CaseInsensitive) ||
+                            fileName.endsWith(".bmp", Qt::CaseInsensitive)  ||
+                            fileName.endsWith(".gif", Qt::CaseInsensitive);
+
+            bool isVideo = fileName.endsWith(".mp4", Qt::CaseInsensitive)  ||
+                            fileName.endsWith(".m4v", Qt::CaseInsensitive)  ||
+                            fileName.endsWith(".mkv", Qt::CaseInsensitive) ||
+                            fileName.endsWith(".avi", Qt::CaseInsensitive)  ||
+                            fileName.endsWith(".mov", Qt::CaseInsensitive);
+            if (isImage) 
+                hasImage = true;
+            else if (isVideo)
+                hasVideo = true;
+            else
+                hasFile = true;
+
+        }
+        if (hasFile) 
+            chatIt.value().lastMessageAttachmentType = "File";
+        else if (hasImage && hasVideo)
+            chatIt.value().lastMessageAttachmentType = "Media";
+        else if (hasImage)
+            chatIt.value().lastMessageAttachmentType = "Image";
+        else if (hasVideo)
+            chatIt.value().lastMessageAttachmentType = "Video";
+
+    }
+    chatsListModel->upChat(chatIt.value());
+}
+
+void MainWindow::setUnreadCount(quint64 chatId, int count)
+{
+    auto it = chatsList.find(chatId);
+    if (it != chatsList.end()) 
+    {
+        it.value().unreadCount = count;
+        chatsListModel->setUnreadCount(chatId, count);
+    }
+}
+
+void MainWindow::decreaseUnreadCount(quint64 chatId, int count)
+{
+    auto it = chatsList.find(chatId);
+        if (it != chatsList.end())
+        {
+            if (it.value().unreadCount >= static_cast<unsigned int>(count))
+                it.value().unreadCount -= count;
+            else
+                it.value().unreadCount = 0;
+                
+            chatsListModel->decreaseUnreadCount(chatId, count);
+        }
+    
 }

@@ -88,6 +88,8 @@ public:
      */
     void setUnreadCount(quint64 chatId, int count);
 
+    void upChat(const ParsedChatsListArrayObject &chat);
+
 private slots:
     // --- Внутренние обработчики ---
 

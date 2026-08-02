@@ -115,6 +115,21 @@ void ChatListModel::setChats(const std::vector<ParsedChatsListArrayObject> &chat
     fetchAvatars();
 }
 
+void ChatListModel::upChat(const ParsedChatsListArrayObject &chat)
+{
+    beginResetModel();
+    auto it = std::find_if(m_chats.begin(), m_chats.end(), [this, &chat](const ParsedChatsListArrayObject &other){
+        return chat.chatId == other.chatId;
+    });
+    if (it != m_chats.end())
+    {
+        *it = chat;
+        std::rotate(m_chats.begin(), it, it + 1);
+    }
+
+    endResetModel();
+}
+
 void ChatListModel::clear()
 {
     beginResetModel();

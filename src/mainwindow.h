@@ -692,5 +692,12 @@ private:
      * \param message объект сообщения
      */
     void autoDownloadImages(const ParsedChatMessagesArrayObject& message);
+
+    void refreshChatState(QHash<unsigned long long, ParsedChatsListArrayObject>::iterator &chatIt,
+      const ParsedChatMessagesArrayObject &newMessage, bool isNeedRotation, bool isNeedIncrementUnread);
+
+    void setUnreadCount(quint64 chatId, int count);
+    
+    void decreaseUnreadCount(quint64 chatId, int count);
 };
 #endif // MAINWINDOW_H
