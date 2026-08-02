@@ -33,6 +33,7 @@ QPixmap AvatarHelper::generatePlaceholder(const QString &name, int size) {
     font.setBold(true);
     painter.setFont(font);
     painter.drawText(0, 0, size, size, Qt::AlignCenter, firstLetter);
+    painter.end();
 
     return pixmap;
 }
@@ -51,6 +52,7 @@ QPixmap AvatarHelper::makeRoundImage(const QPixmap &src, int size) {
     path.addEllipse(0, 0, size, size);
     painter.setClipPath(path);
     painter.drawPixmap(0, 0, scaled);
+    painter.end();
 
     return target;
 }

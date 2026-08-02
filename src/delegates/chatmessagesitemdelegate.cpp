@@ -10,7 +10,9 @@
 #include <QImageReader>
 #include <QFileInfo>
 #include <QPixmap>
+#include <QIcon>
 #include "utils/paths.h"
+#include "utils/videohelpers.h"
 ChatMessagesItemDelegate::ChatMessagesItemDelegate(QObject *parent)
     : QStyledItemDelegate(parent)
     , m_currentUserId(ULONG_LONG_MAX)
@@ -157,8 +159,13 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
                            fileName.endsWith(".jpeg", Qt::CaseInsensitive) ||
                            fileName.endsWith(".bmp", Qt::CaseInsensitive) ||
                            fileName.endsWith(".gif", Qt::CaseInsensitive);
+            
+            bool isVideo = fileName.endsWith(".mp4", Qt::CaseInsensitive) ||
+                           fileName.endsWith(".avi", Qt::CaseInsensitive) ||
+                           fileName.endsWith(".mov", Qt::CaseInsensitive) ||
+                           fileName.endsWith(".mkv", Qt::CaseInsensitive);
 
-            if (isImage) {
+            if (isImage || isVideo) {
                 int imgWidth = maxBubbleWidth - horizontalPadding * 2;
                 int imgHeight = 200;
                 QString path = appDownloadsDir + "/" + fileName;
@@ -167,12 +174,24 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
                     path = localPath;
                 }
                 if (QFileInfo::exists(path)) {
-                    QImageReader reader(path);
-                    QSize sz = reader.size();
-                    if (sz.isValid()) {
-                        QSize scaled = sz.scaled(imgWidth, 300, Qt::KeepAspectRatio);
-                        imgWidth = scaled.width();
-                        imgHeight = scaled.height();
+                    if (isImage) {
+                        QImageReader reader(path);
+                        QSize sz = reader.size();
+                        if (sz.isValid()) {
+                            QSize scaled = sz.scaled(imgWidth, 300, Qt::KeepAspectRatio);
+                            imgWidth = scaled.width();
+                            imgHeight = scaled.height();
+                        }
+                    } else if (isVideo) {
+                        QPixmap thumb = VideoThumbnailManager::instance()->getThumbnail(path);
+                        if (!thumb.isNull()) {
+                            QSize scaled = thumb.size().scaled(imgWidth, 300, Qt::KeepAspectRatio);
+                            imgWidth = scaled.width();
+                            imgHeight = scaled.height();
+                        } else {
+                            // для видео, если превью ещё не готово, используем стандартный размер
+                            imgHeight = 200;
+                        }
                     }
                 }
                 attachmentsHeight += imgHeight;
@@ -249,7 +268,12 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
                            fileName.endsWith(".bmp", Qt::CaseInsensitive)  ||
                            fileName.endsWith(".gif", Qt::CaseInsensitive);
 
-            if (isImage) {
+            bool isVideo = fileName.endsWith(".mp4", Qt::CaseInsensitive) ||
+                           fileName.endsWith(".avi", Qt::CaseInsensitive) ||
+                           fileName.endsWith(".mov", Qt::CaseInsensitive) ||
+                           fileName.endsWith(".mkv", Qt::CaseInsensitive);
+
+            if (isImage || isVideo) {
                 int imgWidth = contentRight - contentLeft;
                 int imgHeight = 200;
                 QString path = appDownloadsDir + "/" + fileName;
@@ -258,48 +282,75 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
                     path = localPath;
                 }
                 QPixmap pix;
-                if (QFileInfo::exists(path) && pix.load(path)) {
+                if (QFileInfo::exists(path)) {
+                    if (isImage) {
+                        pix.load(path);
+                    } else if (isVideo) {
+                        pix = VideoThumbnailManager::instance()->getThumbnail(path);
+                        if (pix.isNull()) {
+                            // ???
+                            QMetaObject::invokeMethod(const_cast<ChatMessagesItemDelegate*>(this), [this, path](){
+                                connect(VideoThumbnailManager::instance(), &VideoThumbnailManager::thumbnailReady, this, [this, path](const QString &readyPath) {
+                                    if (path == readyPath && parent()) {
+                                        if (QWidget *w = qobject_cast<QWidget*>(parent())) {
+                                            w->update();
+                                        }
+                                    }
+                                });
+                            }, Qt::QueuedConnection);
+                        }
+                    }
+                }
+                
+                if (!pix.isNull()) {
                     QSize scaled = pix.size().scaled(imgWidth, 300, Qt::KeepAspectRatio);
                     imgWidth = scaled.width();
                     imgHeight = scaled.height();
                     QRect imgRect(contentLeft, contentTop, imgWidth, imgHeight);
                     painter->drawPixmap(imgRect, pix.scaled(imgWidth, imgHeight, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+                    
+                    if (isVideo) {
+                        // Нарисовать фигуры
+                        painter->setBrush(QColor(0, 0, 0, 150));
+                        painter->setPen(Qt::NoPen);
+                        QRect playRect(imgRect.center().x() - 25, imgRect.center().y() - 25, 50, 50);
+                        painter->drawEllipse(playRect);
+                        
+                        painter->setBrush(Qt::white);
+                        QPolygon playTriangle;
+                        playTriangle << QPoint(playRect.center().x() - 10, playRect.center().y() - 15)
+                                     << QPoint(playRect.center().x() - 10, playRect.center().y() + 15)
+                                     << QPoint(playRect.center().x() + 15, playRect.center().y());
+                        painter->drawPolygon(playTriangle);
+                    }
                 } else {
                     QRect placeholderRect(contentLeft, contentTop, imgWidth, imgHeight);
                     painter->setBrush(QColor(isMine ? 230 : 40, isMine ? 230 : 40, isMine ? 230 : 40));
                     painter->setPen(Qt::NoPen);
                     painter->drawRect(placeholderRect);
                     painter->setPen(currentTextColor);
-                    painter->drawText(placeholderRect, Qt::AlignCenter, "Изображение...");
+                    painter->drawText(placeholderRect, Qt::AlignCenter, isVideo ? "Загрузка видео..." : "Изображение...");
                 }
                 contentTop += imgHeight;
             } else {
                 const int rowHeight = qMax(attachmentIconSize, attachmentsFm.height());
-
-                const QRect iconRect(contentLeft, contentTop, attachmentIconSize, attachmentIconSize);
-                painter->setBrush(Qt::NoBrush);
-                painter->setPen(QPen(currentBorderColor, 1));
-                painter->drawRoundedRect(iconRect, 3, 3);
-                painter->drawLine(iconRect.topRight() + QPoint(-attachmentIconSize*0.3, attachmentIconSize*0.1),
-                                  iconRect.topRight() + QPoint(-attachmentIconSize*0.1, attachmentIconSize*0.3));
-                painter->drawLine(iconRect.topRight() + QPoint(-attachmentIconSize*0.3, attachmentIconSize*0.1),
-                                  iconRect.topRight() + QPoint(-attachmentIconSize*0.1, attachmentIconSize*0.1));
-
                 int btnWidth = 30;
-                const int textLeft = iconRect.right() + attachmentSpacing;
-                const QRect textRect(textLeft, contentTop,
-                                     contentRight - textLeft - btnWidth - attachmentSpacing,
-                                     rowHeight);
-                const QString elidedName = attachmentsFm.elidedText(fileName, Qt::ElideRight, textRect.width());
-                painter->setPen(currentTextColor);
-                painter->drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft, elidedName);
 
-                QRect downloadBtnRect(contentRight - btnWidth, contentTop + (rowHeight - 20) / 2, btnWidth, 20);
+                // Кнопка загрузки слева
+                QRect downloadBtnRect(contentLeft, contentTop + (rowHeight - 20) / 2, btnWidth, 20);
                 painter->setBrush(QColor(47, 107, 255));
                 painter->setPen(Qt::NoPen);
                 painter->drawRoundedRect(downloadBtnRect, 4, 4);
                 painter->setPen(Qt::white);
                 painter->drawText(downloadBtnRect, Qt::AlignCenter, "⬇");
+
+                const int textLeft = downloadBtnRect.right() + attachmentSpacing;
+                const QRect textRect(textLeft, contentTop,
+                                     contentRight - textLeft,
+                                     rowHeight);
+                const QString elidedName = attachmentsFm.elidedText(fileName, Qt::ElideRight, textRect.width());
+                painter->setPen(currentTextColor);
+                painter->drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft, elidedName);
 
                 contentTop += rowHeight;
             }
@@ -411,12 +462,8 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
             painter->drawEllipse(editBtnRect);
             painter->drawEllipse(deleteBtnRect);
             
-            painter->setPen(QColor(200, 200, 200));
-            QFont iconFont = option.font;
-            iconFont.setPointSize(12);
-            painter->setFont(iconFont);
-            painter->drawText(editBtnRect, Qt::AlignCenter, "✎");
-            painter->drawText(deleteBtnRect, Qt::AlignCenter, "🗑");
+            QIcon(":/icons/edit.svg").paint(painter, editBtnRect.adjusted(4, 4, -4, -4), Qt::AlignCenter);
+            QIcon(":/icons/delete.svg").paint(painter, deleteBtnRect.adjusted(4, 4, -4, -4), Qt::AlignCenter);
             m_editBtnRects[messageId] = editBtnRect;
             m_deleteBtnRects[messageId] = deleteBtnRect;
         } else {
@@ -450,11 +497,7 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
             painter->setBrush(QColor(255, 255, 255, 30));
             painter->drawEllipse(deleteBtnRect);
             
-            painter->setPen(QColor(200, 200, 200));
-            QFont iconFont = option.font;
-            iconFont.setPointSize(12);
-            painter->setFont(iconFont);
-            painter->drawText(deleteBtnRect, Qt::AlignCenter, "🗑");
+            QIcon(":/icons/delete.svg").paint(painter, deleteBtnRect.adjusted(4, 4, -4, -4), Qt::AlignCenter);
             
             m_editBtnRects.remove(messageId);
             m_deleteBtnRects[messageId] = deleteBtnRect;
@@ -530,7 +573,12 @@ QSize ChatMessagesItemDelegate::sizeHint(const QStyleOptionViewItem &option, con
                            fileName.endsWith(".bmp", Qt::CaseInsensitive)  ||
                            fileName.endsWith(".gif", Qt::CaseInsensitive);
 
-            if (isImage) {
+            bool isVideo = fileName.endsWith(".mp4", Qt::CaseInsensitive) ||
+                           fileName.endsWith(".avi", Qt::CaseInsensitive) ||
+                           fileName.endsWith(".mov", Qt::CaseInsensitive) ||
+                           fileName.endsWith(".mkv", Qt::CaseInsensitive);
+
+            if (isImage || isVideo) {
                 int imgWidth = maxBubbleWidth - horizontalPadding * 2;
                 int imgHeight = 200;
                 QString path = appDownloadsDir + "/" + fileName;
@@ -539,12 +587,23 @@ QSize ChatMessagesItemDelegate::sizeHint(const QStyleOptionViewItem &option, con
                     path = localPath;
                 }
                 if (QFileInfo::exists(path)) {
-                    QImageReader reader(path);
-                    QSize sz = reader.size();
-                    if (sz.isValid()) {
-                        QSize scaled = sz.scaled(imgWidth, 300, Qt::KeepAspectRatio);
-                        imgWidth = scaled.width();
-                        imgHeight = scaled.height();
+                    if (isImage) {
+                        QImageReader reader(path);
+                        QSize sz = reader.size();
+                        if (sz.isValid()) {
+                            QSize scaled = sz.scaled(imgWidth, 300, Qt::KeepAspectRatio);
+                            imgWidth = scaled.width();
+                            imgHeight = scaled.height();
+                        }
+                    } else if (isVideo) {
+                        QPixmap thumb = VideoThumbnailManager::instance()->getThumbnail(path);
+                        if (!thumb.isNull()) {
+                            QSize scaled = thumb.size().scaled(imgWidth, 300, Qt::KeepAspectRatio);
+                            imgWidth = scaled.width();
+                            imgHeight = scaled.height();
+                        } else {
+                            imgHeight = 200;
+                        }
                     }
                 }
                 attachmentsHeight += imgHeight;
@@ -621,17 +680,49 @@ bool ChatMessagesItemDelegate::editorEvent(QEvent *event, QAbstractItemModel *mo
                 }
             }
         }
-    } else if (event->type() == QEvent::MouseButtonDblClick) {
+    } else if (event->type() == QEvent::MouseButtonDblClick || event->type() == QEvent::MouseButtonPress) {
         QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
         if (mouseEvent->button() == Qt::LeftButton) {
-            const unsigned long long senderId = index.data(ChatMessagesListModel::SenderIdRole).toULongLong();
-            const bool isMine = senderId == m_currentUserId;
             
-            if (isMine) {
-                const quint64 messageId = index.data(ChatMessagesListModel::MessageIdRole).toULongLong();
-                const QString messageText = index.data(ChatMessagesListModel::MessageTextRole).toString().trimmed();
-                emit editMessageRequested(messageId, messageText);
-                return true;
+            // Проверяем, есть ли видео-вложения в сообщении
+            const QJsonArray attachments = index.data(ChatMessagesListModel::AttachmentsRole).toJsonArray();
+            if (!attachments.isEmpty()) {
+                const QRect rowRect = option.rect.adjusted(2, 4, -8, -4);
+                // ???
+                for (int i = 0; i < attachments.size(); ++i) {
+                    const QJsonObject obj = attachments.at(i).toObject();
+                    const QString fileName = obj.value("filename").toString();
+                    if (fileName.endsWith(".mp4", Qt::CaseInsensitive) ||
+                        fileName.endsWith(".avi", Qt::CaseInsensitive) ||
+                        fileName.endsWith(".mov", Qt::CaseInsensitive) ||
+                        fileName.endsWith(".mkv", Qt::CaseInsensitive)) {
+                        
+                        QString path = appDownloadsDir + "/" + fileName;
+                        QString localPath = obj.value("local_path").toString();
+                        if (!localPath.isEmpty() && QFileInfo::exists(localPath)) {
+                            path = localPath;
+                        }
+                        
+                        if (QFileInfo::exists(path)) {
+                            VideoPlayerDialog *dialog = new VideoPlayerDialog(path, const_cast<QWidget*>(option.widget));
+                            dialog->setAttribute(Qt::WA_DeleteOnClose);
+                            dialog->show();
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            if (event->type() == QEvent::MouseButtonDblClick) {
+                const unsigned long long senderId = index.data(ChatMessagesListModel::SenderIdRole).toULongLong();
+                const bool isMine = senderId == m_currentUserId;
+                
+                if (isMine) {
+                    const quint64 messageId = index.data(ChatMessagesListModel::MessageIdRole).toULongLong();
+                    const QString messageText = index.data(ChatMessagesListModel::MessageTextRole).toString().trimmed();
+                    emit editMessageRequested(messageId, messageText);
+                    return true;
+                }
             }
         }
     }

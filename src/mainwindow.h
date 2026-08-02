@@ -15,8 +15,10 @@
 #include <QSystemTrayIcon>
 #include <QMenu>
 #include <QAction>
-#include <QCloseEvent>
-
+#include <QGraphicsOpacityEffect>
+#include <QScrollArea>
+#include <QVBoxLayout>
+#include <QGridLayout>
 #include "models/chatlistmodel.h"
 #include "models/chatmessageslistmodel.h"
 #include "models/searchlistmodel.h"
@@ -43,6 +45,13 @@ public:
     ~MainWindow();
 
 protected:
+    /**
+     * Обработка события отображения окна.
+     * Сохраняет первоначальную ширину поля ввода.
+     * \param event объект QShowEvent
+     */
+    void showEvent(QShowEvent *event) override;
+
     /**
      * Обработка события изменения размера окна.
      * Вызывает реализацию базового класса QMainWindow::resizeEvent.
@@ -87,6 +96,22 @@ private:
     void hideEditStatusLabelSmoothly();
 
     /**
+     * Настраивает панель аватара собеседника,
+     * создавая необходимые виджеты и анимации
+     */
+    void setupInterlocutorAvatarPanel();
+    
+    /**
+     * Показывает панель аватара собеседника с анимацией
+     */
+    void showInterlocutorAvatarPanel();
+    
+    /**
+     * Скрывает панель аватара собеседника с анимацией
+     */
+    void hideInterlocutorAvatarPanel();
+
+    /**
      * Переключает состояние левой панели между свернутым и развернутым
      */
     void toggleLeftPanel();
@@ -113,6 +138,12 @@ private slots:
      * и очищает поле ввода.
      */
     void on_sendMessageBtn_clicked();
+
+    /**
+     * Обрабатывает нажатие на кнопку возврата в списки чатов.
+     * Закрывает текущий открытый чат и возвращает пользователя к списку чатов.
+     */
+    void on_backBtn_clicked();
 
     /**
      * Обрабатывает нажатие на кнопку прикрепления файла.
@@ -479,23 +510,58 @@ private slots:
      */
     void on_downloadFileFinished(const NetworkResult &res, const ParsedDownloadedFileInfo& fileInfo = {});
 
+#ifndef QT_DEBUG
     /**
      * Обрабатывает действия с иконкой приложения в трее (восстановление окна)
      * \param reason причина активации
      */
     void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
+#endif
 
 private:
     // UI элементы
     Ui::MainWindow *ui;                                                  //!< Указатель на сгенерированный UI класс
     QLabel *editStatusLabel = nullptr;                                   //!< Метка, отображающая статус "Редактирование" над полем ввода
+#ifndef QT_DEBUG
     QSystemTrayIcon *trayIcon;                                           //!< Иконка приложения в системном трее
     QMenu *trayIconMenu;                                                 //!< Контекстное меню иконки в системном трее
     QAction *quitAction;                                                 //!< Действие "Выход" для меню системного трея
+#endif
     QSoundEffect *notificationSound;                                     //!< Звуковой эффект для входящих сообщений
     QPointer<QParallelAnimationGroup> pageSwitchAnimation;               //!< Анимация переключения страниц
     QPointer<QVariantAnimation> logInBtnAnimation;                       //!< Анимация кнопки логина
     bool isLogInEnterPressed = false;                                    //!< Флаг, указывающий на нажатие Enter в поле логина
+    bool m_initialInputWidthSet = false;                                 //!< Флаг установки первоначальной ширины поля ввода
+    int m_baseWindowWidth = -1;                                          //!< Базовая ширина окна при запуске
+    int m_currentSpacerWidth = 170;                                      //!< Текущая целевая ширина спейсеров (отступов)
+
+    QFrame *interlocutorAvatarPanel = nullptr;
+    QLabel *interlocutorAvatarLarge = nullptr;
+    QPropertyAnimation *interlocutorAvatarOpacityAnim = nullptr;
+    QVariantAnimation *interlocutorAvatarOutlineAnim = nullptr;
+    int interlocutorAvatarOutlineAlpha = 0;
+    void updateInterlocutorAvatarOutline();
+    QGraphicsOpacityEffect *interlocutorAvatarOpacityEffect = nullptr;
+    QPixmap currentInterlocutorAvatarFull;
+    QFrame *windowBorderFrame = nullptr;
+    
+    QWidget *stagingWidget = nullptr;
+    QWidget *stagingContentWidget = nullptr;
+    QVBoxLayout *stagingFilesLayout = nullptr;
+    QGridLayout *stagingMediaLayout = nullptr;
+    QVariantAnimation *messageInputHorizontalAnim = nullptr;
+    QVariantAnimation *messageInputHeightAnim = nullptr;
+
+    // Переменные для отображения облака при наведении на чат в списке
+    QWidget *chatTooltipWidget = nullptr;
+    QLabel *tooltipTitleLabel = nullptr;
+    QLabel *tooltipSubtitleLabel = nullptr;
+    QLabel *tooltipTimeLabel = nullptr;
+    QLabel *tooltipBadgeLabel = nullptr;
+    QPropertyAnimation *tooltipOpacityAnim = nullptr;
+    QGraphicsOpacityEffect *tooltipOpacityEffect = nullptr;
+    QModelIndex lastHoveredChatIndex;
+    QTimer *tooltipHideTimer = nullptr;
 
     // Моедли и делегаты
     ChatListModel *chatsListModel;                                       //!< Модель списка чатов с доступом к полям через роли
@@ -609,6 +675,11 @@ private:
      * \return очищенный текст
      */
     QString stripAttachmentMarker(const QString &text) const;
+    
+    /**
+     * Обновляет интерфейс Staging Clouds для выбранного чата
+     */
+    void updateStagingCloudsUI(unsigned long long chatId);
 
     /**
      * Автоматически загружает изображения для переданного списка сообщений, если это необходимо

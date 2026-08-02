@@ -2,11 +2,19 @@
 #include "ui_mainwindow.h"
 #include <QApplication>
 #include <QCloseEvent>
+#include <QShowEvent>
+#include <QTimer>
+#include <QPainter>
 #include "delegates/chatlistitemdelegate.h"
+#include <QPainterPath>
 #include "delegates/searchitemdelegate.h"
 #include "utils/paths.h"
 #include "widgets/customtitlebar.h"
+#include "widgets/imageviewerwindow.h"
 
+#include "utils/videohelpers.h"
+#include <QScrollArea>
+#include <QGridLayout>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <windowsx.h>
@@ -40,6 +48,10 @@
 #include <QSignalBlocker>
 #include <QJsonObject>
 #include <QDir>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QMimeData>
+#include <QUrl>
 
 static void crossfadeAppIcon(QLabel *appIcon, const QString &iconPath)
 {
@@ -103,6 +115,13 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     
+    ui->backBtn->setIcon(QIcon(":/icons/back.svg"));
+    ui->attachFileBtn->setIcon(QIcon(":/icons/attach.svg"));
+    ui->sendMessageBtn->setIcon(QIcon(":/icons/send.svg"));
+    ui->backBtn->setIconSize(QSize(24, 24));
+    ui->attachFileBtn->setIconSize(QSize(24, 24));
+    ui->sendMessageBtn->setIconSize(QSize(24, 24));
+
     editStatusLabel = new QLabel("Редактирование", this);
     editStatusLabel->setStyleSheet("background-color: #141414; color: #E6E8EB; border: 1px solid #333333; border-radius: 12px; padding: 4px 15px; font-size: 11px;");
     editStatusLabel->hide();
@@ -117,11 +136,64 @@ MainWindow::MainWindow(QWidget *parent)
     editStatusLayout->addStretch();
     
     inputVBox->addLayout(editStatusLayout);
+    
+    stagingWidget = new QWidget(this);
+    stagingWidget->setObjectName("stagingWidget");
+    stagingWidget->setStyleSheet("QWidget#stagingWidget { background-color: #141414; border: 1px solid #333333; border-radius: 12px; }");
+    QVBoxLayout *stagingMainLayout = new QVBoxLayout(stagingWidget);
+    stagingMainLayout->setContentsMargins(10, 10, 10, 10);
+    stagingMainLayout->setSpacing(5);
+    
+    stagingContentWidget = new QWidget(stagingWidget);
+    stagingContentWidget->setObjectName("stagingContentWidget");
+    stagingContentWidget->setStyleSheet("background: transparent; border: none;");
+    QVBoxLayout *contentLayout = new QVBoxLayout(stagingContentWidget);
+    contentLayout->setContentsMargins(0, 0, 0, 0);
+    contentLayout->setSpacing(5);
+    
+    stagingMediaLayout = new QGridLayout();
+    stagingMediaLayout->setSpacing(5);
+    contentLayout->addLayout(stagingMediaLayout);
+    
+    stagingFilesLayout = new QVBoxLayout();
+    stagingFilesLayout->setSpacing(5);
+    contentLayout->addLayout(stagingFilesLayout);
+    
+    stagingMainLayout->addWidget(stagingContentWidget);
+    
+    stagingWidget->hide();
+
+    ui->horizontalSpacerInputLeft->changeSize(170, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
+    ui->horizontalSpacerInputRight->changeSize(170, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
+    ui->messageInputLayout->invalidate();
+
+    ui->messageInput->setFixedHeight(40);
+
+    messageInputHorizontalAnim = new QVariantAnimation(this);
+    messageInputHorizontalAnim->setDuration(200);
+    messageInputHorizontalAnim->setEasingCurve(QEasingCurve::InOutQuad);
+    connect(messageInputHorizontalAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant& value) {
+        int w = value.toInt();
+        ui->horizontalSpacerInputLeft->changeSize(w, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
+        ui->horizontalSpacerInputRight->changeSize(w, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
+        ui->messageInputLayout->invalidate();
+    });
+
+
+    messageInputHeightAnim = new QVariantAnimation(this);
+    messageInputHeightAnim->setDuration(150);
+    messageInputHeightAnim->setEasingCurve(QEasingCurve::InOutQuad);
+    connect(messageInputHeightAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant& value) {
+        ui->messageInput->setFixedHeight(value.toInt());
+    });
+
+    inputVBox->addWidget(stagingWidget);
     inputVBox->addWidget(ui->messageInput);
     
     ui->messageInputLayout->insertLayout(2, inputVBox);
     ui->messageInputLayout->setAlignment(ui->attachFileBtn, Qt::AlignBottom);
     ui->messageInputLayout->setAlignment(ui->sendMessageBtn, Qt::AlignBottom);
+    ui->messageInputLayout->setAlignment(inputVBox, Qt::AlignBottom);
     
     ui->topMessagesShadow->setAttribute(Qt::WA_TransparentForMouseEvents);
     ui->bottomMessagesShadow->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -137,15 +209,119 @@ MainWindow::MainWindow(QWidget *parent)
     spAppIcon.setRetainSizeWhenHidden(true);
     ui->appIcon->setSizePolicy(spAppIcon);
     ui->currentUserAvatar->installEventFilter(this);
+    ui->interlocutorAvatar->installEventFilter(this);
+    ui->interlocutorAvatar->setCursor(Qt::PointingHandCursor);
+    ui->interlocutorAvatar->setAlignment(Qt::AlignCenter);
+    setupInterlocutorAvatarPanel();
+    
+    windowBorderFrame = new QFrame(this);
+    windowBorderFrame->setObjectName("windowBorderFrame");
+    windowBorderFrame->setStyleSheet("QFrame#windowBorderFrame { border: 1px solid #2A3037; background: transparent; }");
+    windowBorderFrame->setAttribute(Qt::WA_TransparentForMouseEvents);
+    windowBorderFrame->show();
+
+    
     ui->currentUserName->installEventFilter(this);
     ui->currentUserName->setCursor(Qt::PointingHandCursor);
     ui->searchInput->installEventFilter(this);
     ui->messagesView->installEventFilter(this);
     ui->topPanelLayout->setAlignment(Qt::AlignLeft);
-    ui->searchInput->hide();
-    ui->currentUserName->hide();
+    ui->narrowLeftPanel->setMinimumWidth(280);
+    ui->narrowLeftPanel->setMaximumWidth(280);
+    ui->searchInput->show();
+    ui->currentUserName->show();
     connect(ui->searchInput, &QLineEdit::textChanged, this, &MainWindow::on_searchInput_textChanged);
-    this->isLeftPanelExpanded = false;
+    this->isLeftPanelExpanded = true;
+
+    chatTooltipWidget = new QFrame(this);
+    chatTooltipWidget->setWindowFlags(Qt::ToolTip | Qt::FramelessWindowHint);
+    chatTooltipWidget->setObjectName("chatTooltipWidget");
+    chatTooltipWidget->setAttribute(Qt::WA_TransparentForMouseEvents);
+    chatTooltipWidget->setAttribute(Qt::WA_TranslucentBackground, true);
+    chatTooltipWidget->setAttribute(Qt::WA_ShowWithoutActivating, true);
+    chatTooltipWidget->setWindowOpacity(0.0);
+    chatTooltipWidget->hide();
+
+    QFrame *tooltipInnerFrame = new QFrame(chatTooltipWidget);
+    tooltipInnerFrame->setObjectName("tooltipInnerFrame");
+    tooltipInnerFrame->setStyleSheet("QFrame#tooltipInnerFrame { background-color: #141414; border-radius: 15px; }");
+
+    QVBoxLayout *mainLayout = new QVBoxLayout(chatTooltipWidget);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->addWidget(tooltipInnerFrame);
+
+    QVBoxLayout *tooltipLayout = new QVBoxLayout(tooltipInnerFrame);
+    tooltipLayout->setContentsMargins(20, 10, 15, 10);
+    tooltipLayout->setSpacing(2);
+
+    QHBoxLayout *tooltipTopLayout = new QHBoxLayout();
+    tooltipTopLayout->setContentsMargins(0, 0, 0, 0);
+
+    tooltipTitleLabel = new QLabel(tooltipInnerFrame);
+    QFont titleFont = tooltipTitleLabel->font();
+    titleFont.setPixelSize(14);
+    titleFont.setBold(true);
+    tooltipTitleLabel->setFont(titleFont);
+    tooltipTitleLabel->setStyleSheet("color: white; background-color: transparent;");
+
+    tooltipTimeLabel = new QLabel(tooltipInnerFrame);
+    QFont timeFont = tooltipTimeLabel->font();
+    timeFont.setPixelSize(11);
+    tooltipTimeLabel->setFont(timeFont);
+    tooltipTimeLabel->setStyleSheet("color: #5f5f5f; background-color: transparent;");
+
+    tooltipTopLayout->addWidget(tooltipTitleLabel);
+    tooltipTopLayout->addStretch();
+    tooltipTopLayout->addWidget(tooltipTimeLabel);
+
+    QHBoxLayout *tooltipBottomLayout = new QHBoxLayout();
+    tooltipBottomLayout->setContentsMargins(0, 0, 0, 0);
+
+    tooltipSubtitleLabel = new QLabel(tooltipInnerFrame);
+    QFont subFont = tooltipSubtitleLabel->font();
+    subFont.setPixelSize(12);
+    tooltipSubtitleLabel->setFont(subFont);
+    tooltipSubtitleLabel->setStyleSheet("color: #5f5f5f; background-color: transparent;");
+
+    tooltipBadgeLabel = new QLabel(tooltipInnerFrame);
+    QFont badgeFont = tooltipBadgeLabel->font();
+    badgeFont.setPixelSize(11);
+    badgeFont.setBold(true);
+    tooltipBadgeLabel->setFont(badgeFont);
+    tooltipBadgeLabel->setStyleSheet("background-color: #faf9f6; color: black; border-radius: 10px; padding: 2px 6px;");
+    tooltipBadgeLabel->setAlignment(Qt::AlignCenter);
+
+    tooltipBottomLayout->addWidget(tooltipSubtitleLabel);
+    tooltipBottomLayout->addStretch();
+    tooltipBottomLayout->addWidget(tooltipBadgeLabel);
+
+    tooltipLayout->addLayout(tooltipTopLayout);
+    tooltipLayout->addLayout(tooltipBottomLayout);
+
+    chatTooltipWidget->setFixedSize(220, 60);
+
+    tooltipOpacityAnim = new QPropertyAnimation(chatTooltipWidget, "windowOpacity", this);
+    tooltipOpacityAnim->setDuration(150);
+
+    tooltipHideTimer = new QTimer(this);
+    tooltipHideTimer->setSingleShot(true);
+    tooltipHideTimer->setInterval(50);
+    connect(tooltipHideTimer, &QTimer::timeout, this, [this](){
+        tooltipOpacityAnim->stop();
+        tooltipOpacityAnim->setEndValue(0.0);
+        tooltipOpacityAnim->start();
+    });
+    connect(tooltipOpacityAnim, &QPropertyAnimation::finished, this, [this](){
+        if (chatTooltipWidget->windowOpacity() == 0.0) {
+            chatTooltipWidget->hide();
+        }
+    });
+
+    ui->chatsView->viewport()->installEventFilter(this);
+    ui->chatsView->viewport()->setMouseTracking(true);
+    ui->chatsView->setMouseTracking(true);
+
+    qApp->installEventFilter(this);
 
     notificationSound->setSource(QUrl("qrc:/sounds/newMessageSound"));
     notificationSound->setVolume(1.f);
@@ -217,12 +393,15 @@ MainWindow::MainWindow(QWidget *parent)
     ui->chatsView->setItemDelegate(new ChatListItemDelegate(ui->chatsView));
     ui->chatsView->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     ui->chatsView->verticalScrollBar()->setSingleStep(15);
+    ui->chatsView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->chatsView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->messagesView->setModel(messagesListModel);
     ui->messagesView->setItemDelegate(messagesItemDelegate);
     ui->messagesView->setResizeMode(QListView::Adjust);
     ui->messagesView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->interlocutorNameLabel->hide();
     ui->interlocutorAvatar->hide();
+    ui->backBtn->hide();
     ui->messageInput->hide();
     ui->sendMessageBtn->hide();
     ui->attachFileBtn->hide();
@@ -247,9 +426,11 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->loadingAndContentWidgets->setCurrentWidget(ui->loadingPage);
     ui->messageInput->installEventFilter(this);
+    ui->messageInput->viewport()->installEventFilter(this);
 
     ui->messageInput->setPlaceholderText("Сообщение...");
 
+#ifndef QT_DEBUG
     trayIcon = new QSystemTrayIcon(this);
     trayIcon->setIcon(QIcon(":/images/enot_windows.ico"));
     
@@ -262,6 +443,7 @@ MainWindow::MainWindow(QWidget *parent)
     trayIcon->show();
 
     connect(trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::onTrayIconActivated);
+#endif
 
     tryAuthorize();
 
@@ -279,7 +461,13 @@ void MainWindow::on_searchInput_textChanged(const QString &arg1)
 {
     if (arg1.isEmpty()) {
         searchListModel->clear();
+        ui->chatsView->setModel(chatsListModel);
+        ui->chatsView->setItemDelegate(new ChatListItemDelegate(ui->chatsView));
     } else {
+        if (ui->chatsView->model() != searchListModel) {
+            ui->chatsView->setModel(searchListModel);
+            ui->chatsView->setItemDelegate(new SearchItemDelegate(ui->chatsView));
+        }
         userInfoController->requestFindUser(accessToken, arg1);
     }
 }
@@ -288,6 +476,9 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
 {
     if (chatItem.isValid())
     {
+        if (isLeftPanelExpanded) {
+            toggleLeftPanel();
+        }
         if (ui->chatsView->model() == searchListModel) {
             unsigned long long userId = chatItem.data(SearchListModel::UserIdRole).toULongLong();
             chatsController->requestCreateDirectChat(userId, accessToken);
@@ -310,6 +501,7 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
         ui->messageInput->show();
         ui->sendMessageBtn->show();
         ui->attachFileBtn->show();
+        ui->backBtn->show();
         
         // Получить информацию о пользователе, чтобы узнать время последнего посещения
         unsigned long long userId = chatItem.data(ChatListModel::UserIdRole).toULongLong();
@@ -426,6 +618,7 @@ void MainWindow::on_sendMessageBtn_clicked()
         ui->messagesView->scrollToBottom();
         ui->messageInput->clear();
         draftsByChatId.remove(currentChatId);
+        updateStagingCloudsUI(currentChatId);
 
     }
     else
@@ -865,15 +1058,73 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
+    if (windowBorderFrame) {
+        windowBorderFrame->setGeometry(0, 0, width(), height());
+        windowBorderFrame->setVisible(!isMaximized() && !isFullScreen());
+        windowBorderFrame->raise();
+    }
+    
+    if (m_baseWindowWidth > 0) {
+        m_currentSpacerWidth = qMax(0, 170 + (width() - m_baseWindowWidth) / 2);
+        
+        if (stagingWidget && !stagingWidget->isVisible() && 
+            (!messageInputHorizontalAnim || messageInputHorizontalAnim->state() != QAbstractAnimation::Running)) {
+            ui->horizontalSpacerInputLeft->changeSize(m_currentSpacerWidth, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
+            ui->horizontalSpacerInputRight->changeSize(m_currentSpacerWidth, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
+            ui->messageInputLayout->invalidate();
+        }
+    }
+}
+
+void MainWindow::showEvent(QShowEvent *event)
+{
+    QMainWindow::showEvent(event);
+    if (!m_initialInputWidthSet) {
+        m_initialInputWidthSet = true;
+        m_baseWindowWidth = width();
+        m_currentSpacerWidth = 170;
+    }
 }
 
 bool MainWindow::eventFilter(QObject *obj, QEvent *event)
 {
+    if (event->type() == QEvent::MouseButtonPress) {
+        if (interlocutorAvatarPanel && interlocutorAvatarPanel->isVisible()) {
+            QWidget *w = qobject_cast<QWidget*>(obj);
+            bool clickedOnAvatar = false;
+            while (w) {
+                if (w == ui->interlocutorAvatar) {
+                    clickedOnAvatar = true;
+                    break;
+                }
+                w = w->parentWidget();
+            }
+            if (!clickedOnAvatar) {
+                hideInterlocutorAvatarPanel();
+            }
+        }
+    }
+
     if (obj == ui->currentUserAvatar && event->type() == QEvent::MouseButtonRelease) {
         QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
         if (mouseEvent->button() == Qt::LeftButton) {
             showAvatarContextMenu(ui->currentUserAvatar->mapToGlobal(mouseEvent->pos()));
             return true;
+        }
+    }
+    if (obj == ui->interlocutorAvatar) {
+        if (event->type() == QEvent::Enter || event->type() == QEvent::Leave) {
+            updateInterlocutorAvatarOutline();
+        } else if (event->type() == QEvent::MouseButtonRelease) {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            if (mouseEvent->button() == Qt::LeftButton) {
+                if (interlocutorAvatarPanel && interlocutorAvatarPanel->isVisible()) {
+                    hideInterlocutorAvatarPanel();
+                } else {
+                    showInterlocutorAvatarPanel();
+                }
+                return true;
+            }
         }
     }
 
@@ -898,19 +1149,44 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
         }
     }
 
-    if (obj == ui->searchInput) {
-        if (event->type() == QEvent::FocusIn) {
-            ui->chatsView->setModel(searchListModel);
-            ui->chatsView->setItemDelegate(new SearchItemDelegate(ui->chatsView));
-        } else if (event->type() == QEvent::FocusOut) {
-            if (ui->searchInput->text().isEmpty()) {
-                ui->chatsView->setModel(chatsListModel);
-                ui->chatsView->setItemDelegate(new ChatListItemDelegate(ui->chatsView));
-            }
+    if (obj == ui->searchInput && event->type() == QEvent::KeyPress) {
+        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+        if (keyEvent->key() == Qt::Key_Escape) {
+            ui->searchInput->clear();
+            ui->searchInput->clearFocus();
+            return true;
         }
     }
 
-
+    if (obj == ui->messageInput || obj == ui->messageInput->viewport()) {
+        if (event->type() == QEvent::DragEnter || event->type() == QEvent::DragMove) {
+            QDropEvent *dragEvent = static_cast<QDropEvent *>(event);
+            if (dragEvent->mimeData()->hasUrls()) {
+                dragEvent->setDropAction(Qt::CopyAction);
+                dragEvent->accept();
+                return true;
+            }
+        } else if (event->type() == QEvent::Drop) {
+            QDropEvent *dropEvent = static_cast<QDropEvent *>(event);
+            if (dropEvent->mimeData()->hasUrls()) {
+                if (currentChatId != ULONG_LONG_MAX) {
+                    QSet<QString> paths;
+                    for (const QUrl &url : dropEvent->mimeData()->urls()) {
+                        QString filePath = url.toLocalFile();
+                        QFileInfo fileChecker(filePath);
+                        if (!filePath.isEmpty() && fileChecker.isFile()) {
+                            paths.insert(filePath);
+                        }
+                    }
+                    if (!paths.isEmpty()) {
+                        ui->messagesView->addPendingFiles(currentChatId, paths);
+                    }
+                }
+                dropEvent->accept();
+                return true;
+            }
+        }
+    }
 
     if (obj == ui->messageInput && event->type() == QEvent::KeyPress) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
@@ -958,6 +1234,71 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
         }
     }
 
+    if (obj == ui->chatsView->viewport()) {
+        if (!isLeftPanelExpanded && ui->narrowLeftPanel->minimumWidth() == 86) {
+            if (event->type() == QEvent::MouseMove) {
+                QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
+                QModelIndex index = ui->chatsView->indexAt(mouseEvent->pos());
+                if (index.isValid()) {
+                    if (lastHoveredChatIndex != index || chatTooltipWidget->isHidden() || chatTooltipWidget->windowOpacity() == 0.0) {
+                        lastHoveredChatIndex = index;
+                        tooltipHideTimer->stop();
+                        
+                        QString title = index.data(ChatListModel::ChatNameRole).toString().trimmed();
+                        QString subtitle = index.data(ChatListModel::LastMessageRole).toString().trimmed();
+                        QString timestamp = index.data(ChatListModel::LastMessageTimestampRole).toString().trimmed();
+                        int unreadCount = index.data(ChatListModel::UnreadCountRole).toInt();
+
+                        tooltipTitleLabel->setText(QFontMetrics(tooltipTitleLabel->font()).elidedText(title, Qt::ElideRight, 130));
+                        tooltipSubtitleLabel->setText(QFontMetrics(tooltipSubtitleLabel->font()).elidedText(subtitle, Qt::ElideRight, 150));
+                        
+                        QString timeDisplay;
+                        if (!timestamp.isEmpty()) {
+                            QDateTime dt = QDateTime::fromString(timestamp, Qt::ISODateWithMs);
+                            if (!dt.isValid()) dt = QDateTime::fromString(timestamp, Qt::ISODate);
+                            if (dt.isValid()) timeDisplay = dt.toLocalTime().toString("HH:mm");
+                        }
+                        tooltipTimeLabel->setText(timeDisplay);
+                        
+                        if (unreadCount > 0) {
+                            tooltipBadgeLabel->setText(unreadCount > 99 ? "99+" : QString::number(unreadCount));
+                            tooltipBadgeLabel->show();
+                        } else {
+                            tooltipBadgeLabel->hide();
+                        }
+                        
+                        QRect visualRect = ui->chatsView->visualRect(index);
+                        QPoint globalPos = ui->chatsView->viewport()->mapToGlobal(visualRect.topRight());
+                        
+                        tooltipOpacityAnim->stop();
+                        chatTooltipWidget->hide();
+                        chatTooltipWidget->move(globalPos.x() + 30, globalPos.y() + (visualRect.height() - chatTooltipWidget->height()) / 2);
+                        chatTooltipWidget->setWindowOpacity(0.0);
+                        chatTooltipWidget->show();
+
+                        tooltipOpacityAnim->setStartValue(0.0);
+                        tooltipOpacityAnim->setEndValue(1.0);
+                        tooltipOpacityAnim->start();
+                    }
+                } else {
+                    lastHoveredChatIndex = QModelIndex();
+                    if (!chatTooltipWidget->isHidden() && chatTooltipWidget->windowOpacity() > 0.0) {
+                        tooltipHideTimer->start();
+                    }
+                }
+            } else if (event->type() == QEvent::Leave) {
+                lastHoveredChatIndex = QModelIndex();
+                if (!chatTooltipWidget->isHidden() && chatTooltipWidget->windowOpacity() > 0.0) {
+                    tooltipHideTimer->start();
+                }
+            }
+        } else {
+            chatTooltipWidget->hide();
+            chatTooltipWidget->setWindowOpacity(0.0);
+            lastHoveredChatIndex = QModelIndex();
+        }
+    }
+
     return QMainWindow::eventFilter(obj, event); // важно пробросить событие дальше
 }
 
@@ -994,18 +1335,39 @@ void MainWindow::closeCurrentChat()
         currentChatName = "";
         ui->interlocutorNameLabel->hide();
         ui->interlocutorAvatar->hide();
+        ui->backBtn->hide();
+        if (interlocutorAvatarPanel && interlocutorAvatarPanel->isVisible()) {
+            interlocutorAvatarPanel->hide();
+        }
         ui->messageInput->clear();
         ui->messageInput->hide();
         ui->sendMessageBtn->hide();
         ui->attachFileBtn->hide();
+        stagingWidget->hide();
         ui->chatsView->clearSelection();
         messagesListModel->clear();
         ui->messagesView->setCurrentChatId(ULONG_LONG_MAX);
     }
+
+    if (!isLeftPanelExpanded) {
+        toggleLeftPanel();
+    }
+}
+
+void MainWindow::on_backBtn_clicked()
+{
+    closeCurrentChat();
 }
 
 void MainWindow::toggleLeftPanel()
 {
+    if (chatTooltipWidget && !chatTooltipWidget->isHidden()) {
+        chatTooltipWidget->hide();
+        chatTooltipWidget->setWindowOpacity(0.0);
+        if (tooltipOpacityAnim) tooltipOpacityAnim->stop();
+        lastHoveredChatIndex = QModelIndex();
+    }
+
     if (isLeftPanelExpanded) {
         QPropertyAnimation *anim = new QPropertyAnimation(ui->narrowLeftPanel, "minimumWidth");
         anim->setDuration(300);
@@ -1019,25 +1381,21 @@ void MainWindow::toggleLeftPanel()
         anim2->setEndValue(86);
         anim2->setEasingCurve(QEasingCurve::InOutCubic);
         
-        
-
-        QGraphicsOpacityEffect *searchEffect = new QGraphicsOpacityEffect(ui->searchInput);
-        ui->searchInput->setGraphicsEffect(searchEffect);
-        QPropertyAnimation *searchFade = new QPropertyAnimation(searchEffect, "opacity");
-        searchFade->setDuration(300);
-        searchFade->setStartValue(1.0);
-        searchFade->setEndValue(0.0);
+        QPropertyAnimation *searchAnim = new QPropertyAnimation(ui->searchInput, "maximumWidth");
+        searchAnim->setDuration(300);
+        searchAnim->setStartValue(ui->searchInput->width());
+        searchAnim->setEndValue(0);
+        searchAnim->setEasingCurve(QEasingCurve::InOutCubic);
 
         QParallelAnimationGroup *group = new QParallelAnimationGroup(this);
         group->addAnimation(anim);
         group->addAnimation(anim2);
-        group->addAnimation(searchFade);
+        group->addAnimation(searchAnim);
         
         connect(group, &QParallelAnimationGroup::finished, this, [this]() {
             if (!isLeftPanelExpanded) {
                 ui->searchInput->hide();
                 ui->searchInput->clear();
-                ui->searchInput->setGraphicsEffect(nullptr);
                 ui->currentUserName->hide();
             }
         });
@@ -1045,8 +1403,10 @@ void MainWindow::toggleLeftPanel()
         group->start(QAbstractAnimation::DeleteWhenStopped);
 
         isLeftPanelExpanded = false;
-        crossfadeAppIcon(ui->appIcon, ":/icons/left_panel_open.svg");
     } else {
+        ui->searchInput->setMaximumWidth(0);
+        ui->searchInput->show();
+        
         QPropertyAnimation *anim = new QPropertyAnimation(ui->narrowLeftPanel, "minimumWidth");
         anim->setDuration(300);
         anim->setStartValue(ui->narrowLeftPanel->width());
@@ -1059,32 +1419,27 @@ void MainWindow::toggleLeftPanel()
         anim2->setEndValue(280);
         anim2->setEasingCurve(QEasingCurve::InOutCubic);
         
-        
-
-        QGraphicsOpacityEffect *searchEffect = new QGraphicsOpacityEffect(ui->searchInput);
-        ui->searchInput->setGraphicsEffect(searchEffect);
-        QPropertyAnimation *searchFade = new QPropertyAnimation(searchEffect, "opacity");
-        searchFade->setDuration(300);
-        searchFade->setStartValue(0.0);
-        searchFade->setEndValue(1.0);
+        QPropertyAnimation *searchAnim = new QPropertyAnimation(ui->searchInput, "maximumWidth");
+        searchAnim->setDuration(300);
+        searchAnim->setStartValue(0);
+        searchAnim->setEndValue(184); // 280 - (18+50+10+18)
+        searchAnim->setEasingCurve(QEasingCurve::InOutCubic);
 
         QParallelAnimationGroup *group = new QParallelAnimationGroup(this);
         group->addAnimation(anim);
         group->addAnimation(anim2);
-        group->addAnimation(searchFade);
+        group->addAnimation(searchAnim);
         
         connect(group, &QParallelAnimationGroup::finished, this, [this]() {
             if (isLeftPanelExpanded) {
-                ui->searchInput->setGraphicsEffect(nullptr);
+                ui->searchInput->setMaximumWidth(16777215);
             }
         });
 
         group->start(QAbstractAnimation::DeleteWhenStopped);
 
         isLeftPanelExpanded = true;
-        ui->searchInput->show();
         ui->currentUserName->show();
-        crossfadeAppIcon(ui->appIcon, ":/icons/left_panel_close.svg");
     }
 }
 
@@ -1272,6 +1627,7 @@ void MainWindow::on_getUserInfoFinished(const NetworkResult &res, const ParsedFo
         ui->interlocutorNameLabel->setText(richText);
         
         if (user.avatarFileUrl.isEmpty() || user.avatarFileUrl.isNull()) {
+            currentInterlocutorAvatarFull = AvatarHelper::generatePlaceholder(user.nickname.isEmpty() ? user.username : user.nickname, 150);
             ui->interlocutorAvatar->setPixmap(AvatarHelper::generatePlaceholder(user.nickname.isEmpty() ? user.username : user.nickname, 40));
         } else {
             // TODO: Загрузить актуальный аватар собеседника
@@ -1287,6 +1643,7 @@ void MainWindow::on_getUserInfoFinished(const NetworkResult &res, const ParsedFo
                     QByteArray data = reply->readAll();
                     QPixmap pixmap;
                     if (pixmap.loadFromData(data)) {
+                        currentInterlocutorAvatarFull = pixmap;
                         ui->interlocutorAvatar->setPixmap(AvatarHelper::makeRoundImage(pixmap, 40));
                     }
                 }
@@ -1504,7 +1861,15 @@ void MainWindow::on_textChanged()
     int newHeight = qMax(minHeight, docHeight);
     newHeight = qMin(newHeight, maxHeight);
 
-    ui->messageInput->setFixedHeight(newHeight);
+    if (ui->messageInput->height() != newHeight) {
+        if (messageInputHeightAnim->endValue().toInt() != newHeight) {
+            messageInputHeightAnim->stop();
+            messageInputHeightAnim->setStartValue(ui->messageInput->height());
+            messageInputHeightAnim->setEndValue(newHeight);
+            messageInputHeightAnim->start();
+        }
+    }
+
     saveDraftForChat(currentChatId);
 }
 
@@ -1711,35 +2076,6 @@ void MainWindow::loadDraftForChat(unsigned long long chatId)
     if (draftIt != draftsByChatId.constEnd())
     {
         QString text = draftIt.value().message;
-        if (!draftIt.value().attachments.isEmpty())
-        {
-            QStringList ids;
-            for (const QJsonValue &value : std::as_const(draftIt.value().attachments))
-            {
-                if (value.isObject())
-                {
-                    const QJsonObject obj = value.toObject();
-                    const QString filename = obj.value("filename").toString();
-                    if (!filename.isEmpty())
-                    {
-                        ids.append(filename);
-                        continue;
-                    }
-                    if (obj.value("file_id").isDouble())
-                        ids.append(QString::number(static_cast<qulonglong>(obj.value("file_id").toDouble())));
-                }
-                else if (value.isDouble())
-                {
-                    ids.append(QString::number(static_cast<qulonglong>(value.toDouble())));
-                }
-                else if (value.isString())
-                {
-                    ids.append(value.toString());
-                }
-            }
-            if (!ids.isEmpty())
-                text.prepend("[attachments: " + ids.join(", ") + "]\n");
-        }
         ui->messageInput->setPlainText(text);
         QTextCursor cursor = ui->messageInput->textCursor();
         cursor.movePosition(QTextCursor::End);
@@ -1749,6 +2085,8 @@ void MainWindow::loadDraftForChat(unsigned long long chatId)
     {
         ui->messageInput->clear();
     }
+    
+    updateStagingCloudsUI(chatId);
 
     on_textChanged();
 }
@@ -1771,6 +2109,7 @@ void MainWindow::appendAttachmentToDraft(unsigned long long chatId, const Parsed
     draft.hasAttachments = !draft.attachments.isEmpty();
 
     draftsByChatId.insert(chatId, draft);
+    updateStagingCloudsUI(chatId);
 }
 
 void MainWindow::updateSendButtonState(unsigned long long chatId)
@@ -1792,6 +2131,492 @@ QString MainWindow::stripAttachmentMarker(const QString &text) const
         lines.removeFirst();
 
     return lines.join("\n");
+}
+
+#include <QPushButton>
+#include <QHBoxLayout>
+#include <QEvent>
+#include <functional>
+
+#include <QGraphicsOpacityEffect>
+
+#include <QAbstractButton>
+
+class PreviewOverlayButton : public QPushButton {
+public:
+    int m_alpha = 0;
+    
+    PreviewOverlayButton(const QColor& defaultColor, const QColor& hoverBgColor, QWidget* parent = nullptr)
+        : QPushButton(parent), m_defaultColor(defaultColor), m_hoverBgColor(hoverBgColor), m_isHovered(false) {
+        setFixedSize(18, 18);
+        setCursor(Qt::PointingHandCursor);
+        setStyleSheet("QPushButton { background: transparent; border: none; }");
+    }
+    
+    void setAlpha(int alpha) {
+        if (m_alpha != alpha) {
+            m_alpha = alpha;
+            update();
+        }
+    }
+    
+protected:
+    void paintEvent(QPaintEvent* event) override {
+        QPushButton::paintEvent(event);
+        if (m_alpha <= 0) return;
+        
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+
+        if (m_isHovered) {
+            QColor hc = m_hoverBgColor;
+            hc.setAlpha((hc.alpha() * m_alpha) / 255);
+            painter.setBrush(hc);
+            painter.setPen(Qt::NoPen);
+            painter.drawEllipse(rect());
+        }
+
+        QColor dc = m_defaultColor;
+        dc.setAlpha((dc.alpha() * m_alpha) / 255);
+        painter.setBrush(dc);
+        painter.setPen(Qt::NoPen);
+        // Внутренний круг
+        painter.drawEllipse(4, 4, 10, 10);
+    }
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    void enterEvent(QEnterEvent* event) override {
+#else
+    void enterEvent(QEvent* event) override {
+#endif
+        m_isHovered = true;
+        update();
+        QPushButton::enterEvent(event);
+    }
+
+    void leaveEvent(QEvent* event) override {
+        m_isHovered = false;
+        update();
+        QPushButton::leaveEvent(event);
+    }
+
+private:
+    QColor m_defaultColor;
+    QColor m_hoverBgColor;
+    bool m_isHovered;
+};
+
+class OverlayContainer : public QLabel {
+public:
+    int m_alpha = 0;
+
+    OverlayContainer(QWidget* parent = nullptr) : QLabel(parent) {
+        setAttribute(Qt::WA_TranslucentBackground);
+    }
+    
+    void setAlpha(int alpha) {
+        if (m_alpha != alpha) {
+            m_alpha = alpha;
+            update();
+        }
+    }
+
+protected:
+    void paintEvent(QPaintEvent* event) override {
+        QLabel::paintEvent(event);
+        if (m_alpha <= 0) return;
+        
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(Qt::NoPen);
+        int a = (204 * m_alpha) / 255;
+        p.setBrush(QColor(36, 42, 49, a));
+        p.drawRoundedRect(rect(), 12, 12);
+    }
+};
+
+class StagingImageLabel : public QLabel {
+public:
+    QPixmap originalPix;
+    OverlayContainer* overlayContainer;
+    PreviewOverlayButton* btnEnlarge;
+    PreviewOverlayButton* btnDelete;
+    QVariantAnimation* overlayAnim;
+    
+    std::function<void()> onDeleteClicked;
+    std::function<void()> onEnlargeClicked;
+
+    StagingImageLabel(QWidget* parent = nullptr) : QLabel(parent) {
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        setAttribute(Qt::WA_TranslucentBackground);
+        setAttribute(Qt::WA_StyledBackground, false);
+        setAlignment(Qt::AlignCenter);
+
+        overlayContainer = new OverlayContainer(this);
+        overlayContainer->setFixedSize(60, 24);
+        
+        overlayAnim = new QVariantAnimation(this);
+        overlayAnim->setDuration(150); // плавное появление
+        connect(overlayAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant& value) {
+            int alpha = value.toInt();
+            overlayContainer->setAlpha(alpha);
+            btnEnlarge->setAlpha(alpha);
+            btnDelete->setAlpha(alpha);
+            
+            if (alpha == 0) {
+                overlayContainer->hide();
+            } else {
+                overlayContainer->show();
+            }
+        });
+        
+        overlayContainer->hide(); // изначально скрыто (alpha = 0)
+
+        QHBoxLayout* overlayLayout = new QHBoxLayout(overlayContainer);
+        overlayLayout->setContentsMargins(6, 0, 6, 0);
+        overlayLayout->setSpacing(4);
+
+        QColor defaultCircleColor(250, 249, 246);
+        
+        btnEnlarge = new PreviewOverlayButton(defaultCircleColor, QColor(255, 255, 255, 30), overlayContainer);
+        btnDelete = new PreviewOverlayButton(defaultCircleColor, QColor(255, 0, 0, 100), overlayContainer);
+
+        overlayLayout->addWidget(btnEnlarge);
+        overlayLayout->addWidget(btnDelete);
+
+        connect(btnDelete, &QAbstractButton::clicked, this, [this]() {
+            if (onDeleteClicked) onDeleteClicked();
+        });
+        connect(btnEnlarge, &QAbstractButton::clicked, this, [this]() {
+            if (onEnlargeClicked) onEnlargeClicked();
+        });
+    }
+
+    void setOriginalPixmap(const QPixmap& pix) {
+        originalPix = pix;
+        updateGeometry();
+        update();
+    }
+
+    bool hasHeightForWidth() const override { return true; }
+    int heightForWidth(int w) const override {
+        if (originalPix.isNull() || originalPix.width() == 0) return w;
+        int h = (w * originalPix.height()) / originalPix.width();
+        return qMin(h, 400); // 400px максимальная высота
+    }
+
+    QSize sizeHint() const override {
+        int w = width() > 0 ? width() : 200;
+        return QSize(w, heightForWidth(w));
+    }
+
+protected:
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    void enterEvent(QEnterEvent* event) override {
+#else
+    void enterEvent(QEvent* event) override {
+#endif
+        QLabel::enterEvent(event);
+        overlayAnim->stop();
+        overlayAnim->setStartValue(overlayContainer->m_alpha);
+        overlayAnim->setEndValue(255);
+        overlayAnim->start();
+    }
+
+    void leaveEvent(QEvent* event) override {
+        QLabel::leaveEvent(event);
+        overlayAnim->stop();
+        overlayAnim->setStartValue(overlayContainer->m_alpha);
+        overlayAnim->setEndValue(0);
+        overlayAnim->start();
+    }
+
+    void resizeEvent(QResizeEvent* event) override {
+        QLabel::resizeEvent(event);
+        overlayContainer->move(width() - overlayContainer->width() - 8, 8); // справа сверху
+    }
+
+    void paintEvent(QPaintEvent* event) override {
+        if (originalPix.isNull()) {
+            QLabel::paintEvent(event);
+            return;
+        }
+        
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setRenderHint(QPainter::SmoothPixmapTransform);
+        
+        QPixmap scaled = originalPix.scaled(size(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+        
+        QPainterPath path;
+        path.addRoundedRect(rect(), 8, 8);
+        p.setClipPath(path);
+        
+        int x = (width() - scaled.width()) / 2;
+        int y = (height() - scaled.height()) / 2;
+        p.drawPixmap(x, y, scaled);
+    }
+};
+
+void MainWindow::updateStagingCloudsUI(unsigned long long chatId)
+{
+    if (chatId == ULONG_LONG_MAX) {
+        QLayoutItem *item;
+        while ((item = stagingMediaLayout->takeAt(0)) != nullptr) {
+            if (item->widget()) item->widget()->deleteLater();
+            delete item;
+        }
+        while ((item = stagingFilesLayout->takeAt(0)) != nullptr) {
+            if (item->widget()) item->widget()->deleteLater();
+            delete item;
+        }
+        stagingWidget->hide();
+        return;
+    }
+    
+    const auto draftIt = draftsByChatId.constFind(chatId);
+    if (draftIt == draftsByChatId.constEnd() || draftIt.value().attachments.isEmpty()) {
+        messageInputHorizontalAnim->disconnect();
+
+        if (stagingWidget->isVisible()) {
+            QGraphicsOpacityEffect *effect = qobject_cast<QGraphicsOpacityEffect*>(stagingWidget->graphicsEffect());
+            if (!effect) {
+                effect = new QGraphicsOpacityEffect(stagingWidget);
+                stagingWidget->setGraphicsEffect(effect);
+                effect->setOpacity(1.0);
+            }
+            if (stagingContentWidget->graphicsEffect()) {
+                stagingContentWidget->setGraphicsEffect(nullptr);
+            }
+            
+            QPropertyAnimation *fadeAnim = new QPropertyAnimation(effect, "opacity", this);
+            fadeAnim->setDuration(200);
+            fadeAnim->setStartValue(effect->opacity());
+            fadeAnim->setEndValue(0.0);
+            
+            connect(fadeAnim, &QPropertyAnimation::finished, this, [this, fadeAnim](){
+                if (stagingWidget->graphicsEffect() != fadeAnim->targetObject()) {
+                    fadeAnim->deleteLater();
+                    return;
+                }
+                
+                stagingWidget->hide();
+                stagingWidget->setGraphicsEffect(nullptr);
+                stagingContentWidget->setGraphicsEffect(nullptr);
+                fadeAnim->deleteLater();
+                
+                QLayoutItem *item;
+                while ((item = stagingMediaLayout->takeAt(0)) != nullptr) {
+                    if (item->widget()) item->widget()->deleteLater();
+                    delete item;
+                }
+                while ((item = stagingFilesLayout->takeAt(0)) != nullptr) {
+                    if (item->widget()) item->widget()->deleteLater();
+                    delete item;
+                }
+                
+                messageInputHorizontalAnim->disconnect();
+                connect(messageInputHorizontalAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant& value) {
+                    int w = value.toInt();
+                    ui->horizontalSpacerInputLeft->changeSize(w, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
+                    ui->horizontalSpacerInputRight->changeSize(w, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
+                    ui->messageInputLayout->invalidate();
+                    if (ui->messageInput->parentWidget()) {
+                        ui->messageInput->parentWidget()->layout()->activate();
+                    }
+                });
+                
+                messageInputHorizontalAnim->setStartValue(ui->horizontalSpacerInputLeft->geometry().width());
+                messageInputHorizontalAnim->setEndValue(m_currentSpacerWidth);
+                messageInputHorizontalAnim->start();
+            });
+            fadeAnim->start();
+        } else {
+            QLayoutItem *item;
+            while ((item = stagingMediaLayout->takeAt(0)) != nullptr) {
+                if (item->widget()) item->widget()->deleteLater();
+                delete item;
+            }
+            while ((item = stagingFilesLayout->takeAt(0)) != nullptr) {
+                if (item->widget()) item->widget()->deleteLater();
+                delete item;
+            }
+            
+            ui->horizontalSpacerInputLeft->changeSize(170, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
+            ui->horizontalSpacerInputRight->changeSize(170, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
+            ui->messageInputLayout->invalidate();
+            if (ui->messageInput->parentWidget()) {
+                ui->messageInput->parentWidget()->layout()->activate();
+            }
+        }
+        return;
+    }
+
+    messageInputHorizontalAnim->disconnect();
+    messageInputHorizontalAnim->stop();
+    if (stagingWidget->isVisible()) {
+        stagingWidget->setMaximumHeight(QWIDGETSIZE_MAX);
+        stagingWidget->setGraphicsEffect(nullptr);
+        stagingContentWidget->setGraphicsEffect(nullptr);
+    }
+
+    QLayoutItem *item;
+    while ((item = stagingMediaLayout->takeAt(0)) != nullptr) {
+        if (item->widget()) item->widget()->deleteLater();
+        delete item;
+    }
+    while ((item = stagingFilesLayout->takeAt(0)) != nullptr) {
+        if (item->widget()) item->widget()->deleteLater();
+        delete item;
+    }
+    
+    int totalMediaCount = 0;
+    for (const QJsonValue &value : std::as_const(draftIt.value().attachments)) {
+        if (value.isObject()) {
+            QJsonObject obj = value.toObject();
+            QString filename = obj.value("filename").toString();
+            bool isImage = filename.endsWith(".png", Qt::CaseInsensitive)  || 
+                           filename.endsWith(".jpg", Qt::CaseInsensitive)  || 
+                           filename.endsWith(".jpeg", Qt::CaseInsensitive) || 
+                           filename.endsWith(".bmp", Qt::CaseInsensitive)  || 
+                           filename.endsWith(".gif", Qt::CaseInsensitive);
+            bool isVideo = filename.endsWith(".mp4", Qt::CaseInsensitive) || 
+                           filename.endsWith(".avi", Qt::CaseInsensitive) || 
+                           filename.endsWith(".mov", Qt::CaseInsensitive) || 
+                           filename.endsWith(".mkv", Qt::CaseInsensitive);
+            if (isImage || isVideo) 
+                totalMediaCount++;
+        }
+    }
+    
+    int cols = 1;
+    if (totalMediaCount == 2) cols = 2;
+    else if (totalMediaCount == 3) cols = 3;
+    else if (totalMediaCount == 4) cols = 2;
+    else if (totalMediaCount >= 5) cols = 3;
+
+    int mediaCount = 0;
+    int attachIndex = 0;
+    
+    for (const QJsonValue &value : std::as_const(draftIt.value().attachments)) {
+        if (value.isObject()) {
+            QJsonObject obj = value.toObject();
+            QString filename = obj.value("filename").toString();
+            QString localPath = obj.value("local_path").toString();
+            if (localPath.isEmpty()) localPath = appDownloadsDir + "/" + filename;
+            
+            bool isImage = filename.endsWith(".png", Qt::CaseInsensitive)  ||
+                           filename.endsWith(".jpg", Qt::CaseInsensitive)  ||
+                           filename.endsWith(".jpeg", Qt::CaseInsensitive) ||
+                           filename.endsWith(".bmp", Qt::CaseInsensitive)  ||
+                           filename.endsWith(".gif", Qt::CaseInsensitive);
+            
+            bool isVideo = filename.endsWith(".mp4", Qt::CaseInsensitive) ||
+                           filename.endsWith(".avi", Qt::CaseInsensitive) ||
+                           filename.endsWith(".mov", Qt::CaseInsensitive) ||
+                           filename.endsWith(".mkv", Qt::CaseInsensitive);
+            
+            if (isImage || isVideo) {
+                StagingImageLabel *lbl = new StagingImageLabel();
+                lbl->onDeleteClicked = [this, chatId, attachIndex]() {
+                    if (draftsByChatId.contains(chatId)) {
+                        auto draft = draftsByChatId.value(chatId);
+                        if (attachIndex >= 0 && attachIndex < draft.attachments.size()) {
+                            draft.attachments.removeAt(attachIndex);
+                            draft.attachmentsCount = static_cast<unsigned int>(draft.attachments.size());
+                            draft.hasAttachments = !draft.attachments.isEmpty();
+                            draftsByChatId.insert(chatId, draft);
+                            updateStagingCloudsUI(chatId);
+                        }
+                    }
+                };
+                
+                lbl->onEnlargeClicked = [this, isImage, localPath, lbl]() {
+                    if (isImage && !lbl->originalPix.isNull()) {
+                        ImageViewerWindow* viewer = new ImageViewerWindow(lbl->originalPix);
+                        viewer->showFullScreen();
+                    }
+                };
+                
+                QPixmap pix;
+                if (isImage) {
+                    pix.load(localPath);
+                } else if (isVideo) {
+                    pix = VideoThumbnailManager::instance()->getThumbnail(localPath);
+                    if (pix.isNull()) {
+                        lbl->setText("Загрузка...");
+                        // обновление превью после того как оно будет готово
+                        connect(VideoThumbnailManager::instance(), &VideoThumbnailManager::thumbnailReady, lbl, [this, localPath, chatId](const QString &readyPath) {
+                            if (localPath == readyPath) {
+                                updateStagingCloudsUI(chatId);
+                            }
+                        });
+                    }
+                }
+                
+                if (!pix.isNull()) {
+                    lbl->setOriginalPixmap(pix);
+                }
+                
+                int row = mediaCount / cols;
+                int col = mediaCount % cols;
+                stagingMediaLayout->addWidget(lbl, row, col);
+                mediaCount++;
+            } else {
+                QLabel *lbl = new QLabel(filename);
+                lbl->setStyleSheet("background-color: #242A31; color: #E6E8EB; border-radius: 8px; padding: 4px 10px; font-size: 11px;");
+                lbl->setFixedHeight(24);
+                stagingFilesLayout->addWidget(lbl);
+            }
+        }
+        attachIndex++;
+    }
+    
+    if (stagingWidget->layout()) {
+        stagingWidget->layout()->invalidate();
+        stagingWidget->layout()->activate();
+    }
+    
+    if (!stagingWidget->isVisible()) {
+        messageInputHorizontalAnim->disconnect();
+        messageInputHorizontalAnim->stop();
+        
+        connect(messageInputHorizontalAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant& value) {
+            int w = value.toInt();
+            ui->horizontalSpacerInputLeft->changeSize(w, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
+            ui->horizontalSpacerInputRight->changeSize(w, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
+            ui->messageInputLayout->invalidate();
+            if (ui->messageInput->parentWidget()) {
+                ui->messageInput->parentWidget()->layout()->activate();
+            }
+        });
+        
+        messageInputHorizontalAnim->setStartValue(ui->horizontalSpacerInputLeft->geometry().width());
+        messageInputHorizontalAnim->setEndValue(100);
+        
+        connect(messageInputHorizontalAnim, &QVariantAnimation::finished, this, [this](){
+            stagingWidget->setMaximumHeight(QWIDGETSIZE_MAX);
+            
+            QGraphicsOpacityEffect *eff = new QGraphicsOpacityEffect(stagingWidget);
+            eff->setOpacity(0.0);
+            stagingWidget->setGraphicsEffect(eff);
+            
+            if (stagingContentWidget->graphicsEffect()) {
+                stagingContentWidget->setGraphicsEffect(nullptr);
+            }
+            
+            stagingWidget->show();
+            
+            QPropertyAnimation *fadeAnim = new QPropertyAnimation(eff, "opacity", this);
+            fadeAnim->setDuration(300);
+            fadeAnim->setStartValue(0.0);
+            fadeAnim->setEndValue(1.0);
+            connect(fadeAnim, &QPropertyAnimation::finished, fadeAnim, &QObject::deleteLater);
+            fadeAnim->start(QAbstractAnimation::DeleteWhenStopped);
+        });
+        
+        messageInputHorizontalAnim->start();
+    }
 }
 
 
@@ -1820,7 +2645,6 @@ void MainWindow::on_uploadFileInProgress()
 #ifdef QT_DEBUG
     qDebug() << "on_uploadFileInProgress";
 #endif
-
 }
 
 void MainWindow::on_uploadFileFinished(const NetworkResult &res, const QString &filePath, const qulonglong &chatId, const ParsedUploadedFileInfo &fileInfo)
@@ -2057,18 +2881,191 @@ void MainWindow::autoDownloadImages(const ParsedChatMessagesArrayObject& message
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+#ifndef QT_DEBUG
     if (trayIcon->isVisible()) {
         hide();
         event->ignore();
     } else {
         event->accept();
     }
+#else
+    event->accept();
+#endif
 }
 
+#ifndef QT_DEBUG
 void MainWindow::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason)
 {
     if (reason == QSystemTrayIcon::Trigger || reason == QSystemTrayIcon::DoubleClick) {
-        showNormal();
-        activateWindow();
+        if (isVisible() && !isMinimized()) {
+            hide();
+        } else {
+            showNormal();
+            activateWindow();
+            raise();
+        }
+    }
+}
+#endif
+
+class AvatarOutlineOverlay : public QLabel {
+public:
+    int m_alpha = 0;
+    AvatarOutlineOverlay(QWidget* parent = nullptr) : QLabel(parent) {
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setAttribute(Qt::WA_TranslucentBackground);
+    }
+    void setAlpha(int alpha) {
+        if (m_alpha != alpha) {
+            m_alpha = alpha;
+            update();
+        }
+    }
+    
+protected:
+    void paintEvent(QPaintEvent* event) override {
+        QLabel::paintEvent(event);
+        if (m_alpha <= 0) return;
+        
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(QPen(QColor(255, 255, 255, m_alpha), 2));
+        p.setBrush(Qt::NoBrush);
+        int cx = parentWidget() ? parentWidget()->width() / 2 : width() / 2;
+        int cy = parentWidget() ? parentWidget()->height() / 2 : height() / 2;
+        QRect avatarRect(cx - 20, cy - 20, 40, 40);
+        // Draw the ellipse matching the original eventFilter logic
+        p.drawEllipse(avatarRect.adjusted(-3, -3, 3, 3));
+    }
+};
+
+void MainWindow::setupInterlocutorAvatarPanel()
+{
+    AvatarOutlineOverlay* outlineOverlay = new AvatarOutlineOverlay(ui->interlocutorAvatar);
+    // Размещаем overlay поверх аватара собеседника
+    QVBoxLayout* overlayLayout = new QVBoxLayout(ui->interlocutorAvatar);
+    overlayLayout->setContentsMargins(0, 0, 0, 0);
+    overlayLayout->addWidget(outlineOverlay);
+
+    interlocutorAvatarPanel = new QFrame(this);
+    interlocutorAvatarPanel->setObjectName("interlocutorAvatarPanel");
+    interlocutorAvatarPanel->setStyleSheet("#interlocutorAvatarPanel { background-color: #0A0A0A; border: 1px solid #2A3037; border-radius: 8px; }");
+    interlocutorAvatarPanel->setFixedSize(170, 190);
+    interlocutorAvatarPanel->hide();
+
+    interlocutorAvatarOpacityEffect = new QGraphicsOpacityEffect(interlocutorAvatarPanel);
+    interlocutorAvatarPanel->setGraphicsEffect(interlocutorAvatarOpacityEffect);
+    interlocutorAvatarOpacityEffect->setOpacity(0.0);
+
+    interlocutorAvatarOutlineAnim = new QVariantAnimation(this);
+    interlocutorAvatarOutlineAnim->setDuration(150);
+    connect(interlocutorAvatarOutlineAnim, &QVariantAnimation::valueChanged, this, [this, outlineOverlay](const QVariant &val){
+        interlocutorAvatarOutlineAlpha = val.toInt();
+        outlineOverlay->setAlpha(interlocutorAvatarOutlineAlpha);
+    });
+
+    QPushButton* closeBtn = new QPushButton(interlocutorAvatarPanel);
+    closeBtn->setFixedSize(12, 12);
+    closeBtn->setStyleSheet("QPushButton { background-color: #faf9f6; border-radius: 6px; border: none; }"
+                            "QPushButton:hover { background-color: #faf9f6; }");
+    closeBtn->setCursor(Qt::PointingHandCursor);
+    connect(closeBtn, &QPushButton::clicked, this, &MainWindow::hideInterlocutorAvatarPanel);
+
+    interlocutorAvatarLarge = new QLabel(interlocutorAvatarPanel);
+    interlocutorAvatarLarge->setAlignment(Qt::AlignCenter);
+
+    QVBoxLayout* layout = new QVBoxLayout(interlocutorAvatarPanel);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+    
+    QHBoxLayout* topLayout = new QHBoxLayout();
+    topLayout->setContentsMargins(0, 10, 10, 0);
+    topLayout->addStretch();
+    topLayout->addWidget(closeBtn);
+    
+    QHBoxLayout* imgLayout = new QHBoxLayout();
+    imgLayout->setContentsMargins(15, 0, 15, 15);
+    imgLayout->addWidget(interlocutorAvatarLarge);
+    
+    layout->addLayout(topLayout);
+    layout->addStretch();
+    layout->addLayout(imgLayout);
+
+    interlocutorAvatarOpacityAnim = new QPropertyAnimation(interlocutorAvatarOpacityEffect, "opacity");
+    interlocutorAvatarOpacityAnim->setDuration(200);
+    interlocutorAvatarOpacityAnim->setEasingCurve(QEasingCurve::InOutQuad);
+}
+
+void MainWindow::showInterlocutorAvatarPanel()
+{
+    if (interlocutorAvatarPanel->isVisible()) return;
+
+    QPixmap pix;
+    if (!currentInterlocutorAvatarFull.isNull()) {
+        pix = currentInterlocutorAvatarFull.scaled(140, 140, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    } else {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        pix = ui->interlocutorAvatar->pixmap().scaled(140, 140, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+#else
+        pix = ui->interlocutorAvatar->pixmap(Qt::ReturnByValue).scaled(140, 140, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+#endif
+    }
+    
+    interlocutorAvatarLarge->setPixmap(pix);
+
+    QPoint globalAvatarPos = ui->interlocutorAvatar->mapToGlobal(QPoint(0, 0));
+    QPoint localAvatarPos = this->mapFromGlobal(globalAvatarPos);
+
+    int finalWidth = 170;
+    int finalHeight = 180;
+    int finalX = localAvatarPos.x() + ui->interlocutorAvatar->width() / 2 - finalWidth / 2;
+    int finalY = localAvatarPos.y() + ui->interlocutorAvatar->height() + 20;
+
+    QRect finalGeometry(finalX, finalY, finalWidth, finalHeight);
+
+    interlocutorAvatarPanel->setGeometry(finalGeometry);
+    interlocutorAvatarPanel->raise();
+    interlocutorAvatarPanel->show();
+
+    interlocutorAvatarOpacityAnim->setStartValue(0.0);
+    interlocutorAvatarOpacityAnim->setEndValue(1.0);
+
+    interlocutorAvatarOpacityAnim->disconnect();
+
+    interlocutorAvatarOpacityAnim->start();
+    updateInterlocutorAvatarOutline();
+}
+
+void MainWindow::hideInterlocutorAvatarPanel()
+{
+    if (!interlocutorAvatarPanel->isVisible()) return;
+
+    interlocutorAvatarOpacityAnim->setStartValue(interlocutorAvatarOpacityEffect->opacity());
+    interlocutorAvatarOpacityAnim->setEndValue(0.0);
+    
+    interlocutorAvatarOpacityAnim->disconnect();
+    connect(interlocutorAvatarOpacityAnim, &QPropertyAnimation::finished, interlocutorAvatarPanel, [this]() {
+        interlocutorAvatarPanel->hide();
+        updateInterlocutorAvatarOutline();
+    });
+
+    interlocutorAvatarOpacityAnim->start();
+    updateInterlocutorAvatarOutline();
+}
+
+void MainWindow::updateInterlocutorAvatarOutline()
+{
+    int targetAlpha = 0;
+    if (interlocutorAvatarPanel && interlocutorAvatarPanel->isVisible()) {
+        targetAlpha = 80;
+    } else if (ui->interlocutorAvatar->underMouse()) {
+        targetAlpha = 30;
+    }
+    
+    if (interlocutorAvatarOutlineAnim->endValue().toInt() != targetAlpha) {
+        interlocutorAvatarOutlineAnim->stop();
+        interlocutorAvatarOutlineAnim->setStartValue(interlocutorAvatarOutlineAlpha);
+        interlocutorAvatarOutlineAnim->setEndValue(targetAlpha);
+        interlocutorAvatarOutlineAnim->start();
     }
 }

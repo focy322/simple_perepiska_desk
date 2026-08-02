@@ -6,6 +6,7 @@
 #include <QDateTime>
 #include <QPainter>
 #include <QPainterPath>
+#include <QAbstractItemView>
 #include "utils/avatarhelper.h"
 
 ChatListItemDelegate::ChatListItemDelegate(QObject *parent)
@@ -36,8 +37,54 @@ void ChatListItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
 
     painter->setRenderHint(QPainter::Antialiasing, true);
 
-    if (isHovered || isSelected) {
-        painter->setPen(QPen(QColor(255, 255, 255, 30), 2));
+    qulonglong chatId = index.data(ChatListModel::ChatIdRole).toULongLong();
+    qreal targetOpacity = isSelected ? 100.0 : (isHovered ? 40.0 : 0.0);
+    m_targetOpacities[chatId] = targetOpacity;
+
+    if (!m_avatarOpacities.contains(chatId)) {
+        m_avatarOpacities[chatId] = 0.0;
+    }
+    qreal currentOpacity = m_avatarOpacities[chatId];
+
+    if (currentOpacity != targetOpacity) {
+        if (!m_animationTimer) {
+            m_animationTimer = new QTimer(const_cast<ChatListItemDelegate*>(this));
+            m_animationTimer->setInterval(16);
+            connect(m_animationTimer, &QTimer::timeout, const_cast<ChatListItemDelegate*>(this), [this](){
+                bool anyAnimating = false;
+                for (auto it = m_avatarOpacities.begin(); it != m_avatarOpacities.end(); ++it) {
+                    qulonglong id = it.key();
+                    qreal current = it.value();
+                    qreal target = m_targetOpacities.value(id, 0.0);
+                    
+                    if (qAbs(current - target) > 1.0) {
+                        anyAnimating = true;
+                        if (current < target) {
+                            it.value() = qMin(target, current + 10.0);
+                        } else {
+                            it.value() = qMax(target, current - 10.0);
+                        }
+                    } else {
+                        it.value() = target;
+                    }
+                }
+                
+                if (auto view = qobject_cast<QAbstractItemView*>(this->parent())) {
+                    view->viewport()->update();
+                }
+                
+                if (!anyAnimating) {
+                    m_animationTimer->stop();
+                }
+            });
+        }
+        if (!m_animationTimer->isActive()) {
+            m_animationTimer->start();
+        }
+    }
+
+    if (currentOpacity > 0.0) {
+        painter->setPen(QPen(QColor(255, 255, 255, static_cast<int>(currentOpacity)), 2));
         painter->setBrush(Qt::NoBrush);
         painter->drawEllipse(avatarRect.adjusted(-3, -3, 3, 3));
     }

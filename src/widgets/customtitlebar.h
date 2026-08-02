@@ -2,7 +2,7 @@
 #define CUSTOMTITLEBAR_H
 
 #include <QWidget>
-#include <QPushButton>
+#include <QAbstractButton>
 
 /**
  * \brief Кастомный заголовок окна (Title Bar).
@@ -35,9 +35,9 @@ private slots:
 
 private:
     // --- Элементы UI ---
-    QPushButton *m_minimizeBtn; //!< Кнопка сворачивания окна
-    QPushButton *m_maximizeBtn; //!< Кнопка разворачивания/восстановления окна
-    QPushButton *m_closeBtn;    //!< Кнопка закрытия окна
+    QAbstractButton *m_minimizeBtn; //!< Кнопка сворачивания окна
+    QAbstractButton *m_maximizeBtn; //!< Кнопка разворачивания/восстановления окна
+    QAbstractButton *m_closeBtn;    //!< Кнопка закрытия окна
 };
 
 #endif // CUSTOMTITLEBAR_H

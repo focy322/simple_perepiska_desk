@@ -49,16 +49,16 @@ void ImageCropperDialog::paintEvent(QPaintEvent *event) {
     // Рисуем оверлей
     QPainterPath path;
     path.addRect(rect());
-    path.addEllipse(QRectF(width() / 2.0 - m_cropSize / 2.0, 200 - m_cropSize / 2.0, m_cropSize, m_cropSize));
+    path.addRect(QRectF(width() / 2.0 - m_cropSize / 2.0, 200 - m_cropSize / 2.0, m_cropSize, m_cropSize));
     
     painter.setBrush(QColor(0, 0, 0, 150));
     painter.setPen(Qt::NoPen);
     painter.drawPath(path);
 
-    // Рисуем круговую рамку
+    // Рисуем рамку
     painter.setBrush(Qt::NoBrush);
     painter.setPen(QPen(Qt::white, 2));
-    painter.drawEllipse(QRectF(width() / 2.0 - m_cropSize / 2.0, 200 - m_cropSize / 2.0, m_cropSize, m_cropSize));
+    painter.drawRect(QRectF(width() / 2.0 - m_cropSize / 2.0, 200 - m_cropSize / 2.0, m_cropSize, m_cropSize));
 }
 
 void ImageCropperDialog::mousePressEvent(QMouseEvent *event) {
@@ -112,10 +112,7 @@ QPixmap ImageCropperDialog::getCroppedImage() const {
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setRenderHint(QPainter::SmoothPixmapTransform);
     
-    // Создаем круговую маску
-    QPainterPath path;
-    path.addEllipse(0, 0, m_cropSize, m_cropSize);
-    painter.setClipPath(path);
+    // Круговая маска больше не нужна, сохраняем полный квадрат
     
     // Рисуем часть изображения
     QPointF imgOffset = m_offset - QPointF(width() / 2.0 - m_cropSize / 2.0, 200 - m_cropSize / 2.0);

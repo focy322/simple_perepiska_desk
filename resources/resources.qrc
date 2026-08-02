@@ -11,5 +11,10 @@
         <file alias="search.svg">icons/search.svg</file>
         <file alias="left_panel_open.svg">icons/left_panel_open.svg</file>
         <file alias="left_panel_close.svg">icons/left_panel_close.svg</file>
+        <file alias="attach.svg">icons/attach.svg</file>
+        <file alias="send.svg">icons/send.svg</file>
+        <file alias="back.svg">icons/back.svg</file>
+        <file alias="edit.svg">icons/edit.svg</file>
+        <file alias="delete.svg">icons/delete.svg</file>
     </qresource>
 </RCC>

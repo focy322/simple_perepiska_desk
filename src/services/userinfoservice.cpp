@@ -206,7 +206,7 @@ void UserInfoService::findUser(const QString &accToken, const QString &input)
     req.setRawHeader("Authorization", "Bearer " + accToken.toUtf8());
 
     QNetworkReply * reply = network->get(req);
-    connect(reply, &QNetworkReply::finished, this, [this, reply](){
+    connect(reply, &QNetworkReply::finished, this, [this, reply, input](){
         auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
@@ -228,8 +228,17 @@ void UserInfoService::findUser(const QString &accToken, const QString &input)
         if (httpCode == 200)
         {
             const auto parsedArrayObjects = parseFoundUsersArray(doc);
+            
+            std::vector<ParsedFoundUsersObject> exactMatchObjects;
+            for (const auto& obj : parsedArrayObjects) {
+                if (obj.username.compare(input, Qt::CaseInsensitive) == 0 || 
+                    obj.nickname.compare(input, Qt::CaseInsensitive) == 0) {
+                    exactMatchObjects.push_back(obj);
+                }
+            }
+
             NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
-            emit findUserFinished(res, parsedArrayObjects);
+            emit findUserFinished(res, exactMatchObjects);
             reply->deleteLater();
             return;
         }

@@ -9,7 +9,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 # Настройка Qt6
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Network WebSockets Multimedia Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Network WebSockets Multimedia MultimediaWidgets Widgets)
 
 
 # --- Управление зависимостями ---
@@ -54,9 +54,14 @@ target_link_libraries(vent PRIVATE
     Qt6::Network
     Qt6::WebSockets
     Qt6::Multimedia
+    Qt6::MultimediaWidgets
     Qt6::Widgets
     qt6keychain
 )
+
+if(WIN32)
+    target_link_libraries(vent PRIVATE dwmapi)
+endif()
 
 # Подключение всех папок
 target_include_directories(vent PRIVATE 

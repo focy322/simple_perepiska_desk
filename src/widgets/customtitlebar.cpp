@@ -7,49 +7,7 @@
 #include <QPainter>
 #include <QEnterEvent>
 
-class TitleBarButton : public QPushButton {
-public:
-    TitleBarButton(const QColor& defaultColor, const QColor& hoverBgColor, QWidget* parent = nullptr)
-        : QPushButton(parent), m_defaultColor(defaultColor), m_hoverBgColor(hoverBgColor), m_isHovered(false) {
-        setFixedSize(16, 16);
-        setCursor(Qt::PointingHandCursor);
-    }
-
-protected:
-    void paintEvent(QPaintEvent* event) override {
-        Q_UNUSED(event);
-        QPainter painter(this);
-        painter.setRenderHint(QPainter::Antialiasing);
-
-        if (m_isHovered) {
-            painter.setBrush(m_hoverBgColor);
-            painter.setPen(Qt::NoPen);
-            painter.drawEllipse(0, 0, width(), height());
-        }
-
-        painter.setBrush(m_defaultColor);
-        painter.setPen(Qt::NoPen);
-        // Рисуем внутренний круг
-        painter.drawEllipse(4, 4, width() - 8, height() - 8);
-    }
-
-    void enterEvent(QEnterEvent* event) override {
-        m_isHovered = true;
-        update();
-        QPushButton::enterEvent(event);
-    }
-
-    void leaveEvent(QEvent* event) override {
-        m_isHovered = false;
-        update();
-        QPushButton::leaveEvent(event);
-    }
-
-private:
-    QColor m_defaultColor;
-    QColor m_hoverBgColor;
-    bool m_isHovered;
-};
+#include "titlebarbutton.h"
 
 CustomTitleBar::CustomTitleBar(QWidget *parent)
     : QWidget(parent)
@@ -58,7 +16,7 @@ CustomTitleBar::CustomTitleBar(QWidget *parent)
     setFixedHeight(23);
 
     QHBoxLayout *layout = new QHBoxLayout(this);
-    layout->setContentsMargins(0, 0, 8, 0);
+    layout->setContentsMargins(0, 5, 8, 0);
     layout->setSpacing(8);
 
     // Добавляем пружину слева, чтобы кнопки были справа
@@ -74,9 +32,9 @@ CustomTitleBar::CustomTitleBar(QWidget *parent)
     layout->addWidget(m_maximizeBtn);
     layout->addWidget(m_closeBtn);
 
-    connect(m_minimizeBtn, &QPushButton::clicked, this, &CustomTitleBar::onMinimizeClicked);
-    connect(m_maximizeBtn, &QPushButton::clicked, this, &CustomTitleBar::onMaximizeRestoreClicked);
-    connect(m_closeBtn, &QPushButton::clicked, this, &CustomTitleBar::onCloseClicked);
+    connect(m_minimizeBtn, &QAbstractButton::clicked, this, &CustomTitleBar::onMinimizeClicked);
+    connect(m_maximizeBtn, &QAbstractButton::clicked, this, &CustomTitleBar::onMaximizeRestoreClicked);
+    connect(m_closeBtn, &QAbstractButton::clicked, this, &CustomTitleBar::onCloseClicked);
 
     // Поддержка QSS для кастомного QWidget
     setAttribute(Qt::WA_StyledBackground, true);

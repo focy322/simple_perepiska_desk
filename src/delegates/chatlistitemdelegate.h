@@ -3,10 +3,9 @@
 
 #include <QStyledItemDelegate>
 
-/**
- * Делегат для пользовательской отрисовки элементов списка чатов.
- * Отвечает за внешний вид каждого отдельного чата в списке (аватарки, текст, непрочитанные сообщения).
- */
+#include <QMap>
+#include <QTimer>
+
 class ChatListItemDelegate : public QStyledItemDelegate
 {
     Q_OBJECT
@@ -28,6 +27,11 @@ public:
      * \return размер элемента
      */
     QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
+
+private:
+    mutable QMap<qulonglong, qreal> m_avatarOpacities;
+    mutable QMap<qulonglong, qreal> m_targetOpacities;
+    mutable QTimer *m_animationTimer = nullptr;
 };
 
 #endif // CHATLISTITEMDELEGATE_H

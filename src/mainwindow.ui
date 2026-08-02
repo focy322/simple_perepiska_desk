@@ -903,8 +903,30 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                 <property name="topMargin">
                  <number>10</number>
                 </property>
-                <item>
-                 <spacer name="horizontalSpacerTopLeft">
+                 <item>
+                  <widget class="QPushButton" name="backBtn">
+                   <property name="minimumSize">
+                    <size>
+                     <width>40</width>
+                     <height>40</height>
+                    </size>
+                   </property>
+                   <property name="maximumSize">
+                    <size>
+                     <width>40</width>
+                     <height>40</height>
+                    </size>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QPushButton#backBtn { background-color: #141414; border: none; border-radius: 20px; } QPushButton#backBtn:hover { background-color: #333333; }</string>
+                   </property>
+                   <property name="text">
+                    <string/>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacerTopLeft">
                   <property name="orientation">
                    <enum>Qt::Orientation::Horizontal</enum>
                   </property>
@@ -920,14 +942,14 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                   <widget class="QLabel" name="interlocutorAvatar">
                    <property name="minimumSize">
                     <size>
-                     <width>40</width>
-                     <height>40</height>
+                     <width>50</width>
+                     <height>50</height>
                     </size>
                    </property>
                    <property name="maximumSize">
                     <size>
-                     <width>40</width>
-                     <height>40</height>
+                     <width>50</width>
+                     <height>50</height>
                     </size>
                    </property>
                    <property name="styleSheet">
@@ -973,6 +995,25 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                    </size>
                   </property>
                  </spacer>
+                </item>
+                <item>
+                 <widget class="QWidget" name="dummyRightWidget">
+                  <property name="minimumSize">
+                   <size>
+                    <width>40</width>
+                    <height>40</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>40</width>
+                    <height>40</height>
+                   </size>
+                  </property>
+                  <property name="styleSheet">
+                   <string notr="true">background: transparent;</string>
+                  </property>
+                 </widget>
                 </item>
                </layout>
               </item>
@@ -1028,7 +1069,7 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                    </size>
                   </property>
                   <property name="text">
-                   <string>📎</string>
+                   <string/>
                   </property>
                   <property name="styleSheet">
                    <string notr="true">QPushButton#attachFileBtn { background-color: #141414; color: #E6E8EB; font-size: 20px; border: none; border-radius: 20px; } QPushButton#attachFileBtn:hover { background-color: #333333; }</string>
@@ -1114,7 +1155,7 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                    <string />
                   </property>
                   <property name="icon">
-                   <iconset theme="QIcon::ThemeIcon::MailMessageNew" />
+                   <iconset/>
                   </property>
                   <property name="iconSize">
                    <size>
