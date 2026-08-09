@@ -114,7 +114,7 @@ MainWindow::MainWindow(QWidget *parent)
     , filesController(new FilesController(this))
 {
     ui->setupUi(this);
-    
+
     ui->backBtn->setIcon(QIcon(":/icons/back.svg"));
     ui->attachFileBtn->setIcon(QIcon(":/icons/attach.svg"));
     ui->sendMessageBtn->setIcon(QIcon(":/icons/send.svg"));
@@ -125,42 +125,42 @@ MainWindow::MainWindow(QWidget *parent)
     editStatusLabel = new QLabel("Редактирование", this);
     editStatusLabel->setStyleSheet("background-color: #141414; color: #E6E8EB; border: 1px solid #333333; border-radius: 12px; padding: 4px 15px; font-size: 11px;");
     editStatusLabel->hide();
-    
+
     QVBoxLayout *inputVBox = new QVBoxLayout();
     inputVBox->setContentsMargins(0,0,0,0);
     inputVBox->setSpacing(5);
-    
+
     QHBoxLayout *editStatusLayout = new QHBoxLayout();
     editStatusLayout->setContentsMargins(0,0,0,0);
     editStatusLayout->addWidget(editStatusLabel);
     editStatusLayout->addStretch();
-    
+
     inputVBox->addLayout(editStatusLayout);
-    
+
     stagingWidget = new QWidget(this);
     stagingWidget->setObjectName("stagingWidget");
     stagingWidget->setStyleSheet("QWidget#stagingWidget { background-color: #141414; border: 1px solid #333333; border-radius: 12px; }");
     QVBoxLayout *stagingMainLayout = new QVBoxLayout(stagingWidget);
     stagingMainLayout->setContentsMargins(10, 10, 10, 10);
     stagingMainLayout->setSpacing(5);
-    
+
     stagingContentWidget = new QWidget(stagingWidget);
     stagingContentWidget->setObjectName("stagingContentWidget");
     stagingContentWidget->setStyleSheet("background: transparent; border: none;");
     QVBoxLayout *contentLayout = new QVBoxLayout(stagingContentWidget);
     contentLayout->setContentsMargins(0, 0, 0, 0);
     contentLayout->setSpacing(5);
-    
+
     stagingMediaLayout = new QGridLayout();
     stagingMediaLayout->setSpacing(5);
     contentLayout->addLayout(stagingMediaLayout);
-    
+
     stagingFilesLayout = new QVBoxLayout();
     stagingFilesLayout->setSpacing(5);
     contentLayout->addLayout(stagingFilesLayout);
-    
+
     stagingMainLayout->addWidget(stagingContentWidget);
-    
+
     stagingWidget->hide();
 
     ui->horizontalSpacerInputLeft->changeSize(170, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
@@ -189,16 +189,16 @@ MainWindow::MainWindow(QWidget *parent)
 
     inputVBox->addWidget(stagingWidget);
     inputVBox->addWidget(ui->messageInput);
-    
+
     ui->messageInputLayout->insertLayout(2, inputVBox);
     ui->messageInputLayout->setAlignment(ui->attachFileBtn, Qt::AlignBottom);
     ui->messageInputLayout->setAlignment(ui->sendMessageBtn, Qt::AlignBottom);
     ui->messageInputLayout->setAlignment(inputVBox, Qt::AlignBottom);
-    
+
     ui->topMessagesShadow->setAttribute(Qt::WA_TransparentForMouseEvents);
     ui->bottomMessagesShadow->setAttribute(Qt::WA_TransparentForMouseEvents);
 
-    // Оставляем стандартные флаги окна, чтобы Windows продолжала считать окно обычным 
+    // Оставляем стандартные флаги окна, чтобы Windows продолжала считать окно обычным
     // (сохраняются нативные анимации, Aero Snap, двойной клик). Рамка будет скрыта через WM_NCCALCSIZE.
     setWindowFlags(Qt::Window | Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
     CustomTitleBar *titleBar = new CustomTitleBar(this);
@@ -213,14 +213,14 @@ MainWindow::MainWindow(QWidget *parent)
     ui->interlocutorAvatar->setCursor(Qt::PointingHandCursor);
     ui->interlocutorAvatar->setAlignment(Qt::AlignCenter);
     setupInterlocutorAvatarPanel();
-    
+
     windowBorderFrame = new QFrame(this);
     windowBorderFrame->setObjectName("windowBorderFrame");
     windowBorderFrame->setStyleSheet("QFrame#windowBorderFrame { border: 1px solid #2A3037; background: transparent; }");
     windowBorderFrame->setAttribute(Qt::WA_TransparentForMouseEvents);
     windowBorderFrame->show();
 
-    
+
     ui->currentUserName->installEventFilter(this);
     ui->currentUserName->setCursor(Qt::PointingHandCursor);
     ui->searchInput->installEventFilter(this);
@@ -367,7 +367,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(filesController, &FilesController::downloadFileFinished, this, &MainWindow::on_downloadFileFinished);
     // Изменение высоты строки ввода собщения при переносе строки
     connect(ui->messageInput, &QTextEdit::textChanged, this, &MainWindow::on_textChanged);
-    
+
     // Авторизация по Enter
     connect(ui->logInPassword, &QLineEdit::returnPressed, this, &MainWindow::on_logInPassword_returnPressed);
 
@@ -433,12 +433,12 @@ MainWindow::MainWindow(QWidget *parent)
 #ifndef QT_DEBUG
     trayIcon = new QSystemTrayIcon(this);
     trayIcon->setIcon(QIcon(":/images/enot_windows.ico"));
-    
+
     trayIconMenu = new QMenu(this);
     quitAction = new QAction("Выйти из приложения", this);
     connect(quitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
     trayIconMenu->addAction(quitAction);
-    
+
     trayIcon->setContextMenu(trayIconMenu);
     trayIcon->show();
 
@@ -495,7 +495,7 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
         currentChatId = chatItem.data(ChatListModel::ChatIdRole).toULongLong();
         ui->messagesView->setCurrentChatId(currentChatId);
         currentChatName = chatItem.data(ChatListModel::ChatNameRole).toString().trimmed();
-        
+
         // Сначала установка стандартного названия чата
         ui->interlocutorNameLabel->setText(currentChatName);
         ui->interlocutorNameLabel->show();
@@ -504,13 +504,13 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
         ui->sendMessageBtn->show();
         ui->attachFileBtn->show();
         ui->backBtn->show();
-        
+
         // Получить информацию о пользователе, чтобы узнать время последнего посещения
         unsigned long long userId = chatItem.data(ChatListModel::UserIdRole).toULongLong();
         if (userId != ULONG_LONG_MAX && userId != 0) {
             userInfoController->requestUserInfo(accessToken, userId);
         }
-        
+
         auto chatIt = chatMessages.constFind(currentChatId); // Итератор на список сообщений (vector<ParsedChatMessagesArrayObject>) для чата с выбранным chatId
         if (chatIt != chatMessages.constEnd())
         {
@@ -578,7 +578,7 @@ void MainWindow::on_sendMessageBtn_clicked()
         if (editingMessageId != ULONG_LONG_MAX)
         {
             chatsController->requestEditMessage(editingMessageId, currentChatId, msgToSend, accessToken);
-            
+
             auto chatIt = chatMessages.find(currentChatId);
             if (chatIt != chatMessages.end())
             {
@@ -988,11 +988,11 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
         if (msg->wParam == TRUE) {
             NCCALCSIZE_PARAMS *params = reinterpret_cast<NCCALCSIZE_PARAMS *>(msg->lParam);
             if (IsZoomed(msg->hwnd)) {
-                // Windows увеличивает окно за пределы монитора, а мы сжимаем клиентскую область, 
+                // Windows увеличивает окно за пределы монитора, а мы сжимаем клиентскую область,
                 // чтобы она идеально совпадала с экраном.
                 int borderWidth = GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
                 int borderHeight = GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
-                
+
                 params->rgrc[0].left += borderWidth;
                 params->rgrc[0].top += borderHeight;
                 params->rgrc[0].right -= borderWidth;
@@ -1068,11 +1068,11 @@ void MainWindow::resizeEvent(QResizeEvent *event)
         windowBorderFrame->setVisible(!isMaximized() && !isFullScreen());
         windowBorderFrame->raise();
     }
-    
+
     if (m_baseWindowWidth > 0) {
         m_currentSpacerWidth = qMax(0, 170 + (width() - m_baseWindowWidth) / 2);
-        
-        if (stagingWidget && !stagingWidget->isVisible() && 
+
+        if (stagingWidget && !stagingWidget->isVisible() &&
             (!messageInputHorizontalAnim || messageInputHorizontalAnim->state() != QAbstractAnimation::Running)) {
             ui->horizontalSpacerInputLeft->changeSize(m_currentSpacerWidth, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
             ui->horizontalSpacerInputRight->changeSize(m_currentSpacerWidth, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
@@ -1248,7 +1248,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
                     if (lastHoveredChatIndex != index || chatTooltipWidget->isHidden() || chatTooltipWidget->windowOpacity() == 0.0) {
                         lastHoveredChatIndex = index;
                         tooltipHideTimer->stop();
-                        
+
                         QString title = index.data(ChatListModel::ChatNameRole).toString().trimmed();
                         QString subtitle = index.data(ChatListModel::LastMessageRole).toString().trimmed();
                         QString timestamp = index.data(ChatListModel::LastMessageTimestampRole).toString().trimmed();
@@ -1256,7 +1256,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
 
                         tooltipTitleLabel->setText(QFontMetrics(tooltipTitleLabel->font()).elidedText(title, Qt::ElideRight, 130));
                         tooltipSubtitleLabel->setText(QFontMetrics(tooltipSubtitleLabel->font()).elidedText(subtitle, Qt::ElideRight, 150));
-                        
+
                         QString timeDisplay;
                         if (!timestamp.isEmpty()) {
                             QDateTime dt = QDateTime::fromString(timestamp, Qt::ISODateWithMs);
@@ -1264,17 +1264,17 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
                             if (dt.isValid()) timeDisplay = dt.toLocalTime().toString("HH:mm");
                         }
                         tooltipTimeLabel->setText(timeDisplay);
-                        
+
                         if (unreadCount > 0) {
                             tooltipBadgeLabel->setText(unreadCount > 99 ? "99+" : QString::number(unreadCount));
                             tooltipBadgeLabel->show();
                         } else {
                             tooltipBadgeLabel->hide();
                         }
-                        
+
                         QRect visualRect = ui->chatsView->visualRect(index);
                         QPoint globalPos = ui->chatsView->viewport()->mapToGlobal(visualRect.topRight());
-                        
+
                         tooltipOpacityAnim->stop();
                         chatTooltipWidget->hide();
                         chatTooltipWidget->move(globalPos.x() + 30, globalPos.y() + (visualRect.height() - chatTooltipWidget->height()) / 2);
@@ -1315,17 +1315,17 @@ void MainWindow::hideEditStatusLabelSmoothly()
             effect = new QGraphicsOpacityEffect(editStatusLabel);
             editStatusLabel->setGraphicsEffect(effect);
         }
-        
+
         QPropertyAnimation *anim = new QPropertyAnimation(effect, "opacity", this);
         anim->setDuration(200);
         anim->setStartValue(effect->opacity());
         anim->setEndValue(0.0);
-        
+
         connect(anim, &QPropertyAnimation::finished, this, [this, anim]() {
             editStatusLabel->hide();
             anim->deleteLater();
         });
-        
+
         anim->start();
     }
 }
@@ -1379,13 +1379,13 @@ void MainWindow::toggleLeftPanel()
         anim->setStartValue(ui->narrowLeftPanel->width());
         anim->setEndValue(86);
         anim->setEasingCurve(QEasingCurve::InOutCubic);
-        
+
         QPropertyAnimation *anim2 = new QPropertyAnimation(ui->narrowLeftPanel, "maximumWidth");
         anim2->setDuration(300);
         anim2->setStartValue(ui->narrowLeftPanel->width());
         anim2->setEndValue(86);
         anim2->setEasingCurve(QEasingCurve::InOutCubic);
-        
+
         QPropertyAnimation *searchAnim = new QPropertyAnimation(ui->searchInput, "maximumWidth");
         searchAnim->setDuration(300);
         searchAnim->setStartValue(ui->searchInput->width());
@@ -1396,7 +1396,7 @@ void MainWindow::toggleLeftPanel()
         group->addAnimation(anim);
         group->addAnimation(anim2);
         group->addAnimation(searchAnim);
-        
+
         connect(group, &QParallelAnimationGroup::finished, this, [this]() {
             if (!isLeftPanelExpanded) {
                 ui->searchInput->hide();
@@ -1404,26 +1404,26 @@ void MainWindow::toggleLeftPanel()
                 ui->currentUserName->hide();
             }
         });
-        
+
         group->start(QAbstractAnimation::DeleteWhenStopped);
 
         isLeftPanelExpanded = false;
     } else {
         ui->searchInput->setMaximumWidth(0);
         ui->searchInput->show();
-        
+
         QPropertyAnimation *anim = new QPropertyAnimation(ui->narrowLeftPanel, "minimumWidth");
         anim->setDuration(300);
         anim->setStartValue(ui->narrowLeftPanel->width());
         anim->setEndValue(280);
         anim->setEasingCurve(QEasingCurve::InOutCubic);
-        
+
         QPropertyAnimation *anim2 = new QPropertyAnimation(ui->narrowLeftPanel, "maximumWidth");
         anim2->setDuration(300);
         anim2->setStartValue(ui->narrowLeftPanel->width());
         anim2->setEndValue(280);
         anim2->setEasingCurve(QEasingCurve::InOutCubic);
-        
+
         QPropertyAnimation *searchAnim = new QPropertyAnimation(ui->searchInput, "maximumWidth");
         searchAnim->setDuration(300);
         searchAnim->setStartValue(0);
@@ -1434,7 +1434,7 @@ void MainWindow::toggleLeftPanel()
         group->addAnimation(anim);
         group->addAnimation(anim2);
         group->addAnimation(searchAnim);
-        
+
         connect(group, &QParallelAnimationGroup::finished, this, [this]() {
             if (isLeftPanelExpanded) {
                 ui->searchInput->setMaximumWidth(16777215);
@@ -1490,12 +1490,12 @@ void MainWindow::on_getMyUserInfoFinished(const NetworkResult &res, const QStrin
         this->myUserId = userId;
         this->currentAvatarUrl = avatarUrl;
         messagesItemDelegate->setCurrentUserId(this->myUserId);
-        
+
         QFontMetrics metrics(ui->currentUserName->font());
         QString elidedName = metrics.elidedText(currentUsername, Qt::ElideRight, 184);
         ui->currentUserName->setText(elidedName);
         ui->currentUserName->setToolTip(currentUsername);
-        
+
         // Если аватара нет, устанавливаем заглушку
         if (avatarUrl.isEmpty()) {
             ui->currentUserAvatar->setPixmap(AvatarHelper::generatePlaceholder(currentUsername, 50));
@@ -1520,7 +1520,7 @@ void MainWindow::on_getMyUserInfoFinished(const NetworkResult &res, const QStrin
                 manager->deleteLater();
             });
         }
-        
+
 #ifdef QT_DEBUG
         qDebug() << "currentUsername" << currentUsername;
         qDebug() << "currentUserId" << this->myUserId;
@@ -1537,7 +1537,7 @@ void MainWindow::on_getMyUserInfoFinished(const NetworkResult &res, const QStrin
 void MainWindow::showAvatarContextMenu(const QPoint &pos)
 {
     QMenu contextMenu(this);
-    
+
     auto uploadFunc = [this]() {
         QString filePath = QFileDialog::getOpenFileName(this, "Выберите аватар", "", "Изображения (*.png *.jpg *.jpeg)");
         if (!filePath.isEmpty()) {
@@ -1546,7 +1546,7 @@ void MainWindow::showAvatarContextMenu(const QPoint &pos)
                 ImageCropperDialog cropper(pixmap, this);
                 if (cropper.exec() == QDialog::Accepted) {
                     QPixmap cropped = cropper.getCroppedImage();
-                    
+
                     QByteArray imageData;
                     QBuffer buffer(&imageData);
                     buffer.open(QIODevice::WriteOnly);
@@ -1555,7 +1555,7 @@ void MainWindow::showAvatarContextMenu(const QPoint &pos)
                         QMessageBox::warning(this, "Ошибка", "Не удалось обработать изображение. Попробуйте другой файл.");
                         return;
                     }
-                    
+
                     userInfoController->requestUploadAvatar(accessToken, imageData);
                 }
             }
@@ -1574,19 +1574,19 @@ void MainWindow::showAvatarContextMenu(const QPoint &pos)
             QMessageBox::information(this, "Информация", "К сожалению, сервер пока не поддерживает удаление аватара. Попробуйте установить новый.");
         });
     }
-    
+
     contextMenu.exec(pos);
 }
 
 void MainWindow::showUserNameContextMenu(const QPoint &pos)
 {
     QMenu contextMenu(this);
-    
+
     QAction *logoutAction = contextMenu.addAction("Выйти из аккаунта");
     connect(logoutAction, &QAction::triggered, this, [this]() {
         authController->requestLogOut(accessToken, refreshToken);
     });
-    
+
     contextMenu.exec(pos);
 }
 
@@ -1607,7 +1607,7 @@ void MainWindow::on_getUserInfoFinished(const NetworkResult &res, const ParsedFo
         QDateTime dt = QDateTime::fromString(user.lastSeen, Qt::ISODateWithMs);
         if (!dt.isValid())
             dt = QDateTime::fromString(user.lastSeen, Qt::ISODate);
-            
+
         QString lastSeenText;
         if (dt.isValid()) {
             QDateTime now = QDateTime::currentDateTime();
@@ -1628,9 +1628,9 @@ void MainWindow::on_getUserInfoFinished(const NetworkResult &res, const ParsedFo
                                    "</div>")
                                .arg(currentChatName.toHtmlEscaped())
                                .arg(lastSeenText.toHtmlEscaped());
-        
+
         ui->interlocutorNameLabel->setText(richText);
-        
+
         if (user.avatarFileUrl.isEmpty() || user.avatarFileUrl.isNull()) {
             currentInterlocutorAvatarFull = AvatarHelper::generatePlaceholder(user.nickname.isEmpty() ? user.username : user.nickname, 150);
             ui->interlocutorAvatar->setPixmap(AvatarHelper::generatePlaceholder(user.nickname.isEmpty() ? user.username : user.nickname, 40));
@@ -1701,7 +1701,7 @@ void MainWindow::on_getMyChatsFinished(const NetworkResult &res, const std::vect
         qDebug() << "on_getMyChatsFinished = false!!!";
 #endif
     }
-    
+
     if (ui->loadingAndContentWidgets->currentWidget() == ui->loadingPage) {
         animateStartupTransition();
     }
@@ -1977,7 +1977,7 @@ void MainWindow::on_logOutFinished(const NetworkResult &res)
     if (res.ok)
     {
         closeCurrentChat();
-        
+
         // TODO: Очистить пользовательские данные и поля
         isAuthorized = false;
         ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);
@@ -2141,6 +2141,8 @@ QString MainWindow::stripAttachmentMarker(const QString &text) const
     return lines.join("\n");
 }
 
+
+//FixIt : ПИЗДЕЦ...
 #include <QPushButton>
 #include <QHBoxLayout>
 #include <QEvent>
