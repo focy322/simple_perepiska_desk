@@ -25,7 +25,7 @@ public:
      * \param accToken токен доступа (Access Token)
      * \param userId идентификатор пользователя
      */
-    void requestUserInfo(const QString &accToken, unsigned long long userId);
+    void requestUserInfo(const QString &accToken, unsigned long long userId) const;
 
     /**
      * Отправляет запрос на обновление аватара текущего пользователя.
@@ -39,7 +39,7 @@ public:
      * \param accessToken токен доступа (Access Token)
      * \param input строка для поиска (имя или логин)
      */
-    void requestFindUser(const QString &accessToken, const QString &input);
+    void requestFindUser(const QString &accessToken, const QString &input) const;
 
 signals:
     // --- Сигналы процессов ---
@@ -76,8 +76,9 @@ signals:
      * Сигнал об окончании поиска пользователей.
      * \param res результат выполнения запроса
      * \param paObjects список найденных пользователей
+     * \param input строка поиска
      */
-    void findUserFinished(const NetworkResult &res, const std::vector<ParsedFoundUsersObject>& paObjects = {});
+    void findUserFinished(const NetworkResult &res, const std::vector<ParsedFoundUsersObject>& paObjects = {}, const QString &input = "");
 
 private:
     // --- Внутренние сервисы ---

@@ -24,10 +24,14 @@ WebsocketService::WebsocketService(QObject *parent)
 
     connect(websocket, &QWebSocket::disconnected, this, [this]()
     {
-        emit socketDisonnectionFinished(NetworkResult{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)});
-#ifdef QT_DEBUG
+        int code = static_cast<int>(websocket->closeCode());
+        if (code == 1000)
+            emit socketDisonnectionFinished(NetworkResult{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)});
+        else if (code == 1008)
+        {
+            emit socketConnectionFinished(NetworkResult{false, ERROR_TYPES::UNAUTHORIZED, generateMessageForError(ERROR_TYPES::UNAUTHORIZED)});
+        }
         qDebug() << "websocket disconnected!!!";
-#endif
     });
 
     //TODO: может для ошибки тоже замутить отдельную функцию а не лямбду
@@ -43,7 +47,7 @@ WebsocketService::WebsocketService(QObject *parent)
     outgoingMessagesFlushTimer->setInterval(outgoingMessagesFlushIntervalMs);
     connect(ackFlushTimer, &QTimer::timeout, this, &WebsocketService::flushPendingAcks);
     connect(outgoingMessagesFlushTimer, &QTimer::timeout, this, &WebsocketService::flushPendingOutgoingMessages);
-    //TODO: тут можно походу поставить singleshot и при каждой отправке запускать таймер хотя как будто хуйня
+    //TODO: тут можно походу поставить singleshot и при каждой отправке запускать таймер хотя как будто хуйня или если empty то стопать
     outgoingMessagesFlushTimer->start();
     ackFlushTimer->start();
     fillHandlersMap();

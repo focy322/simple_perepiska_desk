@@ -17,6 +17,8 @@ enum ERROR_TYPES
     SHORT_PASSWORD,         //!< Слишком короткий пароль (менее 6 символов)
     PASSWORD_MISMATCH,      //!< Пароли не совпадают
     LOGIN_ALREADY_EXISTS,   //!< Логин уже занят
+    VALIDATION_ERROR = 422,       //!< Неверный токен
+    UNAUTHORIZED = 401,    //!< Неавторизованный доступ
     ERRORS_COUNTS,          //!< Кол-во ошибок
     // TODO: Дополнить
 

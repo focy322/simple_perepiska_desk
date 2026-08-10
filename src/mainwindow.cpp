@@ -38,6 +38,7 @@
 #include <QScrollArea>
 #include <QGridLayout>
 #include <QUrl>
+#include <algorithm>
 #include <QNetworkReply>
 #include <QNetworkAccessManager>
 #include <QScrollBar>
@@ -119,6 +120,8 @@ MainWindow::MainWindow(QWidget *parent)
     , websocketController(new WebsocketController(this))
     , notificationSound(new QSoundEffect(this))
     , filesController(new FilesController(this))
+    , pendingRetrybleUnauthorizeRequests{}
+    , requestsStatusManager(new RequestsStatusManager(this))
 {
     ui->setupUi(this);
 
@@ -469,6 +472,7 @@ void MainWindow::on_searchInput_textChanged(const QString &arg1)
     if (arg1.isEmpty()) {
         searchListModel->clear();
         ui->chatsView->setModel(chatsListModel);
+        //FixIt: можно хранить в классе а не постоянно аллоцировать
         ui->chatsView->setItemDelegate(new ChatListItemDelegate(ui->chatsView));
     } else {
         if (ui->chatsView->model() != searchListModel) {
@@ -762,9 +766,7 @@ void MainWindow::checkAuthorization(const NetworkResult &res, const QString &acc
         switchPageWithFadeAnimation(ui->loadingAndContentWidgets, ui->contentPage);
         ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);// Показывать окно входа
         ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);// Показывать окно входа
-#ifdef QT_DEBUG
         qDebug() << "authorization Failed!!!";
-#endif
     }
 }
 
@@ -1458,11 +1460,12 @@ void MainWindow::toggleLeftPanel()
 
 void MainWindow::on_refreshAccessTokenInProgress()
 {
-
+    requestsStatusManager->setStatus(RequestTypes::REQUEST_REFRESH_ACCESS_TOKEN, RequestState::REQUEST_IN_PROGRESS);
 }
 
 void MainWindow::on_refreshAccessTokenFinished(const NetworkResult &res, const QString &accToken, const QString &refToken)
 {
+    static int retryCount = 0;
     if (isFirstOpen)
     {
         isFirstOpen = false;
@@ -1471,16 +1474,28 @@ void MainWindow::on_refreshAccessTokenFinished(const NetworkResult &res, const Q
 
     if (res.ok)
     {
+        retryCount = 0;
         accessToken = accToken;
         refreshToken = refToken;
+        requestsStatusManager->setStatus(RequestTypes::REQUEST_REFRESH_ACCESS_TOKEN, RequestState::REQUEST_SUCCESS);
+        checkRetrybleUnauthorizeRequests();
         qDebug() << "on_RefreshAccessTokenFinished = true!!!";
     }
     else
     {
-        isAuthorized = false;
-#ifdef QT_DEBUG
+        requestsStatusManager->setStatus(RequestTypes::REQUEST_REFRESH_ACCESS_TOKEN, RequestState::REQUEST_FAILED);
         qDebug() << "on_RefreshAccessTokenFinished = false";
-#endif
+        if (res.error == ERROR_TYPES::UNAUTHORIZED)
+        {
+            retryCount = 0;
+            on_logOutFinished({true, ERROR_TYPES::UNAUTHORIZED, "Unauthorized"});
+            return;
+        }
+        if (retryCount < 2)
+        {
+            retryCount++;
+            authController->requestRefreshAccessToken(refreshToken);
+        }
     }
 }
 
@@ -1697,13 +1712,8 @@ void MainWindow::on_getMyChatsFinished(const NetworkResult &res, const std::vect
     }
     else
     {
-        chatsList.clear();
-        chatMessages.clear();
-        chatsListModel->clear();
         currentChatName.clear();
         currentChatId = ULONG_LONG_MAX;
-        currentChatId = ULONG_LONG_MAX;
-        messagesListModel->clear();
 #ifdef QT_DEBUG
         qDebug() << "on_getMyChatsFinished = false!!!";
 #endif
@@ -1774,19 +1784,36 @@ void MainWindow::on_socketConnectionInProgress()
 
 void MainWindow::on_socketConnectionFinished(const NetworkResult &res)
 {
+    static int otherFailsCounter = 0;
     if (res.ok)
     {
-#ifdef QT_DEBUG
         qDebug() << "on_socketConnectionFinished  = TRUE!!!";
-        qDebug() << QDateTime::currentDateTimeUtc();
-#endif
+        otherFailsCounter = 0;
     }
     else
     {
-#ifdef QT_DEBUG
+        if (res.error == ERROR_TYPES::UNAUTHORIZED)
+        {
+            eraseRetrybleUnauthorizeRequestsbyType(RequestTypes::REQUEST_SOCKET_CONNECT);
+            pendingRetrybleUnauthorizeRequests.emplace_back(std::make_pair(RequestTypes::REQUEST_SOCKET_CONNECT,[this]()
+            {
+                websocketController->requestConnectSocket(accessToken);
+            }));
+
+            if (requestsStatusManager->getStatus(RequestTypes::REQUEST_REFRESH_ACCESS_TOKEN) != RequestState::REQUEST_IN_PROGRESS)
+                authController->requestRefreshAccessToken(refreshToken);
+        }
+        else if (otherFailsCounter < 33)
+        {
+            ++otherFailsCounter;
+            websocketController->requestConnectSocket(accessToken);
+        }
+        else
+        {
+            //TODO: можно выкидывать из аккаунта
+        }
         qDebug() << "on_socketConnectionFinished  = FALSE!!!";
         qDebug() << res.message;
-#endif
     }
 
 }
@@ -1891,24 +1918,42 @@ void MainWindow::on_textChanged()
 
 void MainWindow::on_findUserInProgress()
 {
-
+    requestsStatusManager->setStatus(RequestTypes::REQUEST_FIND_USER, RequestState::REQUEST_IN_PROGRESS);
 }
 
-void MainWindow::on_findUserFinished(const NetworkResult &res, const std::vector<ParsedFoundUsersObject> &paObjects)
+void MainWindow::on_findUserFinished(const NetworkResult &res, const std::vector<ParsedFoundUsersObject> &paObjects, const QString& input)
 {
+    static int otherFailsCounter = 0;
     if (res.ok)
     {
         searchListModel->setUsers(paObjects);
-#ifdef QT_DEBUG
-        qDebug() << "on_findUserFinished = true!!!";
-#endif
+        otherFailsCounter = 0;
+        requestsStatusManager->setStatus(RequestTypes::REQUEST_FIND_USER, RequestState::REQUEST_SUCCESS);
     }
-    else
+    else if (res.error == ERROR_TYPES::UNAUTHORIZED)
     {
-#ifdef QT_DEBUG
-        qDebug() << "on_findUserFinished = false!!!";
-#endif
+        eraseRetrybleUnauthorizeRequestsbyType(RequestTypes::REQUEST_FIND_USER);
+        pendingRetrybleUnauthorizeRequests.emplace_back(std::make_pair(RequestTypes::REQUEST_FIND_USER,[this, input]()
+        {
+            userInfoController->requestFindUser(accessToken, input);
+        }));
+
+        if (requestsStatusManager->getStatus(RequestTypes::REQUEST_REFRESH_ACCESS_TOKEN) != RequestState::REQUEST_IN_PROGRESS)
+            authController->requestRefreshAccessToken(refreshToken);
     }
+    else if (otherFailsCounter < 2)
+    {
+        ++otherFailsCounter;
+        userInfoController->requestFindUser(accessToken, input);
+    }
+    if (!res.ok)
+    {
+        requestsStatusManager->setStatus(RequestTypes::REQUEST_FIND_USER, RequestState::REQUEST_FAILED);
+        qDebug() << "on_findUserFinished = false!!!";
+    }
+
+
+
 }
 
 void MainWindow::on_registrationFinished(const NetworkResult &res, const QString &accToken, const QString &refToken)
@@ -1985,7 +2030,6 @@ void MainWindow::on_logOutFinished(const NetworkResult &res)
     {
         closeCurrentChat();
 
-        // TODO: Очистить пользовательские данные и поля
         isAuthorized = false;
         ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);
         ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);
@@ -1996,16 +2040,14 @@ void MainWindow::on_logOutFinished(const NetworkResult &res)
         chatsListModel->clear();
         messagesListModel->clear();
         currentChatName.clear();
+        //TODO: можно запилить функции setCurrentChatID и setMyUserId чтобы они помимо mainWindow сразу меняли и в моделях
         currentChatId = ULONG_LONG_MAX;
         myUserId = ULONG_LONG_MAX;
         ui->messageInput->clear();
     }
     else
     {
-        // TODO: Сообщение об ошибке
-#ifdef QT_DEBUG
         qDebug() << "LogOutError";
-#endif
     }
 }
 
@@ -3157,4 +3199,28 @@ void MainWindow::decreaseUnreadCount(quint64 chatId, int count)
             chatsListModel->decreaseUnreadCount(chatId, count);
         }
     
+}
+
+void MainWindow::checkRetrybleUnauthorizeRequests()
+{
+    std::vector<std::pair<RequestTypes, std::function<void()>>> requestsToProcess;
+    requestsToProcess.swap(pendingRetrybleUnauthorizeRequests);
+
+    for (const auto &lambda : requestsToProcess)
+    {
+        lambda.second();
+    }
+}
+
+void MainWindow::eraseRetrybleUnauthorizeRequestsbyType(RequestTypes type)
+{
+    pendingRetrybleUnauthorizeRequests.erase(
+        std::remove_if(
+            pendingRetrybleUnauthorizeRequests.begin(),
+            pendingRetrybleUnauthorizeRequests.end(),
+            [type](const std::pair<RequestTypes, std::function<void()>> &request)
+            {
+                return request.first == type;
+            }),
+        pendingRetrybleUnauthorizeRequests.end());
 }

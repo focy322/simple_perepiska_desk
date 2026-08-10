@@ -13,6 +13,7 @@ QString generateMessageForError(ERROR_TYPES error)
     case ERROR_TYPES::PASSWORD_MISMATCH:      return "Пароли не совпадают!"; break;
     case ERROR_TYPES::LOGIN_ALREADY_EXISTS:   return "Логин уже занят!"; break;
     case ERROR_TYPES::UNKNOWN_ERROR:          return "Неизвестная ошибка";break;
+    case ERROR_TYPES::VALIDATION_ERROR:       return "Ошибка валидации";break;
     default:                                  return "Неизвестная ошибка";break;
     }
     return "Неизвестная ошибка";

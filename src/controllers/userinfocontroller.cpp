@@ -21,12 +21,12 @@ void UserInfoController::requestMyUserInfo(const QString &accToken)
     userInfoService->getMyUserInfo(accToken);
 }
 
-void UserInfoController::requestFindUser(const QString &accessToken, const QString &input)
+void UserInfoController::requestFindUser(const QString &accessToken, const QString &input) const
 {
     userInfoService->findUser(accessToken, input);
 }
 
-void UserInfoController::requestUserInfo(const QString &accToken, unsigned long long userId)
+void UserInfoController::requestUserInfo(const QString &accToken, unsigned long long userId) const
 {
     userInfoService->getUserInfo(accToken, userId);
 }

@@ -108,8 +108,9 @@ signals:
      * Сигнал об окончании поиска пользователей.
      * \param res результат выполнения запроса
      * \param paObjects список найденных пользователей
+     * \param input строка поиска
      */
-    void findUserFinished(const NetworkResult &res, const std::vector<ParsedFoundUsersObject>& paObjects = {});
+    void findUserFinished(const NetworkResult &res, const std::vector<ParsedFoundUsersObject>& paObjects = {}, const QString &input = "" );
 
 private:
     // --- Внутренние объекты сети ---

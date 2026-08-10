@@ -279,6 +279,13 @@ void AuthService::refreshAccessToken(const QString &refToken)
             reply->deleteLater();
             return;
         }
+        if (httpCode == 401)
+        {
+            NetworkResult res{false, ERROR_TYPES::UNAUTHORIZED, generateMessageForError(ERROR_TYPES::UNAUTHORIZED)};
+            emit refreshAccessTokenFinished(res);
+            reply->deleteLater();
+            return;
+        }
         NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
         emit refreshAccessTokenFinished(res);
         reply->deleteLater();
