@@ -10,6 +10,7 @@
 #include <QStackedWidget>
 #include <QUuid>
 #include <QSoundEffect>
+#include <functional>
 #include <QVariantAnimation>
 #include <QPointer>
 #include <QSystemTrayIcon>
@@ -19,6 +20,8 @@
 #include <QScrollArea>
 #include <QVBoxLayout>
 #include <QGridLayout>
+#include <queue>
+
 #include "models/chatlistmodel.h"
 #include "models/chatmessageslistmodel.h"
 #include "models/searchlistmodel.h"
@@ -28,6 +31,7 @@
 #include "controllers/chatscontroller.h"
 #include "controllers/websocketcontroller.h"
 #include "controllers/filescontroller.h"
+#include "utils/requests_status.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -444,8 +448,10 @@ private slots:
      * Вызывается при завершении поиска пользователя, обновляет модель поиска
      * \param res результат выполнения запроса
      * \param paObjects список найденных пользователей
+     * \param input
+     * replacebleRequest
      */
-    void on_findUserFinished(const NetworkResult &res, const std::vector<ParsedFoundUsersObject>& paObjects = {});
+    void on_findUserFinished(const NetworkResult &res, const std::vector<ParsedFoundUsersObject>& paObjects = {}, const QString &input = "");
 
     /**
      * Вызывается, когда в окно приложения перетаскивают файлы (Drag'n'Drop), инициирует их загрузку
@@ -576,6 +582,8 @@ private:
     QString currentChatName;                                             //!< Название текущего открытого чата
     unsigned long long currentChatId;                                    //!< Идентификатор текущего открытого чата
     quint64 editingMessageId = ULONG_LONG_MAX;                           //!< Идентификатор редактируемого в данный момент сообщения
+    std::vector<std::pair<RequestTypes, std::function<void()>>> pendingRetrybleUnauthorizeRequests;          //!< Очередь запросов ожидающих повторной отправки из за неавторизованного состояния (401 Unauthorized)
+    RequestsStatusManager *requestsStatusManager;                        //!< Менеджер статусов запросов
 
     // Поля авторизации и информации о пользователе
     bool isAuthorized;                                                   //!< Флаг авторизации пользователя
@@ -699,5 +707,9 @@ private:
     void setUnreadCount(quint64 chatId, int count);
     
     void decreaseUnreadCount(quint64 chatId, int count);
+
+    void checkRetrybleUnauthorizeRequests();
+
+    void eraseRetrybleUnauthorizeRequestsbyType(RequestTypes type);
 };
 #endif // MAINWINDOW_H

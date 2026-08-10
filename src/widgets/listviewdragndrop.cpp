@@ -112,7 +112,7 @@ void ListViewDragNDrop::paintEvent(QPaintEvent *event)
 {
     ChatMessagesItemDelegate* delegate = qobject_cast<ChatMessagesItemDelegate*>(itemDelegate());
     if (delegate)
-        delegate->resetLastReadMessage();
+        delegate->resetLastReadMessage(); //TODO: ресетать нужно после смены чата а не перед каждым paintEvent, иначе при скролле будет ресетиться хоть мы и в том же чате
 
     QListView::paintEvent(event);
     if (delegate)

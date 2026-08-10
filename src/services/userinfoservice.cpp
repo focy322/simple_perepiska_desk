@@ -228,7 +228,9 @@ void UserInfoService::findUser(const QString &accToken, const QString &input)
         if (httpCode == 200)
         {
             const auto parsedArrayObjects = parseFoundUsersArray(doc);
-            
+
+            //TODO: как будто бы можно сразу erase в parsedArrayObjects а не создавать новый вектор
+            //ВООБЩЕ НАХУЯ ТОЧНОЕ СОВПАДЕНИЕ
             std::vector<ParsedFoundUsersObject> exactMatchObjects;
             for (const auto& obj : parsedArrayObjects) {
                 if (obj.username.compare(input, Qt::CaseInsensitive) == 0 || 
@@ -242,6 +244,14 @@ void UserInfoService::findUser(const QString &accToken, const QString &input)
             reply->deleteLater();
             return;
         }
+        if (httpCode == 401)
+        {
+            NetworkResult res{false, ERROR_TYPES::UNAUTHORIZED, generateMessageForError(ERROR_TYPES::UNAUTHORIZED)};
+            emit findUserFinished(res, {}, input);
+            reply->deleteLater();
+            return;
+        }
+
         NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
         emit findUserFinished(res);
         reply->deleteLater();
