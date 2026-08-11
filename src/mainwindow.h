@@ -21,6 +21,7 @@
 #include <QVBoxLayout>
 #include <QGridLayout>
 #include <queue>
+#include <list>
 
 #include "models/chatlistmodel.h"
 #include "models/chatmessageslistmodel.h"
@@ -582,8 +583,11 @@ private:
     QString currentChatName;                                             //!< Название текущего открытого чата
     unsigned long long currentChatId;                                    //!< Идентификатор текущего открытого чата
     quint64 editingMessageId = ULONG_LONG_MAX;                           //!< Идентификатор редактируемого в данный момент сообщения
-    std::vector<std::pair<RequestTypes, std::function<void()>>> pendingRetrybleUnauthorizeRequests;          //!< Очередь запросов ожидающих повторной отправки из за неавторизованного состояния (401 Unauthorized)
+    std::list<RetryableRequest> pendingRetryableUnauthorizeRequests;          //!< Очередь запросов ожидающих повторной отправки из за неавторизованного состояния (401 Unauthorized)
+    std::list<RetryableRequest> pendingRetryableRequests;                     //!< Очередь запросов ожидающих повторной отправки не 401
+    QTimer *retryableRequestsTimer;                                           //!< Таймер для обработки повторных запросов
     RequestsStatusManager *requestsStatusManager;                        //!< Менеджер статусов запросов
+
 
     // Поля авторизации и информации о пользователе
     bool isAuthorized;                                                   //!< Флаг авторизации пользователя
@@ -708,8 +712,13 @@ private:
     
     void decreaseUnreadCount(quint64 chatId, int count);
 
-    void checkRetrybleUnauthorizeRequests();
+    void checkRetryableUnauthorizeRequests();
 
-    void eraseRetrybleUnauthorizeRequestsbyType(RequestTypes type);
+    /**
+     *
+     * @param type
+     * @param option 0 - удалить у pendingRetryableUnauthorizeRequests, 1 - удалить у pendingRetryableRequests, 2 - удалить у обоих
+     */
+    void eraseRetryableRequestsbyType(RequestTypes type, uchar option);
 };
 #endif // MAINWINDOW_H

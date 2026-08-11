@@ -1,7 +1,17 @@
 #include "requests_status.h"
-//
-// Created by belya on 10.08.2026.
-//
+#include <QRandomGenerator>
+#include <cmath>
+uint calculateRequestDelay(int retryCount)
+{
+    static uint baseDelay = 1000;
+    static uint maxDelay = 30000;
+    uint delay = baseDelay * static_cast<int>(std::pow(2, retryCount));
+    int jitter = QRandomGenerator::global()->bounded(1000);
+    delay = std::min(delay + jitter, maxDelay);
+
+    return delay;
+}
+
 RequestsStatusManager::RequestsStatusManager(QObject *parent)
     : QObject(parent)
 {
