@@ -19,13 +19,14 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/frankosterfeld/qtkeychain.git
     GIT_TAG        0.14.2
 )
-# Настройка qtkeychain для статической сборки и без лишних компонентов
+# Настройка qtkeychain для динамической сборки и без лишних компонентов
 set(BUILD_WITH_QT6 ON CACHE BOOL "Сборка с Qt 6" FORCE)
 set(BUILD_TRANSLATIONS OFF CACHE BOOL "Сборка переводов" FORCE)
 set(BUILD_TEST_APPLICATION OFF CACHE BOOL "Сборка тестового приложения" FORCE)
 
-# Собираем как статическую библиотеку, чтобы избежать проблем с DLL на Windows
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "Сборка qtkeychain как статической библиотеки" FORCE) 
+# Собираем как динамическую библиотеку
+set(BUILD_SHARED_LIBS ON CACHE BOOL "Сборка qtkeychain как динамической библиотеки" FORCE)
+
 FetchContent_MakeAvailable(qtkeychain)
 
 # Автоматически находим все файлы в нужных папках                                                                                                                                                    
@@ -92,16 +93,30 @@ if(WIN32)
     ")
 endif()
 
-# Настройка CPack для создания инсталлера через NSIS
+# Настройка CPack для кроссплатформенного создания инсталлеров
 set(CPACK_PACKAGE_NAME "Vent")
 set(CPACK_PACKAGE_VENDOR "Vent")
 set(CPACK_PACKAGE_VERSION "0.0.1")
-set(CPACK_PACKAGE_FILE_NAME "Vent-Installer-0.0.1")
-set(CPACK_GENERATOR "NSIS")
+set(CPACK_PACKAGE_FILE_NAME "Vent-Installer-${CPACK_PACKAGE_VERSION}")
 
-# Специфичные настройки NSIS
-set(CPACK_PACKAGE_INSTALL_DIRECTORY "Vent")        # Имя папки в Program Files
-set(CPACK_NSIS_MUI_FINISHPAGE_RUN "vent.exe")      # Файл для запуска по завершении
-set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON) # Удалять старую версию перед новой
+if(WIN32)
+    # Специфичные настройки NSIS для Windows
+    set(CPACK_GENERATOR "NSIS;ZIP")
+    set(CPACK_PACKAGE_INSTALL_DIRECTORY "Vent")        # Имя папки в Program Files
+    set(CPACK_NSIS_MUI_FINISHPAGE_RUN "vent.exe")      # Файл для запуска по завершении
+    set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON) # Удалять старую версию перед новой
+elseif(APPLE)
+    # Настройки для macOS (дай бог когда-нибудь протестирую)
+    set(CPACK_GENERATOR "DragNDrop")
+elseif(UNIX AND NOT APPLE)
+    # Настройки для Linux (DEB, RPM и .tar.gz)
+    set(CPACK_GENERATOR "DEB;RPM;TGZ")
+    
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Vent") # Обязательно для DEB
+    set(CPACK_RPM_PACKAGE_LICENSE "Unknown")    # Желательно для RPM (может ругаться в некоторых ситуациях)
+    
+    # Установка в /opt/
+    set(CPACK_PACKAGING_INSTALL_PREFIX "/opt/Vent")
+endif()
 
 include(CPack)

@@ -1,48 +1,32 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+
+#include "delegates/chatlistitemdelegate.h"
+#include "delegates/searchitemdelegate.h"
+#include "widgets/customtitlebar.h"
+#include "widgets/imageviewerwindow.h"
+#include "widgets/imagecropperdialog.h"
+#include "utils/paths.h"
+#include "utils/videohelpers.h"
+#include "utils/avatarhelper.h"
+#include "utils/endpoints.h"
+
+#include <QMenu>
+#include <QFile>
+#include <QFileInfo>
+#include <QDebug>
 #include <QApplication>
 #include <QCloseEvent>
 #include <QShowEvent>
 #include <QTimer>
 #include <QPainter>
-#include "delegates/chatlistitemdelegate.h"
 #include <QPainterPath>
-#include "delegates/searchitemdelegate.h"
-#include "utils/paths.h"
-#include "widgets/customtitlebar.h"
-#include "widgets/imageviewerwindow.h"
-
-#include "utils/videohelpers.h"
-#include <QScrollArea>
-#include <QGridLayout>
-#ifdef Q_OS_WIN
-#include <windows.h>
-#include <windowsx.h>
-#endif
-
-#include <keychain.h>
-
-#include <QNetworkReply>
-#include <QNetworkAccessManager>
-#include "utils/endpoints.h"
-#include <QPropertyAnimation>
-#include <QVariantAnimation>
-#include <QScrollBar>
-#include <QMenu>
-#include <QDesktopServices>
-#include <QFileDialog>
-#include <QCheckBox>
-#include <QBuffer>
-#include <QMessageBox>
-#include <QFile>
-#include <QFileInfo>
-#include "widgets/imagecropperdialog.h"
-#include "utils/avatarhelper.h"
-#include <QDebug>
 #include <QDateTime>
 #include <QThread>
 #include <QGraphicsOpacityEffect>
 #include <QGraphicsDropShadowEffect>
+#include <QPropertyAnimation>
+#include <QVariantAnimation>
 #include <QPauseAnimation>
 #include <QSequentialAnimationGroup>
 #include <QSignalBlocker>
@@ -51,7 +35,30 @@
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QMimeData>
+#include <QScrollArea>
+#include <QGridLayout>
 #include <QUrl>
+#include <QNetworkReply>
+#include <QNetworkAccessManager>
+#include <QScrollBar>
+#include <QDesktopServices>
+#include <QFileDialog>
+#include <QCheckBox>
+#include <QBuffer>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QHBoxLayout>
+#include <QEvent>
+#include <functional>
+#include <QAbstractButton>
+
+#include <keychain.h>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <windowsx.h>
+#endif
+
 
 static void crossfadeAppIcon(QLabel *appIcon, const QString &iconPath)
 {
@@ -2141,16 +2148,7 @@ QString MainWindow::stripAttachmentMarker(const QString &text) const
     return lines.join("\n");
 }
 
-
-//FixIt : ПИЗДЕЦ...
-#include <QPushButton>
-#include <QHBoxLayout>
-#include <QEvent>
-#include <functional>
-
-#include <QGraphicsOpacityEffect>
-
-#include <QAbstractButton>
+//FixIt : чуть позже
 
 class PreviewOverlayButton : public QPushButton {
 public:
