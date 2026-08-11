@@ -120,8 +120,9 @@ MainWindow::MainWindow(QWidget *parent)
     , websocketController(new WebsocketController(this))
     , notificationSound(new QSoundEffect(this))
     , filesController(new FilesController(this))
-    , pendingRetrybleUnauthorizeRequests{}
+    , pendingRetryableUnauthorizeRequests{}
     , requestsStatusManager(new RequestsStatusManager(this))
+    , retryableRequestsTimer(new QTimer(this))
 {
     ui->setupUi(this);
 
@@ -455,6 +456,36 @@ MainWindow::MainWindow(QWidget *parent)
     connect(trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::onTrayIconActivated);
 #endif
 
+    retryableRequestsTimer->setInterval(500);
+    retryableRequestsTimer->setSingleShot(false);
+    connect(retryableRequestsTimer, &QTimer::timeout, this, [this]()
+    {
+        if (pendingRetryableRequests.empty())
+        {
+            retryableRequestsTimer->stop();
+            return;
+        }
+
+        const auto now = std::chrono::system_clock::now();
+        for (auto it = pendingRetryableRequests.begin(); it != pendingRetryableRequests.end();)
+        {
+            const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - it->creationTime).count();
+            if (elapsedMs >= static_cast<long long>(it->delay))
+            {
+                it->requestFunction();
+                it = pendingRetryableRequests.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+
+        if (pendingRetryableRequests.empty())
+        {
+            retryableRequestsTimer->stop();
+        }
+    });
     tryAuthorize();
 
 
@@ -1478,7 +1509,7 @@ void MainWindow::on_refreshAccessTokenFinished(const NetworkResult &res, const Q
         accessToken = accToken;
         refreshToken = refToken;
         requestsStatusManager->setStatus(RequestTypes::REQUEST_REFRESH_ACCESS_TOKEN, RequestState::REQUEST_SUCCESS);
-        checkRetrybleUnauthorizeRequests();
+        checkRetryableUnauthorizeRequests();
         qDebug() << "on_RefreshAccessTokenFinished = true!!!";
     }
     else
@@ -1794,11 +1825,12 @@ void MainWindow::on_socketConnectionFinished(const NetworkResult &res)
     {
         if (res.error == ERROR_TYPES::UNAUTHORIZED)
         {
-            eraseRetrybleUnauthorizeRequestsbyType(RequestTypes::REQUEST_SOCKET_CONNECT);
-            pendingRetrybleUnauthorizeRequests.emplace_back(std::make_pair(RequestTypes::REQUEST_SOCKET_CONNECT,[this]()
+            eraseRetryableRequestsbyType(RequestTypes::REQUEST_SOCKET_CONNECT, 0);
+            RetryableRequest req = {RequestTypes::REQUEST_SOCKET_CONNECT, [this]()
             {
                 websocketController->requestConnectSocket(accessToken);
-            }));
+            }};
+            pendingRetryableUnauthorizeRequests.emplace_back(req);
 
             if (requestsStatusManager->getStatus(RequestTypes::REQUEST_REFRESH_ACCESS_TOKEN) != RequestState::REQUEST_IN_PROGRESS)
                 authController->requestRefreshAccessToken(refreshToken);
@@ -1806,7 +1838,15 @@ void MainWindow::on_socketConnectionFinished(const NetworkResult &res)
         else if (otherFailsCounter < 33)
         {
             ++otherFailsCounter;
-            websocketController->requestConnectSocket(accessToken);
+            uint delay = calculateRequestDelay(otherFailsCounter);
+            eraseRetryableRequestsbyType(RequestTypes::REQUEST_SOCKET_CONNECT, 1);
+            RetryableRequest req = {RequestTypes::REQUEST_SOCKET_CONNECT, [this]()
+            {
+                websocketController->requestConnectSocket(accessToken);
+            }, delay};
+            pendingRetryableRequests.emplace_back(req);
+            if (!retryableRequestsTimer->isActive())
+                retryableRequestsTimer->start();
         }
         else
         {
@@ -1932,11 +1972,12 @@ void MainWindow::on_findUserFinished(const NetworkResult &res, const std::vector
     }
     else if (res.error == ERROR_TYPES::UNAUTHORIZED)
     {
-        eraseRetrybleUnauthorizeRequestsbyType(RequestTypes::REQUEST_FIND_USER);
-        pendingRetrybleUnauthorizeRequests.emplace_back(std::make_pair(RequestTypes::REQUEST_FIND_USER,[this, input]()
+        eraseRetryableRequestsbyType(RequestTypes::REQUEST_FIND_USER, 0);
+        RetryableRequest req = {RequestTypes::REQUEST_FIND_USER, [this, input]()
         {
             userInfoController->requestFindUser(accessToken, input);
-        }));
+        }};
+        pendingRetryableUnauthorizeRequests.emplace_back(req);
 
         if (requestsStatusManager->getStatus(RequestTypes::REQUEST_REFRESH_ACCESS_TOKEN) != RequestState::REQUEST_IN_PROGRESS)
             authController->requestRefreshAccessToken(refreshToken);
@@ -1944,7 +1985,15 @@ void MainWindow::on_findUserFinished(const NetworkResult &res, const std::vector
     else if (otherFailsCounter < 2)
     {
         ++otherFailsCounter;
-        userInfoController->requestFindUser(accessToken, input);
+        uint delay = calculateRequestDelay(otherFailsCounter);
+        eraseRetryableRequestsbyType(RequestTypes::REQUEST_FIND_USER, 1);
+        RetryableRequest req = {RequestTypes::REQUEST_FIND_USER, [this, input]()
+        {
+            userInfoController->requestFindUser(accessToken, input);
+        }, delay};
+        pendingRetryableRequests.emplace_back(req);
+        if (!retryableRequestsTimer->isActive())
+            retryableRequestsTimer->start();
     }
     if (!res.ok)
     {
@@ -3201,26 +3250,47 @@ void MainWindow::decreaseUnreadCount(quint64 chatId, int count)
     
 }
 
-void MainWindow::checkRetrybleUnauthorizeRequests()
+void MainWindow::checkRetryableUnauthorizeRequests()
 {
-    std::vector<std::pair<RequestTypes, std::function<void()>>> requestsToProcess;
-    requestsToProcess.swap(pendingRetrybleUnauthorizeRequests);
+    std::list<RetryableRequest> requestsToProcess;
+    requestsToProcess.swap(pendingRetryableUnauthorizeRequests);
 
-    for (const auto &lambda : requestsToProcess)
+    for (const auto &req : requestsToProcess)
     {
-        lambda.second();
+        req.requestFunction();
     }
 }
 
-void MainWindow::eraseRetrybleUnauthorizeRequestsbyType(RequestTypes type)
+void MainWindow::eraseRetryableRequestsbyType(RequestTypes type, uchar option)
 {
-    pendingRetrybleUnauthorizeRequests.erase(
-        std::remove_if(
-            pendingRetrybleUnauthorizeRequests.begin(),
-            pendingRetrybleUnauthorizeRequests.end(),
-            [type](const std::pair<RequestTypes, std::function<void()>> &request)
+    if (option == 2)
+    {
+        pendingRetryableUnauthorizeRequests.remove_if(
+            [type](const RetryableRequest &request)
             {
-                return request.first == type;
-            }),
-        pendingRetrybleUnauthorizeRequests.end());
+                return request.type == type;
+            });
+
+        pendingRetryableRequests.remove_if(
+            [type](const RetryableRequest &request)
+            {
+                return request.type == type;
+            });
+    }
+    else if (option == 1)
+    {
+        pendingRetryableRequests.remove_if(
+            [type](const RetryableRequest &request)
+            {
+                return request.type == type;
+            });
+    }
+    else if (option == 0)
+    {
+        pendingRetryableUnauthorizeRequests.remove_if(
+            [type](const RetryableRequest &request)
+            {
+                return request.type == type;
+            });
+    }
 }

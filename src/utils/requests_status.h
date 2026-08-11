@@ -7,6 +7,10 @@
 #include <QHash>
 #include <qtypes.h>
 #include <QObject>
+#include <chrono>
+#include <functional>
+
+uint calculateRequestDelay(int retryCount);
 
 enum class RequestState : uchar
 {
@@ -27,6 +31,13 @@ enum class RequestTypes
     REQUESTS_COUNTS
 };
 
+struct RetryableRequest
+{
+    RequestTypes type;
+    std::function<void()> requestFunction;
+    uint delay = 1000; // ms
+    const std::chrono::time_point<std::chrono::system_clock> creationTime = std::chrono::system_clock::now();
+};
 
 class RequestsStatusManager final : public QObject
 {
