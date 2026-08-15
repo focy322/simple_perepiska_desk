@@ -9,6 +9,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include "utils/endpoints.h"
+#include "utils/requests/retryable_request.h"
 
 /**
  * Структура для хранения распарсенных данных о найденном пользователе.
@@ -35,22 +36,27 @@ public:
     /**
      * Выполняет сетевой запрос на получение информации о текущем авторизованном пользователе.
      * \param accToken токен доступа (Access Token)
+     * \param retryableReq
      */
-    void getMyUserInfo(const QString &accToken);
+    void getMyUserInfo(const QString &accToken, RetryableRequest retryableReq);
 
     /**
      * Выполняет сетевой запрос на получение информации о другом пользователе по его ID.
      * \param accToken токен доступа (Access Token)
      * \param userId идентификатор пользователя
+     * \param retryableReq
+     * \param retryableReq
      */
-    void getUserInfo(const QString &accToken, unsigned long long userId);
+    void getUserInfo(const QString &accToken, unsigned long long userId, RetryableRequest retryableReq);
 
     /**
      * Выполняет сетевой запрос на обновление аватара текущего пользователя.
      * \param accToken токен доступа (Access Token)
      * \param imageData бинарные данные нового аватара
+     * \param retryableReq
+     * \param retryableReq
      */
-    void uploadAvatar(const QString &accToken, const QByteArray &imageData);
+    void uploadAvatar(const QString &accToken, const QByteArray &imageData, RetryableRequest retryableReq);
 
     /**
      * Выполняет сетевой запрос на поиск пользователей по строке.
@@ -88,21 +94,21 @@ signals:
      * \param userId идентификатор пользователя
      * \param avatarUrl ссылка на аватар пользователя
      */
-    void getMyUserInfoFinished(const NetworkResult &res, const QString &username = "", unsigned long long userId = ULONG_LONG_MAX, const QString &avatarUrl = "");
+    void getMyUserInfoFinished(const NetworkResult &res, RetryableRequest retryableReq, const QString &username = "", unsigned long long userId = ULONG_LONG_MAX, const QString &avatarUrl = "");
 
     /**
      * Сигнал об окончании загрузки информации о запрашиваемом пользователе.
      * \param res результат выполнения запроса
      * \param user объект с данными найденного пользователя
      */
-    void getUserInfoFinished(const NetworkResult &res, const ParsedFoundUsersObject &user = {});
+    void getUserInfoFinished(const NetworkResult &res, RetryableRequest retryableReq, const ParsedFoundUsersObject &user = {});
 
     /**
      * Сигнал об окончании загрузки нового аватара.
      * \param res результат выполнения запроса
      * \param avatarUrl новая ссылка на загруженный аватар
      */
-    void uploadAvatarFinished(const NetworkResult &res, const QString &avatarUrl = "");
+    void uploadAvatarFinished(const NetworkResult &res, RetryableRequest retryableReq, const QString &avatarUrl = "");
 
     /**
      * Сигнал об окончании поиска пользователей.

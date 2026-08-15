@@ -1,21 +1,50 @@
 ﻿#include "controllers/authcontroller.h"
 
 AuthController::AuthController(QObject *parent)
-    : QObject{parent}
+    : BaseController{parent}
     , authService(new AuthService(this))
 {
     // Прокидываем сигналы от AuthService'а
-    connect(authService, &AuthService::registrationFinished, this, &AuthController::registrationFinished);
-    connect(authService, &AuthService::logInFinished, this, &AuthController::logInFinished);
-    connect(authService, &AuthService::logOutFinished, this, &AuthController::logOutFinished);
+    connect(authService, &AuthService::registrationFinished, this, &AuthController::on_RegistrationFinished);
+    connect(authService, &AuthService::logInFinished, this, &AuthController::on_LogInFinished);
+    connect(authService, &AuthService::logOutFinished, this, &AuthController::on_LogOutFinished);
     connect(authService, &AuthService::registrationInProgress, this, &AuthController::registrationInProgress);
     connect(authService, &AuthService::logInProgress, this, &AuthController::logInProgress);
     connect(authService, &AuthService::logOutInProgress, this, &AuthController::logOutInProgress);
     connect(authService, &AuthService::refreshAccessTokenInProgress, this, &AuthController::refreshAccessTokenInProgress);
-    connect(authService, &AuthService::refreshAccessTokenFinished, this, &AuthController::refreshAccessTokenFinished);
+    connect(authService, &AuthService::refreshAccessTokenFinished, this, &AuthController::on_RefreshAccessTokenFinished);
 
 
 }
+
+void AuthController::on_RegistrationFinished(const NetworkResult& res, const QString& accToken, const QString& refToken)
+{
+    emit registrationFinished(res, accToken, refToken);
+}
+
+void AuthController::on_LogInFinished(const NetworkResult& res, const QString& accToken, const QString& refToken)
+{
+    emit logInFinished(res, accToken, refToken);
+}
+
+void AuthController::on_LogOutFinished(const NetworkResult& res)
+{
+    emit logOutFinished(res);
+}
+
+void AuthController::on_RefreshAccessTokenFinished(const NetworkResult& res, RetryableRequest req,
+    const QString& accToken, const QString& refToken)
+{
+    if (!res.ok)
+    {
+        static int errorCount = 0;
+        ++errorCount;
+        req.retryCount = errorCount;
+        emit errorOccurred(res, req);
+    }
+    emit refreshAccessTokenFinished(res, req, accToken, refToken);
+}
+
 NetworkResult AuthController::validateRegistration(const QString &login, const QString &password, const QString &passwordConfirm)
 {
     if (login.isEmpty())
@@ -95,7 +124,7 @@ void AuthController::requestLogOut(const QString &accToken, const QString &refTo
     authService->logOut(accToken, refToken);
 }
 
-void AuthController::requestRefreshAccessToken(const QString &refToken)
+void AuthController::requestRefreshAccessToken(const QString &refToken, RetryableRequest req)
 {
-    authService->refreshAccessToken(refToken);
+    authService->refreshAccessToken(refToken, req);
 }

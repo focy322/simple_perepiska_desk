@@ -1,14 +1,15 @@
 #ifndef USERINFOCONTROLLER_H
 #define USERINFOCONTROLLER_H
 
-#include <QObject>
+
+#include "base_controller.h"
 #include "services/userinfoservice.h"
 
 /**
  * Контроллер для работы с информацией о пользователях.
  * Принимает запросы от UI, вызывает методы UserInfoService и возвращает результат через сигналы.
  */
-class UserInfoController : public QObject
+class UserInfoController : public BaseController
 {
     Q_OBJECT
 public:
@@ -17,29 +18,35 @@ public:
     /**
      * Запрашивает информацию о текущем авторизованном пользователе.
      * \param accToken токен доступа (Access Token)
+     * \param reReq
+     * \param reReq
      */
-    void requestMyUserInfo(const QString &accToken);
+    void requestMyUserInfo(const QString &accToken, RetryableRequest reReq);
 
     /**
      * Запрашивает информацию о другом пользователе по его ID.
      * \param accToken токен доступа (Access Token)
      * \param userId идентификатор пользователя
+     * \param reReq
+     * \param reReq
      */
-    void requestUserInfo(const QString &accToken, unsigned long long userId) const;
+    void requestUserInfo(const QString &accToken, unsigned long long userId, RetryableRequest reReq) const;
 
     /**
      * Отправляет запрос на обновление аватара текущего пользователя.
      * \param accToken токен доступа (Access Token)
      * \param imageData бинарные данные изображения аватара
+     * \param reReq
+     * \param reReq
      */
-    void requestUploadAvatar(const QString &accToken, const QByteArray &imageData);
+    void requestUploadAvatar(const QString &accToken, const QByteArray &imageData, RetryableRequest reReq);
 
     /**
      * Запрашивает поиск пользователей по введенной строке.
      * \param accessToken токен доступа (Access Token)
-     * \param input строка для поиска (имя или логин)
+     * \param arg
      */
-    void requestFindUser(const QString &accessToken, const QString &input) const;
+    void requestFindUser(const QString &accessToken, const QString &arg) const;
 
 signals:
     // --- Сигналы процессов ---
@@ -79,6 +86,14 @@ signals:
      * \param input строка поиска
      */
     void findUserFinished(const NetworkResult &res, const std::vector<ParsedFoundUsersObject>& paObjects = {}, const QString &input = "");
+
+private slots:
+    // --- Слоты для обработки сигналов от UserInfoService ---
+
+    void on_GetMyUserInfoFinished(const NetworkResult &res, RetryableRequest reReq, const QString &username, unsigned long long userId, const QString &avatarUrl);
+    void on_GetUserInfoFinished(const NetworkResult &res, RetryableRequest reReq, const ParsedFoundUsersObject &user);
+    void on_UploadAvatarFinished(const NetworkResult &res, RetryableRequest reReq, const QString &avatarUrl);
+    void on_FindUserFinished(const NetworkResult &res, const std::vector<ParsedFoundUsersObject>& paObjects, const QString &input);
 
 private:
     // --- Внутренние сервисы ---

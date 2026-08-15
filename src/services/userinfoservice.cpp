@@ -3,6 +3,8 @@
 #include <QHttpMultiPart>
 #include <QHttpPart>
 
+#include "utils/requests/retryable_request.h"
+
 UserInfoService::UserInfoService(QObject *parent)
     : QObject{parent}
     , network(new QNetworkAccessManager(this))
@@ -12,7 +14,7 @@ UserInfoService::UserInfoService(QObject *parent)
     , findUserUrl("/api/users/search")
 {}
 
-void UserInfoService::getMyUserInfo(const QString &accToken)
+void UserInfoService::getMyUserInfo(const QString &accToken, RetryableRequest retryableReq)
 {
     emit getMyUserInfoInProgress();
     QUrl url(baseUrl + myUserInfoUrl);
@@ -21,12 +23,12 @@ void UserInfoService::getMyUserInfo(const QString &accToken)
     req.setRawHeader("Authorization", "Bearer " + accToken.toUtf8());
 
     QNetworkReply * reply = network->get(req);
-    connect(reply, &QNetworkReply::finished, this, [this, reply](){
+    connect(reply, &QNetworkReply::finished, this, [this, reply, retryableReq](){
         auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
             NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
-            emit getMyUserInfoFinished(res);
+            emit getMyUserInfoFinished(res, retryableReq);
             reply->deleteLater();
             return;
         }
@@ -36,7 +38,7 @@ void UserInfoService::getMyUserInfo(const QString &accToken)
         if (pe.error || !doc.isObject())
         {
             NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
-            emit getMyUserInfoFinished(res);
+            emit getMyUserInfoFinished(res, retryableReq);
             reply->deleteLater();
             return;
         }
@@ -47,29 +49,29 @@ void UserInfoService::getMyUserInfo(const QString &accToken)
             QString avatarUrl = doc.object()["avatar_file_url"].toString();
             
             NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
-            emit getMyUserInfoFinished(res, username, userId, avatarUrl);
+            emit getMyUserInfoFinished(res,retryableReq, username, userId, avatarUrl);
             reply->deleteLater();
             return;
         }
-        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
-        emit getMyUserInfoFinished(res);
+        NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), generateMessageForError(static_cast<ERROR_TYPES>(httpCode))};
+        emit getMyUserInfoFinished(res,retryableReq);
         reply->deleteLater();
     });
 }
 
-void UserInfoService::getUserInfo(const QString &accToken, unsigned long long userId)
+void UserInfoService::getUserInfo(const QString &accToken, unsigned long long userId, RetryableRequest retryableReq)
 {
     QUrl url(baseUrl + QString("/api/users/%1").arg(userId));
     QNetworkRequest req(url);
     req.setRawHeader("Authorization", "Bearer " + accToken.toUtf8());
 
     QNetworkReply * reply = network->get(req);
-    connect(reply, &QNetworkReply::finished, this, [this, reply](){
+    connect(reply, &QNetworkReply::finished, this, [this, reply, retryableReq](){
         auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
             NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
-            emit getUserInfoFinished(res);
+            emit getUserInfoFinished(res, retryableReq);
             reply->deleteLater();
             return;
         }
@@ -79,7 +81,7 @@ void UserInfoService::getUserInfo(const QString &accToken, unsigned long long us
         if (pe.error || !doc.isObject())
         {
             NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
-            emit getUserInfoFinished(res);
+            emit getUserInfoFinished(res, retryableReq);
             reply->deleteLater();
             return;
         }
@@ -94,17 +96,17 @@ void UserInfoService::getUserInfo(const QString &accToken, unsigned long long us
             paObj.avatarFileUrl = userObject.value("avatar_file_url").toString();
             
             NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
-            emit getUserInfoFinished(res, paObj);
+            emit getUserInfoFinished(res, retryableReq, paObj);
             reply->deleteLater();
             return;
         }
-        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
-        emit getUserInfoFinished(res);
+        NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), generateMessageForError(static_cast<ERROR_TYPES>(httpCode))};
+        emit getUserInfoFinished(res, retryableReq);
         reply->deleteLater();
     });
 }
 
-void UserInfoService::uploadAvatar(const QString &accToken, const QByteArray &imageData)
+void UserInfoService::uploadAvatar(const QString &accToken, const QByteArray &imageData, RetryableRequest retryableReq)
 {
     QUrl url(baseUrl + "/api/users/me/avatar");
     QNetworkRequest req(url);
@@ -120,12 +122,12 @@ void UserInfoService::uploadAvatar(const QString &accToken, const QByteArray &im
     QNetworkReply *reply = network->sendCustomRequest(req, "PATCH", multiPart);
     multiPart->setParent(reply); // удалить вместе с reply
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply](){
+    connect(reply, &QNetworkReply::finished, this, [this, reply, retryableReq](){
         auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
             NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
-            emit uploadAvatarFinished(res);
+            emit uploadAvatarFinished(res, retryableReq);
             reply->deleteLater();
             return;
         }
@@ -136,7 +138,7 @@ void UserInfoService::uploadAvatar(const QString &accToken, const QByteArray &im
         {
             QString avatarUrl = doc.object()["avatar_file_url"].toString();
             NetworkResult res{true, ERROR_TYPES::NO_ERROR, ""};
-            emit uploadAvatarFinished(res, avatarUrl);
+            emit uploadAvatarFinished(res, retryableReq, avatarUrl);
             reply->deleteLater();
             return;
         }
@@ -148,8 +150,8 @@ void UserInfoService::uploadAvatar(const QString &accToken, const QByteArray &im
         } else {
             errMsg += QString(" (Code: %1, Error: %2)").arg(httpCode).arg(reply->errorString());
         }
-        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, errMsg};
-        emit uploadAvatarFinished(res);
+        NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), errMsg};
+        emit uploadAvatarFinished(res, retryableReq);
         reply->deleteLater();
     });
 }
@@ -252,7 +254,7 @@ void UserInfoService::findUser(const QString &accToken, const QString &input)
             return;
         }
 
-        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+        NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), generateMessageForError(static_cast<ERROR_TYPES>(httpCode))};
         emit findUserFinished(res);
         reply->deleteLater();
     });

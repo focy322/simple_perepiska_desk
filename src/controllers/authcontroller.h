@@ -2,12 +2,14 @@
 #define AUTHCONTROLLER_H
 
 #include <QObject>
+
+#include "base_controller.h"
 #include "services/authservice.h"
 
 /**
  * Принимает запросы от UI, вызывает методы AuthService и возвращает результат через сигналы.
  */
-class AuthController : public QObject
+class AuthController : public BaseController
 {
     Q_OBJECT
 public:
@@ -38,8 +40,10 @@ public:
     /**
      * Запрашивает обновление access токена по refresh токену.
      * \param refToken текущий refresh токен (Refresh Token)
+     * \param req
+     * \param req
      */
-    void requestRefreshAccessToken(const QString &refToken);
+    void requestRefreshAccessToken(const QString &refToken, RetryableRequest req);
 
 signals:
     // --- Сигналы завершения процессов ---
@@ -72,7 +76,7 @@ signals:
      * \param accToken новый access токен при успехе
      * \param refToken новый refresh токен при успехе
      */
-    void refreshAccessTokenFinished(const NetworkResult &res, const QString &accToken = "", const QString &refToken = "");
+    void refreshAccessTokenFinished(const NetworkResult &res, RetryableRequest req, const QString &accToken = "", const QString &refToken = "");
 
     // --- Сигналы начала процессов (например, для блокировки кнопок) ---
     
@@ -80,6 +84,14 @@ signals:
     void logInProgress();                 //!< Сигнал о начале процесса авторизации
     void logOutInProgress();              //!< Сигнал о начале процесса выхода из аккаунта
     void refreshAccessTokenInProgress();  //!< Сигнал о начале процесса обновления токена
+
+private slots:
+    // --- Слоты для обработки сигналов от AuthService ---
+
+    void on_RegistrationFinished(const NetworkResult &res, const QString &accToken, const QString &refToken);
+    void on_LogInFinished(const NetworkResult &res, const QString &accToken, const QString &refToken);
+    void on_LogOutFinished(const NetworkResult &res);
+    void on_RefreshAccessTokenFinished(const NetworkResult &res, RetryableRequest req, const QString &accToken, const QString &refToken);
 
 private:
     // --- Внутренние сервисы ---

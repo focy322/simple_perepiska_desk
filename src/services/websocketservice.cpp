@@ -67,6 +67,7 @@ void WebsocketService::disconnectSocket()
 {
     emit socketDisonnectionInProgress();
     websocket->close();
+    emit socketDisonnectionFinished(NetworkResult{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)});
 }
 
 void WebsocketService::sendMessage(const ParsedChatMessagesArrayObject &message)

@@ -81,7 +81,7 @@ void FileService::uploadFile(const QString &accessToken, const QSet<QString> &fi
                 reply->deleteLater();
                 return;
             }
-            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, QString("HTTP Error %1: %2").arg(httpCode).arg(QString(raw))};
+            NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), QString("HTTP Error %1: %2").arg(httpCode).arg(QString(raw))};
             emit uploadFileFinished(res, filePath, chatId);
             reply->deleteLater();
         });
@@ -126,7 +126,7 @@ void FileService::downloadFileInfo(const QString &accessToken, const std::vector
                 reply->deleteLater();
                 return;
             }
-            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), generateMessageForError(static_cast<ERROR_TYPES>(httpCode))};
             emit downloadFileInfoFinished(res);
             reply->deleteLater();
         });

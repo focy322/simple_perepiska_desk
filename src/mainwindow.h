@@ -32,7 +32,8 @@
 #include "controllers/chatscontroller.h"
 #include "controllers/websocketcontroller.h"
 #include "controllers/filescontroller.h"
-#include "utils/requests_status.h"
+#include "utils/requests/retryable_request_error_handler.h"
+#include "utils/requests/request_status.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -279,10 +280,12 @@ private slots:
      * Вызывается при получении сигнала о том что завершился процесс обновления access токена
      * При успехе обновляет access токен и refresh токен в MainWindow
      * \param res объект NetworkResult содержащий результат обновления токена
+     * \param req
+     * \param req
      * \param accToken строка с access токеном
      * \param refToken строка с refresh токеном
      */
-    void on_refreshAccessTokenFinished(const NetworkResult &res, const QString &accToken, const QString &refToken);
+    void on_refreshAccessTokenFinished(const NetworkResult &res, RetryableRequest req, const QString &accToken, const QString &refToken);
 
     /**
      * Вызывается при получении сигнала о том что начался процесс получения информации о пользователе
@@ -517,6 +520,10 @@ private slots:
      */
     void on_downloadFileFinished(const NetworkResult &res, const ParsedDownloadedFileInfo& fileInfo = {});
 
+    void on_needRefreshToken();
+
+    void on_needImmediateLogOut();
+
 #ifndef QT_DEBUG
     /**
      * Обрабатывает действия с иконкой приложения в трее (восстановление окна)
@@ -583,10 +590,7 @@ private:
     QString currentChatName;                                             //!< Название текущего открытого чата
     unsigned long long currentChatId;                                    //!< Идентификатор текущего открытого чата
     quint64 editingMessageId = ULONG_LONG_MAX;                           //!< Идентификатор редактируемого в данный момент сообщения
-    std::list<RetryableRequest> pendingRetryableUnauthorizeRequests;          //!< Очередь запросов ожидающих повторной отправки из за неавторизованного состояния (401 Unauthorized)
-    std::list<RetryableRequest> pendingRetryableRequests;                     //!< Очередь запросов ожидающих повторной отправки не 401
-    QTimer *retryableRequestsTimer;                                           //!< Таймер для обработки повторных запросов
-    RequestsStatusManager *requestsStatusManager;                        //!< Менеджер статусов запросов
+    RequestStatusManager *requestsStatusManager;                        //!< Менеджер статусов запросов
 
 
     // Поля авторизации и информации о пользователе
@@ -604,6 +608,8 @@ private:
     ChatsController *chatsController;                                    //!< Контроллер чатов (запросы от UI -> ChatService -> результаты через сигналы)
     WebsocketController *websocketController;                            //!< Контроллер WebSocket (запросы от UI -> WebsocketService -> результаты через сигналы)
     FilesController *filesController;                                    //!< Контроллер файлов (загрузка и скачивание вложений)
+
+    RetryableRequestErrorHandler *retryableRequestErrorHandler;          //!< Обработчик ошибок сетевых запросов и повторных попыток
 
     /**
      * Попытка автоматической авторизации при старте с использованием сохраненного токена
@@ -712,13 +718,5 @@ private:
     
     void decreaseUnreadCount(quint64 chatId, int count);
 
-    void checkRetryableUnauthorizeRequests();
-
-    /**
-     *
-     * @param type
-     * @param option 0 - удалить у pendingRetryableUnauthorizeRequests, 1 - удалить у pendingRetryableRequests, 2 - удалить у обоих
-     */
-    void eraseRetryableRequestsbyType(RequestTypes type, uchar option);
 };
 #endif // MAINWINDOW_H

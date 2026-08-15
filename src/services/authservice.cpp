@@ -99,7 +99,7 @@ void AuthService::registerUser(const QString &login, const QString &password)
             reply->deleteLater();
             return;
         }
-        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+        NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), generateMessageForError(static_cast<ERROR_TYPES>(httpCode))};
         emit registrationFinished(res);
         reply->deleteLater();
         return;
@@ -155,7 +155,7 @@ void AuthService::logIn(const QString &login, const QString &password)
 #ifdef QT_DEBUG
             qDebug() << doc;
 #endif
-            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+            NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), generateMessageForError(static_cast<ERROR_TYPES>(httpCode))};
             emit logInFinished(res);
             reply->deleteLater();
             return;
@@ -171,7 +171,7 @@ void AuthService::logIn(const QString &login, const QString &password)
             reply->deleteLater();
             return;
         }
-        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+        NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), generateMessageForError(static_cast<ERROR_TYPES>(httpCode))};
 #ifdef QT_DEBUG
         qDebug() << doc;
 #endif
@@ -218,7 +218,7 @@ void AuthService::logOut(const QString &accToken, const QString &refToken)
             reply->deleteLater();
             return;
         }
-        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
+        NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), generateMessageForError(static_cast<ERROR_TYPES>(httpCode))};
 #ifdef QT_DEBUG
         qDebug() << "logOutError code: " << httpCode;
 #endif
@@ -227,7 +227,7 @@ void AuthService::logOut(const QString &accToken, const QString &refToken)
     });
 }
 
-void AuthService::refreshAccessToken(const QString &refToken)
+void AuthService::refreshAccessToken(const QString &refToken, RetryableRequest retryableReq)
 {
     emit refreshAccessTokenInProgress();
     QUrl url(baseUrl + refreshAccessTokenUrl);
@@ -248,12 +248,13 @@ void AuthService::refreshAccessToken(const QString &refToken)
 #endif
 
     QNetworkReply * reply = network->post(req, body);
-    connect(reply, &QNetworkReply::finished, this, [this, reply](){
+    connect(reply, &QNetworkReply::finished, this, [this, reply, retryableReq]()
+    {
         auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
             NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
-            emit refreshAccessTokenFinished(res);
+            emit refreshAccessTokenFinished(res, retryableReq);
             reply->deleteLater();
             return;
         }
@@ -263,7 +264,7 @@ void AuthService::refreshAccessToken(const QString &refToken)
         if (pe.error || !doc.isObject())
         {
             NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
-            emit refreshAccessTokenFinished(res);
+            emit refreshAccessTokenFinished(res, retryableReq);
             reply->deleteLater();
             return;
         }
@@ -275,19 +276,12 @@ void AuthService::refreshAccessToken(const QString &refToken)
             writeRefreshTokenToKeychain(this, newRefToken);
             
             NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
-            emit refreshAccessTokenFinished(res, accToken, newRefToken);
+            emit refreshAccessTokenFinished(res, retryableReq, accToken, newRefToken);
             reply->deleteLater();
             return;
         }
-        if (httpCode == 401)
-        {
-            NetworkResult res{false, ERROR_TYPES::UNAUTHORIZED, generateMessageForError(ERROR_TYPES::UNAUTHORIZED)};
-            emit refreshAccessTokenFinished(res);
-            reply->deleteLater();
-            return;
-        }
-        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
-        emit refreshAccessTokenFinished(res);
+        NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), generateMessageForError(static_cast<ERROR_TYPES>(httpCode))};
+        emit refreshAccessTokenFinished(res, retryableReq);
         reply->deleteLater();
     });
 }

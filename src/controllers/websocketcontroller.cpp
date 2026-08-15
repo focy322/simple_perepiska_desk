@@ -1,7 +1,7 @@
 ﻿#include "controllers/websocketcontroller.h"
 
 WebsocketController::WebsocketController(QObject *parent)
-    : QObject{parent}
+    : BaseController{parent}
     , websocketService(new WebsocketService(this))
 {
     connect(websocketService, &WebsocketService::socketConnectionInProgress, this, &WebsocketController::socketConnectionInProgress);
@@ -23,7 +23,7 @@ void WebsocketController::requestConnectSocket(const QString &accessToken)
 
 void WebsocketController::requestDisconnectSocket()
 {
-
+    websocketService->disconnectSocket();
 }
 
 void WebsocketController::requestSendMessage(const ParsedChatMessagesArrayObject &message)

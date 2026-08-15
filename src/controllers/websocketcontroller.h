@@ -1,14 +1,15 @@
 #ifndef WEBSOCKETCONTROLLER_H
 #define WEBSOCKETCONTROLLER_H
 
-#include <QObject>
+
+#include "base_controller.h"
 #include "services/websocketservice.h"
 
 /**
  * Контроллер для работы с веб-сокетами.
  * Принимает запросы от UI, управляет соединением через WebsocketService и передает полученные события через сигналы.
  */
-class WebsocketController : public QObject
+class WebsocketController : public BaseController
 {
     Q_OBJECT
 public:

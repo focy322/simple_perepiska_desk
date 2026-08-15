@@ -1,17 +1,17 @@
 ﻿#include "controllers/filescontroller.h"
 
 FilesController::FilesController(QObject *parent)
-    : QObject{parent}
+    : BaseController{parent}
     , fileService(new FileService(this))
 
 {
     connect(fileService, &FileService::uploadFileInProgress, this, &FilesController::uploadFileInProgress);
-    connect(fileService, &FileService::uploadFileFinished, this, &FilesController::uploadFileFinished);
+    connect(fileService, &FileService::uploadFileFinished, this, &FilesController::on_uploadFileFinished);
     connect(fileService, &FileService::downloadFileInfoInProgress, this, &FilesController::downloadFileInfoInProgress);
     connect(fileService, &FileService::downloadFileInfoFinished, this, &FilesController::on_downloadFileInfoFinished);
     connect(fileService, &FileService::downloadFileInfoFinished, this, &FilesController::downloadFileInfoFinished);
     connect(fileService, &FileService::downloadFileInProgress, this, &FilesController::downloadFileInProgress);
-    connect(fileService, &FileService::downloadFileFinished, this, &FilesController::downloadFileFinished);
+    connect(fileService, &FileService::downloadFileFinished, this, &FilesController::on_downloadFileFinished);
 }
 
 void FilesController::requestUploadFile(const QString &accessToken, const QSet<QString> &filePaths, const unsigned long long &chatId)
@@ -30,4 +30,15 @@ void FilesController::on_downloadFileInfoFinished(const NetworkResult &res, cons
     {
         fileService->downloadFile(fileInfo);
     }
+}
+
+void FilesController::on_uploadFileFinished(const NetworkResult& res, const QString& filePath, const qulonglong& chatId,
+    const ParsedUploadedFileInfo& fileInfo)
+{
+    emit uploadFileFinished(res, filePath, chatId, fileInfo);
+}
+
+void FilesController::on_downloadFileFinished(const NetworkResult& res, const ParsedDownloadedFileInfo& fileInfo)
+{
+    emit downloadFileFinished(res, fileInfo);
 }

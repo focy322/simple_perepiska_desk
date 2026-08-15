@@ -1,14 +1,15 @@
 #ifndef CHATSCONTROLLER_H
 #define CHATSCONTROLLER_H
 
-#include <QObject>
+
+#include "base_controller.h"
 #include "services/chatservice.h"
 
 /**
  * Контроллер для работы с чатами и сообщениями.
  * Принимает запросы от UI, вызывает методы ChatService и возвращает результат через сигналы.
  */
-class ChatsController : public QObject
+class ChatsController : public BaseController
 {
     Q_OBJECT
 public:
@@ -17,15 +18,17 @@ public:
     /**
      * Запрашивает список чатов текущего пользователя.
      * \param accToken токен доступа (Access Token) для авторизации запроса
+     * \param req
      */
-    void requestMyChats(const QString &accToken);
+    void requestMyChats(const QString &accToken, RetryableRequest req);
 
     /**
      * Запрашивает историю сообщений для указанного чата.
      * \param chatId идентификатор чата
      * \param accToken токен доступа (Access Token) для авторизации запроса
+     * \param req
      */
-    void requestChatMessages(const unsigned long long &chatId, const QString &accToken);
+    void requestChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest req);
 
     /**
      * Создает новый личный чат с указанным пользователем.
@@ -58,6 +61,15 @@ public:
      * \param accToken токен доступа (Access Token) для авторизации запроса
      */
     void requestDeleteMessage(const std::vector<quint64>& messageIds, const quint64 chatId, const bool deleteForAll, const QString &accToken);
+
+private slots:
+    // --- Слоты для обработки сигналов от ChatService ---
+
+    void on_GetMyChatsFinished(const NetworkResult &res, RetryableRequest reReq, const std::vector<ParsedChatsListArrayObject>& paObjects);
+    void on_GetChatMessagesFinished(const NetworkResult &res, RetryableRequest reReq, const unsigned long long chatId, const std::vector<ParsedChatMessagesArrayObject>& paObjects);
+    void on_CreateDirectChatFinished(const NetworkResult &res);
+    void on_EditMessageFinished(const NetworkResult &res);
+    void on_DeleteMessageFinished(const NetworkResult &res);
 
 signals:
     // --- Сигналы процессов ---

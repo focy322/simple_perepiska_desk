@@ -2,13 +2,15 @@
 #define FILESCONTROLLER_H
 
 #include <QObject>
+
+#include "base_controller.h"
 #include "services/fileservice.h"
 
 /**
  * Контроллер для работы с файлами.
  * Принимает запросы от UI, вызывает методы FileService (для загрузки и скачивания файлов) и возвращает результат через сигналы.
  */
-class FilesController : public QObject
+class FilesController : public BaseController
 {
     Q_OBJECT
 public:
@@ -71,6 +73,10 @@ private slots:
      * \param fileInfo полученные метаданные файла
      */
     void on_downloadFileInfoFinished(const NetworkResult &res, const ParsedDownloadedFileInfo &fileInfo = {});
+    void on_uploadFileFinished(const NetworkResult &res, const QString &filePath, const qulonglong &chatId, const ParsedUploadedFileInfo &fileInfo = {});
+    void on_downloadFileFinished(const NetworkResult &res, const ParsedDownloadedFileInfo &fileInfo = {});
+
+
 
 private:
     // --- Внутренние сервисы ---

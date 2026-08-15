@@ -7,6 +7,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include "utils/endpoints.h"
+#include "utils/requests/retryable_request.h"
 
 /**
  * Сервис для взаимодействия с API авторизации.
@@ -42,8 +43,9 @@ public:
     /**
      * Выполняет сетевой запрос на обновление токенов доступа.
      * \param refToken текущий refresh токен (Refresh Token)
+     * \param retryableReq
      */
-    void refreshAccessToken(const QString &refToken);
+    void refreshAccessToken(const QString &refToken, RetryableRequest retryableReq);
 
 signals:
     // --- Сигналы процессов ---
@@ -98,7 +100,7 @@ signals:
      * \param accToken новый access токен при успехе
      * \param refToken новый refresh токен при успехе
      */
-    void refreshAccessTokenFinished(const NetworkResult &res, const QString &accToken = "", const QString &refToken = "");
+    void refreshAccessTokenFinished(const NetworkResult &res, RetryableRequest req, const QString &accToken = "", const QString &refToken = "");
 
 private:
     // --- Утилиты ---

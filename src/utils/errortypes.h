@@ -8,7 +8,7 @@
 // TODO: номера ошибок от запросов
 enum ERROR_TYPES
 {
-    NO_ERROR,               //!< Успех! (Нет ошибки)
+    NO_ERROR = 200,         //!< Успех! (Нет ошибки)
     UNKNOWN_ERROR,          //!< Неизвестная ошибка
     EMPTY_LOGIN,            //!< Пустой логин
     EMPTY_PASSWORD,         //!< Пустой пароль

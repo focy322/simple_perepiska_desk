@@ -120,9 +120,8 @@ MainWindow::MainWindow(QWidget *parent)
     , websocketController(new WebsocketController(this))
     , notificationSound(new QSoundEffect(this))
     , filesController(new FilesController(this))
-    , pendingRetryableUnauthorizeRequests{}
-    , requestsStatusManager(new RequestsStatusManager(this))
-    , retryableRequestsTimer(new QTimer(this))
+    , requestsStatusManager(new RequestStatusManager(this))
+    , retryableRequestErrorHandler(new RetryableRequestErrorHandler(this))
 {
     ui->setupUi(this);
 
@@ -376,6 +375,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(filesController, &FilesController::downloadFileInfoFinished, this, &MainWindow::on_downloadFileInfoFinished);
     connect(filesController, &FilesController::downloadFileInProgress, this, &MainWindow::on_downloadFileInProgress);
     connect(filesController, &FilesController::downloadFileFinished, this, &MainWindow::on_downloadFileFinished);
+    connect(retryableRequestErrorHandler, &RetryableRequestErrorHandler::needRefreshToken, this, &MainWindow::on_needRefreshToken);
+    connect(retryableRequestErrorHandler, &RetryableRequestErrorHandler::needImmediateLogOut, this, &MainWindow::on_needImmediateLogOut);
     // Изменение высоты строки ввода собщения при переносе строки
     connect(ui->messageInput, &QTextEdit::textChanged, this, &MainWindow::on_textChanged);
 
@@ -456,39 +457,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::onTrayIconActivated);
 #endif
 
-    retryableRequestsTimer->setInterval(500);
-    retryableRequestsTimer->setSingleShot(false);
-    connect(retryableRequestsTimer, &QTimer::timeout, this, [this]()
-    {
-        if (pendingRetryableRequests.empty())
-        {
-            retryableRequestsTimer->stop();
-            return;
-        }
+    retryableRequestErrorHandler->getReady({authController, chatsController, filesController, userInfoController, websocketController}, requestsStatusManager);
 
-        const auto now = std::chrono::system_clock::now();
-        for (auto it = pendingRetryableRequests.begin(); it != pendingRetryableRequests.end();)
-        {
-            const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - it->creationTime).count();
-            if (elapsedMs >= static_cast<long long>(it->delay))
-            {
-                it->requestFunction();
-                it = pendingRetryableRequests.erase(it);
-            }
-            else
-            {
-                ++it;
-            }
-        }
-
-        if (pendingRetryableRequests.empty())
-        {
-            retryableRequestsTimer->stop();
-        }
-    });
+    // Эта хуйня должна быть самой последней паосле всех приготовлений
     tryAuthorize();
-
-
 }
 
 MainWindow::~MainWindow()
@@ -505,7 +477,9 @@ void MainWindow::on_searchInput_textChanged(const QString &arg1)
         ui->chatsView->setModel(chatsListModel);
         //FixIt: можно хранить в классе а не постоянно аллоцировать
         ui->chatsView->setItemDelegate(new ChatListItemDelegate(ui->chatsView));
-    } else {
+    }
+    else
+    {
         if (ui->chatsView->model() != searchListModel) {
             ui->chatsView->setModel(searchListModel);
             ui->chatsView->setItemDelegate(new SearchItemDelegate(ui->chatsView));
@@ -550,7 +524,16 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
         // Получить информацию о пользователе, чтобы узнать время последнего посещения
         unsigned long long userId = chatItem.data(ChatListModel::UserIdRole).toULongLong();
         if (userId != ULONG_LONG_MAX && userId != 0) {
-            userInfoController->requestUserInfo(accessToken, userId);
+            RetryableRequest req
+            {
+                .type = RequestType::REQUEST_GET_USER_INFO,
+                .isReplaceable = false,
+            };
+            req.requestFunction = [this, req, userId]()
+            {
+                userInfoController->requestUserInfo(accessToken, userId, req);
+            };
+            userInfoController->requestUserInfo(accessToken, userId, req);
         }
 
         auto chatIt = chatMessages.constFind(currentChatId); // Итератор на список сообщений (vector<ParsedChatMessagesArrayObject>) для чата с выбранным chatId
@@ -754,7 +737,8 @@ void MainWindow::tryAuthorize()
 {
     auto *job = new QKeychain::ReadPasswordJob("Vent", this);
     job->setKey("vent_refresh_token");
-    connect(job, &QKeychain::Job::finished, this, [this, job]() {
+    connect(job, &QKeychain::Job::finished, this, [this, job]()
+    {
         const QString token = job->textData().trimmed();
         if (job->error() || token.isEmpty()) {
             isAuthorized = false;
@@ -765,7 +749,16 @@ void MainWindow::tryAuthorize()
         }
 
         refreshToken = token;
-        authController->requestRefreshAccessToken(refreshToken);
+        RetryableRequest req
+        {
+            .type = RequestType::REQUEST_REFRESH_ACCESS_TOKEN,
+            .isReplaceable = true,
+        };
+        req.requestFunction = [this, req]()
+        {
+            authController->requestRefreshAccessToken(refreshToken, req);
+        };
+        authController->requestRefreshAccessToken(refreshToken, req);
         job->deleteLater();
     });
     job->start();
@@ -774,7 +767,16 @@ void MainWindow::tryAuthorize()
 void MainWindow::getMyInfo()
 {
     qDebug() << "Отправленный  accessToken в getMyInfo " << accessToken;
-    userInfoController->requestMyUserInfo(accessToken);
+    RetryableRequest req
+    {
+        .type = RequestType::REQUEST_GET_MY_USER_INFO,
+        .isReplaceable = true,
+    };
+    req.requestFunction = [this, req]()
+    {
+        userInfoController->requestMyUserInfo(accessToken, req);
+    };
+    userInfoController->requestMyUserInfo(accessToken, req);
 }
 
 void MainWindow::checkAuthorization(const NetworkResult &res, const QString &accToken, const QString &refToken)
@@ -791,24 +793,37 @@ void MainWindow::checkAuthorization(const NetworkResult &res, const QString &acc
     }
     else
     {
-        isAuthorized = res.ok;
-        accessToken = accToken;
-        refreshToken = refToken;
-        switchPageWithFadeAnimation(ui->loadingAndContentWidgets, ui->contentPage);
-        ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);// Показывать окно входа
-        ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);// Показывать окно входа
+        on_logOutFinished({.ok = true});
         qDebug() << "authorization Failed!!!";
     }
 }
 
 void MainWindow::getChatsList()
 {
-    chatsController->requestMyChats(accessToken);
+    RetryableRequest req
+    {
+        .type = RequestType::REQUEST_MY_CHATS,
+        .isReplaceable = true,
+    };
+    req.requestFunction = [this, req]()
+    {
+        chatsController->requestMyChats(accessToken, req);
+    };
+    chatsController->requestMyChats(accessToken, req);
 }
 
 void MainWindow::getChatMessages(const unsigned long long &chatId)
 {
-    chatsController->requestChatMessages(chatId, accessToken);
+    RetryableRequest req
+    {
+        .type = RequestType::REQUEST_CHAT_MESSAGES,
+        .isReplaceable = false,
+    };
+    req.requestFunction = [this, req, chatId]()
+    {
+        chatsController->requestChatMessages(chatId, accessToken, req);
+    };
+    chatsController->requestChatMessages(chatId, accessToken, req);
 }
 
 void MainWindow::createDirectChat(const unsigned long long &userId)
@@ -1491,13 +1506,13 @@ void MainWindow::toggleLeftPanel()
 
 void MainWindow::on_refreshAccessTokenInProgress()
 {
-    requestsStatusManager->setStatus(RequestTypes::REQUEST_REFRESH_ACCESS_TOKEN, RequestState::REQUEST_IN_PROGRESS);
+    //TODO: везде также
+    requestsStatusManager->setStatus(RequestType::REQUEST_REFRESH_ACCESS_TOKEN, RequestState::REQUEST_IN_PROGRESS);
 }
 
-void MainWindow::on_refreshAccessTokenFinished(const NetworkResult &res, const QString &accToken, const QString &refToken)
+void MainWindow::on_refreshAccessTokenFinished(const NetworkResult &res, RetryableRequest req, const QString &accToken, const QString &refToken)
 {
-    static int retryCount = 0;
-    if (isFirstOpen)
+    if (isFirstOpen && req.retryCount >= RetryableRequest::maxRetryCount || isFirstOpen && res.ok)
     {
         isFirstOpen = false;
         checkAuthorization(res, accToken, refToken);
@@ -1505,28 +1520,18 @@ void MainWindow::on_refreshAccessTokenFinished(const NetworkResult &res, const Q
 
     if (res.ok)
     {
-        retryCount = 0;
         accessToken = accToken;
         refreshToken = refToken;
-        requestsStatusManager->setStatus(RequestTypes::REQUEST_REFRESH_ACCESS_TOKEN, RequestState::REQUEST_SUCCESS);
-        checkRetryableUnauthorizeRequests();
+        requestsStatusManager->setStatus(RequestType::REQUEST_REFRESH_ACCESS_TOKEN, RequestState::REQUEST_SUCCESS);
+        retryableRequestErrorHandler->checkRetryableUnauthorizeRequests();
         qDebug() << "on_RefreshAccessTokenFinished = true!!!";
     }
     else
     {
-        requestsStatusManager->setStatus(RequestTypes::REQUEST_REFRESH_ACCESS_TOKEN, RequestState::REQUEST_FAILED);
+        requestsStatusManager->setStatus(RequestType::REQUEST_REFRESH_ACCESS_TOKEN, RequestState::REQUEST_FAILED);
         qDebug() << "on_RefreshAccessTokenFinished = false";
         if (res.error == ERROR_TYPES::UNAUTHORIZED)
-        {
-            retryCount = 0;
-            on_logOutFinished({true, ERROR_TYPES::UNAUTHORIZED, "Unauthorized"});
-            return;
-        }
-        if (retryCount < 2)
-        {
-            retryCount++;
-            authController->requestRefreshAccessToken(refreshToken);
-        }
+            on_logOutFinished({.ok = true});
     }
 }
 
@@ -1608,8 +1613,16 @@ void MainWindow::showAvatarContextMenu(const QPoint &pos)
                         QMessageBox::warning(this, "Ошибка", "Не удалось обработать изображение. Попробуйте другой файл.");
                         return;
                     }
-
-                    userInfoController->requestUploadAvatar(accessToken, imageData);
+                    RetryableRequest req
+                    {
+                        .type = RequestType::REQUEST_UPLOAD_AVATAR,
+                        .isReplaceable = true,
+                    };
+                    req.requestFunction = [this, req, imageData]()
+                    {
+                        userInfoController->requestUploadAvatar(accessToken, imageData, req);
+                    };
+                    userInfoController->requestUploadAvatar(accessToken, imageData, req);
                 }
             }
         }
@@ -1647,7 +1660,16 @@ void MainWindow::on_uploadAvatarFinished(const NetworkResult &res, const QString
 {
     if (res.ok) {
         // Запрашиваем информацию о пользователе, чтобы обновить аватар
-        userInfoController->requestMyUserInfo(accessToken);
+        RetryableRequest req
+        {
+            .type = RequestType::REQUEST_GET_MY_USER_INFO,
+            .isReplaceable = true,
+        };
+        req.requestFunction = [this, req]()
+        {
+            userInfoController->requestMyUserInfo(accessToken, req);
+        };
+        userInfoController->requestMyUserInfo(accessToken, req);
     } else {
         QMessageBox::warning(this, "Ошибка", "Не удалось загрузить аватар: " + res.message);
     }
@@ -1823,34 +1845,41 @@ void MainWindow::on_socketConnectionFinished(const NetworkResult &res)
     }
     else
     {
+        RetryableRequest req
+        {
+            .type = RequestType::REQUEST_SOCKET_CONNECT,
+            .isReplaceable = true,
+        };
+        req.requestFunction = [this, req]()
+        {
+            websocketController->requestConnectSocket(accessToken);
+        };
         if (res.error == ERROR_TYPES::UNAUTHORIZED)
         {
-            eraseRetryableRequestsbyType(RequestTypes::REQUEST_SOCKET_CONNECT, 0);
-            RetryableRequest req = {RequestTypes::REQUEST_SOCKET_CONNECT, [this]()
-            {
-                websocketController->requestConnectSocket(accessToken);
-            }};
-            pendingRetryableUnauthorizeRequests.emplace_back(req);
+            retryableRequestErrorHandler->eraseRetryableRequestsByType(RequestType::REQUEST_SOCKET_CONNECT, 0);
+            retryableRequestErrorHandler->addRetryableRequest(req, 0);
 
-            if (requestsStatusManager->getStatus(RequestTypes::REQUEST_REFRESH_ACCESS_TOKEN) != RequestState::REQUEST_IN_PROGRESS)
-                authController->requestRefreshAccessToken(refreshToken);
-        }
-        else if (otherFailsCounter < 33)
-        {
-            ++otherFailsCounter;
-            uint delay = calculateRequestDelay(otherFailsCounter);
-            eraseRetryableRequestsbyType(RequestTypes::REQUEST_SOCKET_CONNECT, 1);
-            RetryableRequest req = {RequestTypes::REQUEST_SOCKET_CONNECT, [this]()
+            if (requestsStatusManager->getStatus(RequestType::REQUEST_REFRESH_ACCESS_TOKEN) != RequestState::REQUEST_IN_PROGRESS)
             {
-                websocketController->requestConnectSocket(accessToken);
-            }, delay};
-            pendingRetryableRequests.emplace_back(req);
-            if (!retryableRequestsTimer->isActive())
-                retryableRequestsTimer->start();
+                RetryableRequest request
+                {
+                    .type = RequestType::REQUEST_REFRESH_ACCESS_TOKEN,
+                    .isReplaceable = true,
+                };
+                request.requestFunction = [this, request]()
+                {
+                    authController->requestRefreshAccessToken(refreshToken, request);
+                };
+                authController->requestRefreshAccessToken(refreshToken, request);
+            }
         }
         else
         {
-            //TODO: можно выкидывать из аккаунта
+            ++otherFailsCounter;
+            req.retryCount = otherFailsCounter;
+            req.delay = calculateRequestDelay(otherFailsCounter);
+            retryableRequestErrorHandler->eraseRetryableRequestsByType(RequestType::REQUEST_SOCKET_CONNECT, 1);
+            retryableRequestErrorHandler->addRetryableRequest(req, 1);
         }
         qDebug() << "on_socketConnectionFinished  = FALSE!!!";
         qDebug() << res.message;
@@ -1958,51 +1987,21 @@ void MainWindow::on_textChanged()
 
 void MainWindow::on_findUserInProgress()
 {
-    requestsStatusManager->setStatus(RequestTypes::REQUEST_FIND_USER, RequestState::REQUEST_IN_PROGRESS);
+    requestsStatusManager->setStatus(RequestType::REQUEST_FIND_USER, RequestState::REQUEST_IN_PROGRESS);
 }
 
 void MainWindow::on_findUserFinished(const NetworkResult &res, const std::vector<ParsedFoundUsersObject> &paObjects, const QString& input)
 {
-    static int otherFailsCounter = 0;
     if (res.ok)
     {
         searchListModel->setUsers(paObjects);
-        otherFailsCounter = 0;
-        requestsStatusManager->setStatus(RequestTypes::REQUEST_FIND_USER, RequestState::REQUEST_SUCCESS);
+        requestsStatusManager->setStatus(RequestType::REQUEST_FIND_USER, RequestState::REQUEST_SUCCESS);
     }
-    else if (res.error == ERROR_TYPES::UNAUTHORIZED)
+    else
     {
-        eraseRetryableRequestsbyType(RequestTypes::REQUEST_FIND_USER, 0);
-        RetryableRequest req = {RequestTypes::REQUEST_FIND_USER, [this, input]()
-        {
-            userInfoController->requestFindUser(accessToken, input);
-        }};
-        pendingRetryableUnauthorizeRequests.emplace_back(req);
-
-        if (requestsStatusManager->getStatus(RequestTypes::REQUEST_REFRESH_ACCESS_TOKEN) != RequestState::REQUEST_IN_PROGRESS)
-            authController->requestRefreshAccessToken(refreshToken);
-    }
-    else if (otherFailsCounter < 2)
-    {
-        ++otherFailsCounter;
-        uint delay = calculateRequestDelay(otherFailsCounter);
-        eraseRetryableRequestsbyType(RequestTypes::REQUEST_FIND_USER, 1);
-        RetryableRequest req = {RequestTypes::REQUEST_FIND_USER, [this, input]()
-        {
-            userInfoController->requestFindUser(accessToken, input);
-        }, delay};
-        pendingRetryableRequests.emplace_back(req);
-        if (!retryableRequestsTimer->isActive())
-            retryableRequestsTimer->start();
-    }
-    if (!res.ok)
-    {
-        requestsStatusManager->setStatus(RequestTypes::REQUEST_FIND_USER, RequestState::REQUEST_FAILED);
+        requestsStatusManager->setStatus(RequestType::REQUEST_FIND_USER, RequestState::REQUEST_FAILED);
         qDebug() << "on_findUserFinished = false!!!";
     }
-
-
-
 }
 
 void MainWindow::on_registrationFinished(const NetworkResult &res, const QString &accToken, const QString &refToken)
@@ -2078,10 +2077,9 @@ void MainWindow::on_logOutFinished(const NetworkResult &res)
     if (res.ok)
     {
         closeCurrentChat();
-
+        accessToken.clear();
+        refreshToken.clear();
         isAuthorized = false;
-        ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);
-        ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);
         chatMessages.clear();
         draftsByChatId.clear();
         ui->messagesView->clearAllFilePaths();
@@ -2089,10 +2087,15 @@ void MainWindow::on_logOutFinished(const NetworkResult &res)
         chatsListModel->clear();
         messagesListModel->clear();
         currentChatName.clear();
-        //TODO: можно запилить функции setCurrentChatID и setMyUserId чтобы они помимо mainWindow сразу меняли и в моделях
+        retryableRequestErrorHandler->clearRetryableRequests(2);
+        //TODO: запилить функции setCurrentChatID и setMyUserId чтобы они помимо mainWindow сразу меняли и в моделях
+        //TODO: прерывать все запросы на сервер при логауте, чтобы не приходили ответы на них после логаута
         currentChatId = ULONG_LONG_MAX;
         myUserId = ULONG_LONG_MAX;
         ui->messageInput->clear();
+        switchPageWithFadeAnimation(ui->loadingAndContentWidgets, ui->contentPage);
+        ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);
+        ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);
     }
     else
     {
@@ -2866,6 +2869,25 @@ void MainWindow::on_downloadFileFinished(const NetworkResult &res, const ParsedD
     }
 }
 
+void MainWindow::on_needRefreshToken()
+{
+    RetryableRequest req
+    {
+        .type = RequestType::REQUEST_REFRESH_ACCESS_TOKEN,
+        .isReplaceable = true,
+    };
+    req.requestFunction = [this, req]()
+    {
+        authController->requestRefreshAccessToken(refreshToken, req);
+    };
+    authController->requestRefreshAccessToken(refreshToken, req);
+}
+
+void MainWindow::on_needImmediateLogOut()
+{
+    on_logOutFinished({.ok = true});
+}
+
 void MainWindow::onEditMessageRequested(quint64 messageId, const QString &currentText)
 {
     bool wasAlreadyEditing = (editingMessageId != ULONG_LONG_MAX);
@@ -2932,7 +2954,16 @@ void MainWindow::on_deleteMessageFinished(const NetworkResult &res)
 {
     if (!res.ok) {
         if (currentChatId != ULONG_LONG_MAX) {
-            chatsController->requestChatMessages(currentChatId, accessToken);
+            RetryableRequest req
+            {
+                .type = RequestType::REQUEST_CHAT_MESSAGES,
+                .isReplaceable = false,
+            };
+            req.requestFunction = [this, req]()
+            {
+                chatsController->requestChatMessages(currentChatId, accessToken, req);
+            };
+            chatsController->requestChatMessages(currentChatId, accessToken, req);
         }
     }
 }
@@ -3250,47 +3281,4 @@ void MainWindow::decreaseUnreadCount(quint64 chatId, int count)
     
 }
 
-void MainWindow::checkRetryableUnauthorizeRequests()
-{
-    std::list<RetryableRequest> requestsToProcess;
-    requestsToProcess.swap(pendingRetryableUnauthorizeRequests);
 
-    for (const auto &req : requestsToProcess)
-    {
-        req.requestFunction();
-    }
-}
-
-void MainWindow::eraseRetryableRequestsbyType(RequestTypes type, uchar option)
-{
-    if (option == 2)
-    {
-        pendingRetryableUnauthorizeRequests.remove_if(
-            [type](const RetryableRequest &request)
-            {
-                return request.type == type;
-            });
-
-        pendingRetryableRequests.remove_if(
-            [type](const RetryableRequest &request)
-            {
-                return request.type == type;
-            });
-    }
-    else if (option == 1)
-    {
-        pendingRetryableRequests.remove_if(
-            [type](const RetryableRequest &request)
-            {
-                return request.type == type;
-            });
-    }
-    else if (option == 0)
-    {
-        pendingRetryableUnauthorizeRequests.remove_if(
-            [type](const RetryableRequest &request)
-            {
-                return request.type == type;
-            });
-    }
-}

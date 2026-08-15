@@ -10,6 +10,7 @@
 #include <vector>
 #include "utils/errortypes.h"
 #include "utils/endpoints.h"
+#include "utils/requests/retryable_request.h"
 
 /**
  * Структура для хранения распарсенных данных о чате из списка чатов.
@@ -72,15 +73,19 @@ public:
     /**
      * Выполняет сетевой запрос на получение списка чатов текущего пользователя.
      * \param accToken токен доступа (Access Token)
+     * \param retryableReq
+     * \param retryableReq
      */
-    void getMyChats(const QString &accToken);
+    void getMyChats(const QString &accToken, RetryableRequest retryableReq);
 
     /**
      * Выполняет сетевой запрос на получение истории сообщений указанного чата.
      * \param chatId идентификатор чата
      * \param accToken токен доступа (Access Token)
+     * \param retryableReq
+     * \param retryableReq
      */
-    void getChatMessages(const unsigned long long &chatId, const QString &accToken);
+    void getChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest retryableReq);
 
     /**
      * Разбирает JSON-документ со списком чатов в вектор структур ParsedChatsListArrayObject.
@@ -152,17 +157,21 @@ signals:
     /**
      * Сигнал об окончании загрузки списка чатов.
      * \param res результат выполнения запроса
+     * \param req
+     * \param req
      * \param paObjects полученный список чатов
      */
-    void getMyChatsFinished(const NetworkResult &res, const std::vector<ParsedChatsListArrayObject>& paObjects = {} );
+    void getMyChatsFinished(const NetworkResult &res, RetryableRequest req, const std::vector<ParsedChatsListArrayObject>& paObjects = {});
 
     /**
      * Сигнал об окончании загрузки сообщений чата.
      * \param res результат выполнения запроса
+     * \param req
+     * \param req
      * \param chatId идентификатор чата
      * \param paObjects полученный список сообщений
      */
-    void getChatMessagesFinished(const NetworkResult &res, const unsigned long long chatId = ULONG_LONG_MAX, const std::vector<ParsedChatMessagesArrayObject>& paObjects = {} );
+    void getChatMessagesFinished(const NetworkResult &res, RetryableRequest req, const unsigned long long chatId = ULONG_LONG_MAX, const std::vector<ParsedChatMessagesArrayObject>& paObjects = {});
 
     /**
      * Сигнал об окончании создания личного чата.
