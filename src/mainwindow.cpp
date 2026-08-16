@@ -527,11 +527,11 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
             RetryableRequest req
             {
                 .type = RequestType::REQUEST_GET_USER_INFO,
-                .isReplaceable = false,
-            };
-            req.requestFunction = [this, req, userId]()
-            {
-                userInfoController->requestUserInfo(accessToken, userId, req);
+                .requestFunction = [this, userId](RetryableRequest req)
+                {
+                    userInfoController->requestUserInfo(accessToken, userId, req);
+                },
+                .isReplaceable = false
             };
             userInfoController->requestUserInfo(accessToken, userId, req);
         }
@@ -752,11 +752,11 @@ void MainWindow::tryAuthorize()
         RetryableRequest req
         {
             .type = RequestType::REQUEST_REFRESH_ACCESS_TOKEN,
+            .requestFunction = [this](RetryableRequest req)
+            {
+                authController->requestRefreshAccessToken(refreshToken, req);
+            },
             .isReplaceable = true,
-        };
-        req.requestFunction = [this, req]()
-        {
-            authController->requestRefreshAccessToken(refreshToken, req);
         };
         authController->requestRefreshAccessToken(refreshToken, req);
         job->deleteLater();
@@ -770,11 +770,11 @@ void MainWindow::getMyInfo()
     RetryableRequest req
     {
         .type = RequestType::REQUEST_GET_MY_USER_INFO,
+        .requestFunction = [this](RetryableRequest req)
+        {
+            userInfoController->requestMyUserInfo(accessToken, req);
+        },
         .isReplaceable = true,
-    };
-    req.requestFunction = [this, req]()
-    {
-        userInfoController->requestMyUserInfo(accessToken, req);
     };
     userInfoController->requestMyUserInfo(accessToken, req);
 }
@@ -803,11 +803,11 @@ void MainWindow::getChatsList()
     RetryableRequest req
     {
         .type = RequestType::REQUEST_MY_CHATS,
+        .requestFunction = [this](RetryableRequest req)
+            {
+                chatsController->requestMyChats(accessToken, req);
+            },
         .isReplaceable = true,
-    };
-    req.requestFunction = [this, req]()
-    {
-        chatsController->requestMyChats(accessToken, req);
     };
     chatsController->requestMyChats(accessToken, req);
 }
@@ -817,11 +817,11 @@ void MainWindow::getChatMessages(const unsigned long long &chatId)
     RetryableRequest req
     {
         .type = RequestType::REQUEST_CHAT_MESSAGES,
+        .requestFunction = [this, chatId](RetryableRequest req)
+        {
+            chatsController->requestChatMessages(chatId, accessToken, req);
+        },
         .isReplaceable = false,
-    };
-    req.requestFunction = [this, req, chatId]()
-    {
-        chatsController->requestChatMessages(chatId, accessToken, req);
     };
     chatsController->requestChatMessages(chatId, accessToken, req);
 }
@@ -1616,11 +1616,11 @@ void MainWindow::showAvatarContextMenu(const QPoint &pos)
                     RetryableRequest req
                     {
                         .type = RequestType::REQUEST_UPLOAD_AVATAR,
+                        .requestFunction = [this, imageData](RetryableRequest req)
+                        {
+                            userInfoController->requestUploadAvatar(accessToken, imageData, req);
+                        },
                         .isReplaceable = true,
-                    };
-                    req.requestFunction = [this, req, imageData]()
-                    {
-                        userInfoController->requestUploadAvatar(accessToken, imageData, req);
                     };
                     userInfoController->requestUploadAvatar(accessToken, imageData, req);
                 }
@@ -1663,11 +1663,11 @@ void MainWindow::on_uploadAvatarFinished(const NetworkResult &res, const QString
         RetryableRequest req
         {
             .type = RequestType::REQUEST_GET_MY_USER_INFO,
+            .requestFunction = [this](RetryableRequest req)
+            {
+                userInfoController->requestMyUserInfo(accessToken, req);
+            },
             .isReplaceable = true,
-        };
-        req.requestFunction = [this, req]()
-        {
-            userInfoController->requestMyUserInfo(accessToken, req);
         };
         userInfoController->requestMyUserInfo(accessToken, req);
     } else {
@@ -1848,11 +1848,11 @@ void MainWindow::on_socketConnectionFinished(const NetworkResult &res)
         RetryableRequest req
         {
             .type = RequestType::REQUEST_SOCKET_CONNECT,
+            .requestFunction = [this](RetryableRequest req)
+            {
+                websocketController->requestConnectSocket(accessToken);
+            },
             .isReplaceable = true,
-        };
-        req.requestFunction = [this, req]()
-        {
-            websocketController->requestConnectSocket(accessToken);
         };
         if (res.error == ERROR_TYPES::UNAUTHORIZED)
         {
@@ -1864,11 +1864,11 @@ void MainWindow::on_socketConnectionFinished(const NetworkResult &res)
                 RetryableRequest request
                 {
                     .type = RequestType::REQUEST_REFRESH_ACCESS_TOKEN,
+                    .requestFunction = [this](RetryableRequest request)
+                    {
+                        authController->requestRefreshAccessToken(refreshToken, request);
+                    },
                     .isReplaceable = true,
-                };
-                request.requestFunction = [this, request]()
-                {
-                    authController->requestRefreshAccessToken(refreshToken, request);
                 };
                 authController->requestRefreshAccessToken(refreshToken, request);
             }
@@ -2874,11 +2874,11 @@ void MainWindow::on_needRefreshToken()
     RetryableRequest req
     {
         .type = RequestType::REQUEST_REFRESH_ACCESS_TOKEN,
+        .requestFunction = [this](RetryableRequest req)
+        {
+            authController->requestRefreshAccessToken(refreshToken, req);
+        },
         .isReplaceable = true,
-    };
-    req.requestFunction = [this, req]()
-    {
-        authController->requestRefreshAccessToken(refreshToken, req);
     };
     authController->requestRefreshAccessToken(refreshToken, req);
 }
@@ -2957,11 +2957,11 @@ void MainWindow::on_deleteMessageFinished(const NetworkResult &res)
             RetryableRequest req
             {
                 .type = RequestType::REQUEST_CHAT_MESSAGES,
+                .requestFunction = [this](RetryableRequest req)
+                {
+                    chatsController->requestChatMessages(currentChatId, accessToken, req);
+                },
                 .isReplaceable = false,
-            };
-            req.requestFunction = [this, req]()
-            {
-                chatsController->requestChatMessages(currentChatId, accessToken, req);
             };
             chatsController->requestChatMessages(currentChatId, accessToken, req);
         }

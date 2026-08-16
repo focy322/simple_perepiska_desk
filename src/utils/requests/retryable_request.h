@@ -11,7 +11,7 @@
 struct RetryableRequest
 {
     RequestType type;
-    std::function<void()> requestFunction;
+    std::function<void(RetryableRequest)> requestFunction;
     int retryCount = 0;
     uint delay = 1000; // ms
     std::chrono::time_point<std::chrono::system_clock> creationTime = std::chrono::system_clock::now();

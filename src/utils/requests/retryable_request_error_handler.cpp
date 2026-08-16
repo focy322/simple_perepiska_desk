@@ -28,7 +28,7 @@ RetryableRequestErrorHandler::RetryableRequestErrorHandler(QObject* parent)
             const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - it->creationTime).count();
             if (elapsedMs >= static_cast<long long>(it->delay))
             {
-                it->requestFunction();
+                it->requestFunction(*it);
                 it = pendingRetryableRequests.erase(it);
             }
             else
@@ -81,7 +81,7 @@ void RetryableRequestErrorHandler::checkRetryableUnauthorizeRequests()
 
     for (const auto &req : requestsToProcess)
     {
-        req.requestFunction();
+        req.requestFunction(req);
     }
 }
 
