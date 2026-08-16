@@ -10,10 +10,10 @@ WebsocketService::WebsocketService(QObject *parent)
     , webSocketUrl("/ws/")
     , ackFlushTimer(new QTimer(this))
     , outgoingMessagesFlushTimer(new QTimer(this))
-    , pendingDeliveryIds()
-    , pendingOutgoingMessages()
     , ackFlushIntervalMs(5000)
     , outgoingMessagesFlushIntervalMs(5000)
+    , pendingDeliveryIds()
+    , pendingOutgoingMessages()
     , handlersMapByTypeOfMessage()
 
 {
@@ -212,7 +212,7 @@ void WebsocketService::flushPendingAcks()
     }
 
     QJsonArray deliveryIdsJson;
-    for (unsigned long long deliveryId : std::as_const(pendingDeliveryIds))
+    for (const unsigned long long deliveryId : std::as_const(pendingDeliveryIds))
     {
         deliveryIdsJson.append(static_cast<qint64>(deliveryId));
     }

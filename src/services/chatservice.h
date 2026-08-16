@@ -46,7 +46,6 @@ struct ParsedChatMessagesArrayObject
     QString            timestamp;                         //!< Временная метка отправки
     QString            clientMessageId;                   //!< Временный идентификатор на клиенте
     QString            editedAt;                          //!< Временная метка редактирования
-    QString            Uuid;                              //!< UUID сообщения
     QString            readAt;                            //!< Временная метка прочтения
     //TODO : распарсить на вектор чтобы было читабельней а то хуй знает какие поля тут есть
     QJsonArray         attachments;                       //!< Массив вложений
