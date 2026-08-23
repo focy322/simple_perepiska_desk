@@ -2090,6 +2090,8 @@ void MainWindow::on_logOutFinished(const NetworkResult &res)
         retryableRequestErrorHandler->clearRetryableRequests(2);
         //TODO: запилить функции setCurrentChatID и setMyUserId чтобы они помимо mainWindow сразу меняли и в моделях
         //TODO: прерывать все запросы на сервер при логауте, чтобы не приходили ответы на них после логаута
+        //TODO: бля нахуя я сделал в каждом сервисе по NetWorkManager'у надо объединить в один чтобы нормально все запросы сбросить может в синглтон тоже закатать
+        websocketController->requestDisconnectSocket();
         currentChatId = ULONG_LONG_MAX;
         myUserId = ULONG_LONG_MAX;
         ui->messageInput->clear();

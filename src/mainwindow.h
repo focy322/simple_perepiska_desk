@@ -590,6 +590,7 @@ private:
     QString currentChatName;                                             //!< Название текущего открытого чата
     unsigned long long currentChatId;                                    //!< Идентификатор текущего открытого чата
     quint64 editingMessageId = ULONG_LONG_MAX;                           //!< Идентификатор редактируемого в данный момент сообщения
+    //Think: может его синглтоном сделать чем передавать кое как
     RequestStatusManager *requestsStatusManager;                        //!< Менеджер статусов запросов
 
 

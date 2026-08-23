@@ -143,16 +143,10 @@ void RetryableRequestErrorHandler::handleRequestError(const NetworkResult& res, 
         if (requestsStatusManager->getStatus(RequestType::REQUEST_REFRESH_ACCESS_TOKEN) != RequestState::REQUEST_IN_PROGRESS)
             emit needRefreshToken();
     }
-    else if (request.type != RequestType::REQUEST_SOCKET_CONNECT && request.retryCount <= RetryableRequest::maxRetryCount)
+    else if (request.retryCount <= RetryableRequest::maxRetryCount)
     {
         if (request.isReplaceable)
             eraseRetryableRequestsByType(request.type, 1);
-        pendingRetryableRequests.emplace_back(request);
-        if (!retryableRequestsTimer->isActive())
-            retryableRequestsTimer->start();
-    }
-    else if (request.type == RequestType::REQUEST_SOCKET_CONNECT)
-    {
         pendingRetryableRequests.emplace_back(request);
         if (!retryableRequestsTimer->isActive())
             retryableRequestsTimer->start();
