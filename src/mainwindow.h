@@ -612,6 +612,9 @@ private:
 
     RetryableRequestErrorHandler *retryableRequestErrorHandler;          //!< Обработчик ошибок сетевых запросов и повторных попыток
 
+    const int accessTokenRefreshInterval = 28 * 60 * 1000;               //!< Интервал обновления access токена (28 минут)
+    QTimer *refreshAccessTokenTimer;                                     //!< Таймер для периодического обновления access токена
+
     /**
      * Попытка автоматической авторизации при старте с использованием сохраненного токена
      */

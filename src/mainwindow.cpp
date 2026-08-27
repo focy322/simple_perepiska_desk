@@ -122,6 +122,7 @@ MainWindow::MainWindow(QWidget *parent)
     , filesController(new FilesController(this))
     , requestsStatusManager(new RequestStatusManager(this))
     , retryableRequestErrorHandler(new RetryableRequestErrorHandler(this))
+    , refreshAccessTokenTimer(new QTimer(this))
 {
     ui->setupUi(this);
 
@@ -457,8 +458,15 @@ MainWindow::MainWindow(QWidget *parent)
     connect(trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::onTrayIconActivated);
 #endif
 
+    // Сюда добавлять новые контроллеры
     retryableRequestErrorHandler->getReady({authController, chatsController, filesController, userInfoController, websocketController}, requestsStatusManager);
 
+    refreshAccessTokenTimer->setInterval(accessTokenRefreshInterval);
+    refreshAccessTokenTimer->setSingleShot(true);
+    connect(refreshAccessTokenTimer, &QTimer::timeout, this, [this]()
+    {
+        on_needRefreshToken();
+    });
     // Эта хуйня должна быть самой последней паосле всех приготовлений
     tryAuthorize();
 }
@@ -1524,6 +1532,7 @@ void MainWindow::on_refreshAccessTokenFinished(const NetworkResult &res, Retryab
         refreshToken = refToken;
         requestsStatusManager->setStatus(RequestType::REQUEST_REFRESH_ACCESS_TOKEN, RequestState::REQUEST_SUCCESS);
         retryableRequestErrorHandler->checkRetryableUnauthorizeRequests();
+        refreshAccessTokenTimer->start();
         qDebug() << "on_RefreshAccessTokenFinished = true!!!";
     }
     else
@@ -2077,6 +2086,7 @@ void MainWindow::on_logOutFinished(const NetworkResult &res)
     if (res.ok)
     {
         closeCurrentChat();
+        refreshAccessTokenTimer->stop();
         accessToken.clear();
         refreshToken.clear();
         isAuthorized = false;
