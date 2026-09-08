@@ -101,7 +101,7 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
     , chatsListModel(new ChatListModel(this))
     , searchListModel(new SearchListModel(this))
-    , messagesItemDelegate(new ChatMessagesItemDelegate(this))
+    , messagesItemDelegate(new ChatMessagesItemDelegate())
     , messagesListModel(new ChatMessagesListModel(this))
     , chatMessages()
     , draftsByChatId()
@@ -123,6 +123,7 @@ MainWindow::MainWindow(QWidget *parent)
     , requestsStatusManager(new RequestStatusManager(this))
     , retryableRequestErrorHandler(new RetryableRequestErrorHandler(this))
     , refreshAccessTokenTimer(new QTimer(this))
+    , chatListSortProxyModel(new ChatListSortProxyModel(this))
 {
     ui->setupUi(this);
 
@@ -396,13 +397,15 @@ MainWindow::MainWindow(QWidget *parent)
     setupRevealBtn(ui->registrationPassword, ui->revealRegistrationPasswordBtn);
     setupRevealBtn(ui->registrationPasswordConfirm, ui->revealRegistrationPasswordConfirmBtn);
     ui->messagesView->setMouseTracking(true);
-    messagesItemDelegate = new ChatMessagesItemDelegate(ui->messagesView);
+    messagesItemDelegate->setParent(ui->messagesView);
     ui->messagesView->setItemDelegate(messagesItemDelegate);
     connect(messagesItemDelegate, &ChatMessagesItemDelegate::editMessageRequested, this, &MainWindow::onEditMessageRequested);
     connect(messagesItemDelegate, &ChatMessagesItemDelegate::deleteMessageRequested, this, &MainWindow::onDeleteMessageRequested);
-    connect(chatsController, &ChatsController::editMessageFinished, this, &MainWindow::on_editMessageFinished);
 
-    ui->chatsView->setModel(chatsListModel);
+    chatListSortProxyModel->setSourceModel(chatsListModel);
+    chatListSortProxyModel->setDynamicSortFilter(true);
+    chatListSortProxyModel->sort(0, Qt::DescendingOrder); // 0 — колонка, DescendingOrder — новые сверху (если дата больше свежее)
+    ui->chatsView->setModel(chatListSortProxyModel);
     ui->chatsView->setItemDelegate(new ChatListItemDelegate(ui->chatsView));
     ui->chatsView->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     ui->chatsView->verticalScrollBar()->setSingleStep(15);
@@ -482,7 +485,7 @@ void MainWindow::on_searchInput_textChanged(const QString &arg1)
 {
     if (arg1.isEmpty()) {
         searchListModel->clear();
-        ui->chatsView->setModel(chatsListModel);
+        ui->chatsView->setModel(chatListSortProxyModel);
         //FixIt: можно хранить в классе а не постоянно аллоцировать
         ui->chatsView->setItemDelegate(new ChatListItemDelegate(ui->chatsView));
     }
@@ -621,6 +624,7 @@ void MainWindow::on_sendMessageBtn_clicked()
                     {
                         msg.message = msgToSend;
                         msg.edited = true;
+                        refreshChatState(currentChatId, msg, false);
                         break;
                     }
                 }
@@ -655,8 +659,7 @@ void MainWindow::on_sendMessageBtn_clicked()
         draftsByChatId.remove(currentChatId);
         updateStagingCloudsUI(currentChatId);
 
-        auto currentChatIt = chatsList.find(currentChatId);
-        refreshChatState(currentChatIt, localMessage, true, false);
+        refreshChatState(currentChatId, localMessage, false);
 
     }
     else
@@ -1933,7 +1936,7 @@ void MainWindow::on_newMessageRecieved(const ParsedChatMessagesArrayObject &newM
 
     auto chatIt = chatsList.find(newMsgChatId);
     if (chatIt != chatsList.end())
-        refreshChatState(chatIt, newMessage, true, true);
+        refreshChatState(newMsgChatId, newMessage, true);
     else
         getChatsList();
 }
@@ -1966,8 +1969,7 @@ void MainWindow::on_messageAccepted(const ParsedMessageAcceptedObject &msgAccObj
             //TODO: может быть можно как то перерисовать без переприсваивания вектора
             messagesListModel->setMessages(messages);
 
-        auto currentChatIt = chatsList.find(msgAccObj.chatId);
-        refreshChatState(currentChatIt, *rit, false, false);
+        refreshChatState(msgAccObj.chatId, *rit, false);
         return;
     }
 }
@@ -2406,10 +2408,11 @@ public:
         });
     }
 
-    void setOriginalPixmap(const QPixmap& pix) {
+    void setOriginalPixmap(const QPixmap& pix)
+    {
         originalPix = pix;
-        updateGeometry();
-        update();
+        qobject_cast<QAbstractItemView*>(this->parent())->updateGeometry();
+        qobject_cast<QAbstractItemView*>(this->parent())->update();
     }
 
     bool hasHeightForWidth() const override { return true; }
@@ -2631,7 +2634,7 @@ void MainWindow::updateStagingCloudsUI(unsigned long long chatId)
                            filename.endsWith(".mkv", Qt::CaseInsensitive);
             
             if (isImage || isVideo) {
-                StagingImageLabel *lbl = new StagingImageLabel();
+                StagingImageLabel *lbl = new StagingImageLabel(ui->chatsView);
                 lbl->onDeleteClicked = [this, chatId, attachIndex]() {
                     if (draftsByChatId.contains(chatId)) {
                         auto draft = draftsByChatId.value(chatId);
@@ -2931,7 +2934,18 @@ void MainWindow::onEditMessageRequested(quint64 messageId, const QString &curren
 void MainWindow::on_editMessageFinished(const NetworkResult &res)
 {
     if (!res.ok) {
-        // TODO: handle error
+        if (currentChatId != ULONG_LONG_MAX) {
+            RetryableRequest req
+            {
+                .type = RequestType::REQUEST_CHAT_MESSAGES,
+                .requestFunction = [this](RetryableRequest req)
+                {
+                    chatsController->requestChatMessages(currentChatId, accessToken, req);
+                },
+                .isReplaceable = false,
+            };
+            chatsController->requestChatMessages(currentChatId, accessToken, req);
+        }
     }
 }
 
@@ -2958,6 +2972,7 @@ void MainWindow::onDeleteMessageRequested(quint64 messageId)
                 [messageId](const ParsedChatMessagesArrayObject& m) { return m.messageId == messageId; }),
                 msgs.end());
             messagesListModel->setMessages(msgs);
+            refreshChatState(currentChatId,msgs.back(), false);
         }
     }
 }
@@ -2965,6 +2980,7 @@ void MainWindow::onDeleteMessageRequested(quint64 messageId)
 void MainWindow::on_deleteMessageFinished(const NetworkResult &res)
 {
     if (!res.ok) {
+        qDebug() << "Ошибка удаления сообщения: " << res.error << " - " << res.message;
         if (currentChatId != ULONG_LONG_MAX) {
             RetryableRequest req
             {
@@ -3212,10 +3228,14 @@ void MainWindow::updateInterlocutorAvatarOutline()
     }
 }
 
-void MainWindow::refreshChatState(QHash<unsigned long long, ParsedChatsListArrayObject>::iterator &chatIt,
-    const ParsedChatMessagesArrayObject &newMessage, bool isNeedRotation, bool isNeedIncrementUnread)
+void MainWindow::refreshChatState(unsigned long long chatId,
+                                  const ParsedChatMessagesArrayObject &newMessage, bool isNeedIncrementUnread)
 {
-    //TODO: При acctept сообщения можно просто timeStamp и pending менять
+    auto chatIt = chatsList.find(chatId);
+    if (chatIt == chatsList.end())
+        return;
+    //TODO: При accept сообщения можно просто timeStamp и pending менять
+    //TODO: как будто можно .value() общий сделать а не на каждый
     chatIt.value().lastMessage = newMessage.message;
     chatIt.value().lastMessageTimestamp = newMessage.timestamp;
     if (isNeedIncrementUnread)
@@ -3265,7 +3285,7 @@ void MainWindow::refreshChatState(QHash<unsigned long long, ParsedChatsListArray
             chatIt.value().lastMessageAttachmentType = "Video";
 
     }
-    chatsListModel->upChat(chatIt.value());
+    chatsListModel->updateChat(chatIt.value());
 }
 
 void MainWindow::setUnreadCount(quint64 chatId, int count)

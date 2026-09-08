@@ -32,8 +32,10 @@
 #include "controllers/chatscontroller.h"
 #include "controllers/websocketcontroller.h"
 #include "controllers/filescontroller.h"
+#include "utils/chat_list_sort_proxy_model.h"
 #include "utils/requests/retryable_request_error_handler.h"
 #include "utils/requests/request_status.h"
+#include "utils/chat_list_sort_proxy_model.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -579,6 +581,7 @@ private:
 
     // Моедли и делегаты
     ChatListModel *chatsListModel;                                       //!< Модель списка чатов с доступом к полям через роли
+    ChatListSortProxyModel *chatListSortProxyModel;                      //!< Прокси-модель для сортировки списка чатов
     SearchListModel *searchListModel;                                    //!< Модель списка пользователей при поиске с доступом к полям через роли
     ChatMessagesListModel *messagesListModel;                            //!< Модель списка сообщений для выбранного чата
     ChatMessagesItemDelegate *messagesItemDelegate;                      //!< Делегат сообщений (выравнивание своих/чужих, отображение вложений)
@@ -715,8 +718,14 @@ private:
      */
     void autoDownloadImages(const ParsedChatMessagesArrayObject& message);
 
-    void refreshChatState(QHash<unsigned long long, ParsedChatsListArrayObject>::iterator &chatIt,
-      const ParsedChatMessagesArrayObject &newMessage, bool isNeedRotation, bool isNeedIncrementUnread);
+    /**
+     * Обновляет состояние чата в списке чатов на клиенте при получении/удалении/отправки/прочтения сообщения
+     * \param chatId ID чата
+     * \param newMessage объект сообщения
+     * \param isNeedIncrementUnread флаг необходимости увеличения счетчика непрочитанных сообщений
+     */
+    void refreshChatState(unsigned long long chatId,
+                          const ParsedChatMessagesArrayObject &newMessage, bool isNeedIncrementUnread);
 
     void setUnreadCount(quint64 chatId, int count);
     

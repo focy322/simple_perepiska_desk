@@ -35,13 +35,15 @@ void VideoThumbnailManager::extractThumbnail(const QString &path)
     player->setVideoOutput(sink);
     
     connect(sink, &QVideoSink::videoFrameChanged, this, [this, path, player](const QVideoFrame &frame) {
-        if (frame.isValid()) {
+        if (frame.isValid())
+        {
             QImage img = frame.toImage();
             if (!img.isNull()) {
                 m_cache.insert(path, QPixmap::fromImage(img));
                 m_pending.remove(path);
                 emit thumbnailReady(path);
-                
+
+                player->pause();
                 player->stop();
                 player->deleteLater();
             }
@@ -49,10 +51,10 @@ void VideoThumbnailManager::extractThumbnail(const QString &path)
     });
     
     connect(player, &QMediaPlayer::mediaStatusChanged, this, [this, path, player](QMediaPlayer::MediaStatus status) {
-        if (status == QMediaPlayer::LoadedMedia) {
+        if (status == QMediaPlayer::LoadedMedia || status == QMediaPlayer::BufferedMedia)
             player->play();
-            player->pause(); // Just want the first frame
-        } else if (status == QMediaPlayer::InvalidMedia) {
+        else if (status == QMediaPlayer::InvalidMedia)
+        {
             m_pending.remove(path);
             player->deleteLater();
         }
@@ -65,6 +67,7 @@ VideoPlayerDialog::VideoPlayerDialog(const QString &path, QWidget *parent)
     : QDialog(parent)
 {
     setWindowTitle("Видео");
+    setAttribute(Qt::WA_DeleteOnClose);
     resize(800, 600);
     
     QVBoxLayout *layout = new QVBoxLayout(this);
@@ -84,5 +87,16 @@ VideoPlayerDialog::VideoPlayerDialog(const QString &path, QWidget *parent)
 
 VideoPlayerDialog::~VideoPlayerDialog()
 {
-    m_player->stop();
+
+}
+
+void VideoPlayerDialog::closeEvent(QCloseEvent *event)
+{
+    if (m_player)
+    {
+        m_player->pause();
+        m_player->setSource(QUrl());
+    }
+
+    QDialog::closeEvent(event);
 }

@@ -105,6 +105,8 @@ private:
      */
     void on_scrollStop();
 
+    void on_scrollBarValueChanged(int value) const;
+
     /**
      * \brief Запоминает последнее прочитанное сообщение.
      *

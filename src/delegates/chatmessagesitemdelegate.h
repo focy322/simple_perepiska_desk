@@ -85,7 +85,6 @@ private:
 
     // --- Внутренние переменные и состояние ---
     unsigned long long m_currentUserId;                   //!< Идентификатор текущего пользователя
-    QString appDownloadsDir;                              //!< Путь к локальной папке загрузок приложения
 
     mutable std::pair<quint64, quint64> lastReadMessage;  //!< Пара (ChatId, MessageId) последнего прочитанного сообщения
     mutable QHash<quint64, QRect> m_editBtnRects;         //!< Хранилище областей кнопок "Редактировать" по messageId

@@ -18,7 +18,7 @@ ListViewDragNDrop::ListViewDragNDrop (QWidget *parent)
     verticalScrollBar()->setSingleStep(15);
     scrollStopTimer->setSingleShot(true);
     scrollStopTimer->setInterval(SCROLL_STOP_TIMER_INTERVAL);
-    connect(verticalScrollBar(), &QScrollBar::valueChanged, this, [this](){scrollStopTimer->start();});
+    connect(verticalScrollBar(), &QScrollBar::valueChanged, this, &ListViewDragNDrop::on_scrollBarValueChanged);
     connect(scrollStopTimer, &QTimer::timeout, this, &ListViewDragNDrop::on_scrollStop);
 }
 
@@ -132,6 +132,11 @@ void ListViewDragNDrop::on_scrollStop()
         lastSentReadMessage_ = lastReadMessage_;
         emit needReadLastMessage(lastReadMessage_);
     }
+}
+
+void ListViewDragNDrop::on_scrollBarValueChanged(int value) const
+{
+    scrollStopTimer->start();
 }
 
 void ListViewDragNDrop::setLastReadMessage(const quint64 chatId, const quint64 messageId)

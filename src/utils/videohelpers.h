@@ -11,6 +11,7 @@
 #include <QVBoxLayout>
 #include <QVideoFrame>
 #include <QUrl>
+#include <QCloseEvent>
 
 class VideoThumbnailManager : public QObject
 {
@@ -36,6 +37,8 @@ class VideoPlayerDialog : public QDialog
 public:
     explicit VideoPlayerDialog(const QString &path, QWidget *parent = nullptr);
     ~VideoPlayerDialog();
+protected:
+    void closeEvent(QCloseEvent *event) override;
 private:
     QMediaPlayer *m_player;
     QVideoWidget *m_videoWidget;

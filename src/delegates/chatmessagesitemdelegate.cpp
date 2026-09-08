@@ -10,6 +10,7 @@
 #include <QImageReader>
 #include <QFileInfo>
 #include <QPixmap>
+#include <QAbstractItemView>
 #include <QIcon>
 #include "utils/paths.h"
 #include "utils/videohelpers.h"
@@ -17,7 +18,15 @@ ChatMessagesItemDelegate::ChatMessagesItemDelegate(QObject *parent)
     : QStyledItemDelegate(parent)
     , m_currentUserId(ULONG_LONG_MAX)
     , lastReadMessage{ULONG_LONG_MAX, ULONG_LONG_MAX}
-{}
+{
+    connect(VideoThumbnailManager::instance(), &VideoThumbnailManager::thumbnailReady, this, [this](const QString &) {
+        if (QAbstractItemView *w = qobject_cast<QAbstractItemView*>(this->parent()))
+        {
+            w->doItemsLayout();
+            w->viewport()->update();
+        }
+    });
+}
 
 void ChatMessagesItemDelegate::setCurrentUserId(unsigned long long userId)
 {
@@ -287,18 +296,6 @@ void ChatMessagesItemDelegate::paint(QPainter *painter, const QStyleOptionViewIt
                         pix.load(path);
                     } else if (isVideo) {
                         pix = VideoThumbnailManager::instance()->getThumbnail(path);
-                        if (pix.isNull()) {
-                            // ???
-                            QMetaObject::invokeMethod(const_cast<ChatMessagesItemDelegate*>(this), [this, path](){
-                                connect(VideoThumbnailManager::instance(), &VideoThumbnailManager::thumbnailReady, this, [this, path](const QString &readyPath) {
-                                    if (path == readyPath && parent()) {
-                                        if (QWidget *w = qobject_cast<QWidget*>(parent())) {
-                                            w->update();
-                                        }
-                                    }
-                                });
-                            }, Qt::QueuedConnection);
-                        }
                     }
                 }
                 
@@ -583,9 +580,8 @@ QSize ChatMessagesItemDelegate::sizeHint(const QStyleOptionViewItem &option, con
                 int imgHeight = 200;
                 QString path = appDownloadsDir + "/" + fileName;
                 QString localPath = obj.value("local_path").toString();
-                if (!localPath.isEmpty() && QFileInfo::exists(localPath)) {
+                if (!localPath.isEmpty() && QFileInfo::exists(localPath))
                     path = localPath;
-                }
                 if (QFileInfo::exists(path)) {
                     if (isImage) {
                         QImageReader reader(path);
@@ -688,7 +684,7 @@ bool ChatMessagesItemDelegate::editorEvent(QEvent *event, QAbstractItemModel *mo
             const QJsonArray attachments = index.data(ChatMessagesListModel::AttachmentsRole).toJsonArray();
             if (!attachments.isEmpty()) {
                 const QRect rowRect = option.rect.adjusted(2, 4, -8, -4);
-                // ???
+                // TODO: тут че сразу для всех видосов диалог открывается?
                 for (int i = 0; i < attachments.size(); ++i) {
                     const QJsonObject obj = attachments.at(i).toObject();
                     const QString fileName = obj.value("filename").toString();
@@ -704,8 +700,9 @@ bool ChatMessagesItemDelegate::editorEvent(QEvent *event, QAbstractItemModel *mo
                         }
                         
                         if (QFileInfo::exists(path)) {
-                            VideoPlayerDialog *dialog = new VideoPlayerDialog(path, const_cast<QWidget*>(option.widget));
+                            VideoPlayerDialog *dialog = new VideoPlayerDialog(path, nullptr);
                             dialog->setAttribute(Qt::WA_DeleteOnClose);
+                            QObject::connect(dialog, &QDialog::finished, dialog, &QObject::deleteLater);
                             dialog->show();
                             return true;
                         }

@@ -374,7 +374,7 @@ void ChatService::deleteMessage(const std::vector<quint64>& messageIds, const qu
     }
     
     QJsonObject json;
-    json["message_id"] = msgIdsArray;
+    json["message_ids"] = msgIdsArray;
     json["chat_id"] = static_cast<qint64>(chatId);
     QJsonDocument doc(json);
 
