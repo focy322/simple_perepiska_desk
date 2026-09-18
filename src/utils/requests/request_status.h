@@ -27,7 +27,9 @@ enum class RequestType
     REQUEST_MY_CHATS,
     REQUEST_CHAT_MESSAGES,
     REQUEST_UPLOAD_AVATAR,
-    REQUESTS_COUNTS
+    REQUEST_DELETE_MESSAGE,
+    REQUEST_EDIT_MESSAGE,
+    REQUESTS_COUNT
 };
 
 class RequestStatusManager final : public QObject

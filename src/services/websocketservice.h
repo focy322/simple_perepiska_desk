@@ -130,10 +130,6 @@ private slots:
 private:
     // --- Внутренние объекты сети ---
     QWebSocket *           websocket;                     //!< Объект WebSocket-клиента
-    
-    // --- Адреса API (Endpoints) ---
-    QString                baseUrl;                       //!< Базовый адрес API
-    QString                webSocketUrl;                  //!< Путь API для WebSocket-соединения
 
     // --- Таймеры ---
     QTimer *               ackFlushTimer;                 //!< Таймер для периодической отправки Ack-сообщений

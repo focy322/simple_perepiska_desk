@@ -526,6 +526,8 @@ private slots:
 
     void on_needImmediateLogOut();
 
+    void on_needLoadMoreMessages(quint64 chatId);
+
 #ifndef QT_DEBUG
     /**
      * Обрабатывает действия с иконкой приложения в трее (восстановление окна)
@@ -587,7 +589,7 @@ private:
     ChatMessagesItemDelegate *messagesItemDelegate;                      //!< Делегат сообщений (выравнивание своих/чужих, отображение вложений)
 
     // Хранилища данных
-    QHash<unsigned long long, std::vector<ParsedChatMessagesArrayObject>> chatMessages; //!< Хранилище сообщений по chatId
+    QHash<unsigned long long, std::deque<ParsedChatMessagesArrayObject>> chatMessages;  //!< Хранилище сообщений по chatId
     QHash<unsigned long long, ParsedChatMessagesArrayObject> draftsByChatId;            //!< Черновики сообщений по chatId
     QHash<unsigned long long, ParsedChatsListArrayObject> chatsList;     //!< Хранилище информации о чатах по chatId
     QString currentChatName;                                             //!< Название текущего открытого чата

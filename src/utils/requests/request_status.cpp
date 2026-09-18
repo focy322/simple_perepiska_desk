@@ -4,7 +4,7 @@
 RequestStatusManager::RequestStatusManager(QObject *parent)
     : QObject(parent)
 {
-    for (size_t i = 0; i < static_cast<int>(RequestType::REQUESTS_COUNTS); ++i)
+    for (size_t i = 0; i < static_cast<int>(RequestType::REQUESTS_COUNT); ++i)
     {
         statuses_[static_cast<RequestType>(i)] = RequestState::REQUEST_IDLE;
     }

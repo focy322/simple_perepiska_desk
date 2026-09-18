@@ -1,5 +1,7 @@
 #include "models/chatmessageslistmodel.h"
 
+#include <deque>
+
 ChatMessagesListModel::ChatMessagesListModel(QObject *parent)
     : QAbstractListModel(parent)
 {}
@@ -77,7 +79,7 @@ QHash<int, QByteArray> ChatMessagesListModel::roleNames() const
     return roles;
 }
 
-void ChatMessagesListModel::setMessages(const std::vector<ParsedChatMessagesArrayObject> &messages)
+void ChatMessagesListModel::setMessages(const std::deque<ParsedChatMessagesArrayObject> &messages)
 {
     beginResetModel();
     m_messages = messages;
@@ -91,9 +93,8 @@ void ChatMessagesListModel::appendMessage(const ParsedChatMessagesArrayObject &m
     m_messages.push_back(message);
     endInsertRows();
 
-    if (insertRow > 0) {
+    if (insertRow > 0)
         emit dataChanged(index(insertRow - 1, 0), index(insertRow - 1, 0), {Qt::SizeHintRole});
-    }
 }
 
 void ChatMessagesListModel::clear()

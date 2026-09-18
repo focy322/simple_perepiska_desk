@@ -8,16 +8,12 @@
 UserInfoService::UserInfoService(QObject *parent)
     : QObject{parent}
     , network(new QNetworkAccessManager(this))
-    , baseUrl(baseHttpUrl)
-    , myUserInfoUrl("/api/users/me")
-    , userByUsernameUrl("/api/users/search")
-    , findUserUrl("/api/users/search")
 {}
 
 void UserInfoService::getMyUserInfo(const QString &accToken, RetryableRequest retryableReq)
 {
     emit getMyUserInfoInProgress();
-    QUrl url(baseUrl + myUserInfoUrl);
+    QUrl url(baseHttpUrl + myUserInfoUrl);
     QNetworkRequest req(url);
     // Передаем токен в заголовке
     req.setRawHeader("Authorization", "Bearer " + accToken.toUtf8());
@@ -61,7 +57,7 @@ void UserInfoService::getMyUserInfo(const QString &accToken, RetryableRequest re
 
 void UserInfoService::getUserInfo(const QString &accToken, unsigned long long userId, RetryableRequest retryableReq)
 {
-    QUrl url(baseUrl + QString("/api/users/%1").arg(userId));
+    QUrl url(baseHttpUrl + getUserInfoUrl.arg(userId));
     QNetworkRequest req(url);
     req.setRawHeader("Authorization", "Bearer " + accToken.toUtf8());
 
@@ -108,7 +104,7 @@ void UserInfoService::getUserInfo(const QString &accToken, unsigned long long us
 
 void UserInfoService::uploadAvatar(const QString &accToken, const QByteArray &imageData, RetryableRequest retryableReq)
 {
-    QUrl url(baseUrl + "/api/users/me/avatar");
+    QUrl url(baseHttpUrl + uploadAvatarUrl);
     QNetworkRequest req(url);
     req.setRawHeader("Authorization", "Bearer " + accToken.toUtf8());
 
@@ -198,7 +194,7 @@ const std::vector<ParsedFoundUsersObject> UserInfoService::parseFoundUsersArray(
 void UserInfoService::findUser(const QString &accToken, const QString &input)
 {
     emit findUserInProgress();
-    QUrl url(baseUrl + findUserUrl);
+    QUrl url(baseHttpUrl + findUserUrl);
     QUrlQuery query;
     query.addQueryItem("query", input);
     query.addQueryItem("limit", QString::number(10));

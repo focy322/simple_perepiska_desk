@@ -9,7 +9,6 @@
 #include <QJsonArray>
 #include <vector>
 #include "utils/errortypes.h"
-#include "utils/endpoints.h"
 #include "utils/requests/retryable_request.h"
 
 /**
@@ -82,9 +81,11 @@ public:
      * \param chatId идентификатор чата
      * \param accToken токен доступа (Access Token)
      * \param retryableReq
+     * \param lastMsgId
+     * \param lastMsgId
      * \param retryableReq
      */
-    void getChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest retryableReq);
+    void getChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest retryableReq, quint64 lastMsgId = 0);
 
     /**
      * Разбирает JSON-документ со списком чатов в вектор структур ParsedChatsListArrayObject.
@@ -121,8 +122,11 @@ public:
      * \param chatId идентификатор чата
      * \param newText новый текст сообщения
      * \param accToken токен доступа (Access Token)
+     * \param reReq
+     * \param reReq
+     * \param reReq
      */
-    void editMessage(const quint64 messageId, const quint64 chatId, const QString &newText, const QString &accToken);
+    void editMessage(const quint64 messageId, const quint64 chatId, const QString &newText, const QString &accToken, RetryableRequest reReq);
 
     /**
      * Выполняет сетевой запрос на удаление списка сообщений.
@@ -130,8 +134,11 @@ public:
      * \param chatId идентификатор чата
      * \param deleteForAll удалить ли для всех или только для себя (не используется)
      * \param accToken токен доступа (Access Token)
+     * \param req
+     * \param req
      */
-    void deleteMessage(const std::vector<quint64>& messageIds, const quint64 chatId, const bool deleteForAll, const QString &accToken);
+    void deleteMessage(const std::vector<quint64>& messageIds, const quint64 chatId, const bool deleteForAll, const QString &accToken, RetryableRequest
+                       retReq);
 
 signals:
     // --- Сигналы процессов ---
@@ -181,25 +188,21 @@ signals:
     /**
      * Сигнал об окончании редактирования сообщения.
      * \param res результат выполнения запроса
+     * \param req информация о повторяемом запросе
      */
-    void editMessageFinished(const NetworkResult &res);
+    void editMessageFinished(const NetworkResult &res, RetryableRequest req);
 
     /**
      * Сигнал об окончании удаления сообщения.
      * \param res результат выполнения запроса
+     * \param req информация о повторяемом запросе
      */
-    void deleteMessageFinished(const NetworkResult &res);
+    void deleteMessageFinished(const NetworkResult &res, RetryableRequest req);
 
 private:
     // --- Внутренние объекты сети ---
     QNetworkAccessManager *network;                               //!< Менеджер сети для выполнения HTTP-запросов
 
-    // --- Адреса API (Endpoints) ---
-    QString                baseUrl;                               //!< Базовый адрес API
-    QString                myChatsUrl;                            //!< Путь API для списка чатов
-    QString                chatMessagesUrl;                       //!< Путь API для списка сообщений чата
-    QString                createDirectChatUrl;                   //!< Путь API для создания личного чата
-    QString                markMessageReadUrl;                    //!< Путь API для отметки сообщения прочитанным
 };
 
 #endif // CHATSERVICE_H

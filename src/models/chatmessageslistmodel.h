@@ -1,6 +1,7 @@
 #ifndef CHATMESSAGESLISTMODEL_H
 #define CHATMESSAGESLISTMODEL_H
 
+#include <deque>
 #include <QAbstractListModel>
 #include <vector>
 
@@ -61,7 +62,7 @@ public:
      * Устанавливает новый список сообщений в модель и обновляет представление.
      * \param messages список объектов сообщений
      */
-    void setMessages(const std::vector<ParsedChatMessagesArrayObject> &messages);
+    void setMessages(const std::deque<ParsedChatMessagesArrayObject> &messages);
 
     /**
      * Добавляет одно новое сообщение в конец списка.
@@ -76,7 +77,7 @@ public:
 
 private:
     // --- Внутренние данные ---
-    std::vector<ParsedChatMessagesArrayObject> m_messages; //!< Внутренний массив данных сообщений
+    std::deque<ParsedChatMessagesArrayObject> m_messages; //!< Внутренний массив данных сообщений
 };
 
 #endif // CHATMESSAGESLISTMODEL_H

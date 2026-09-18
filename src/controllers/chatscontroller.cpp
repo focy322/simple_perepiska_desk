@@ -11,7 +11,7 @@ ChatsController::ChatsController(QObject *parent)
     connect(chatService, &ChatService::createDirectChatInProgress, this, &ChatsController::createDirectChatInProgress);
     connect(chatService, &ChatService::createDirectChatFinished, this, &ChatsController::on_CreateDirectChatFinished);
     connect(chatService, &ChatService::editMessageFinished, this, &ChatsController::on_EditMessageFinished);
-    connect(chatService, &ChatService::deleteMessageFinished, this, &ChatsController::deleteMessageFinished);
+    connect(chatService, &ChatService::deleteMessageFinished, this, &ChatsController::on_DeleteMessageFinished);
 
 }
 
@@ -20,9 +20,9 @@ void ChatsController::requestMyChats(const QString &accToken, RetryableRequest r
     chatService->getMyChats(accToken, req);
 }
 
-void ChatsController::requestChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest req)
+void ChatsController::requestChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest req, quint64 lastMsgId)
 {
-    chatService->getChatMessages(chatId, accToken, req);
+    chatService->getChatMessages(chatId, accToken, req, lastMsgId);
 }
 
 void ChatsController::requestCreateDirectChat(const unsigned long long &userId, const QString &accToken)
@@ -35,14 +35,15 @@ void ChatsController::requestMarkMessageRead(const std::pair<quint64, quint64> &
     chatService->markMessageRead(msg, accToken);
 }
 
-void ChatsController::requestEditMessage(const quint64 messageId, const quint64 chatId, const QString &newText, const QString &accToken)
+void ChatsController::requestEditMessage(const quint64 messageId, const quint64 chatId, const QString &newText, const QString &accToken, RetryableRequest req)
 {
-    chatService->editMessage(messageId, chatId, newText, accToken);
+    chatService->editMessage(messageId, chatId, newText, accToken, req);
 }
 
-void ChatsController::requestDeleteMessage(const std::vector<quint64>& messageIds, const quint64 chatId, const bool deleteForAll, const QString &accToken)
+void ChatsController::requestDeleteMessage(const std::vector<quint64>& messageIds, const quint64 chatId, const bool deleteForAll, const QString &accToken, RetryableRequest
+                                           req)
 {
-    chatService->deleteMessage(messageIds, chatId, deleteForAll, accToken);
+    chatService->deleteMessage(messageIds, chatId, deleteForAll, accToken, req);
 }
 
 void ChatsController::on_GetMyChatsFinished(const NetworkResult& res,
@@ -76,12 +77,26 @@ void ChatsController::on_CreateDirectChatFinished(const NetworkResult& res)
     emit createDirectChatFinished(res);
 }
 
-void ChatsController::on_EditMessageFinished(const NetworkResult& res)
+void ChatsController::on_EditMessageFinished(const NetworkResult& res, RetryableRequest reReq)
 {
+    if (!res.ok)
+    {
+        static int errorCount = 0;
+        ++errorCount;
+        reReq.retryCount = errorCount;
+        emit errorOccurred(res, reReq);
+    }
     emit editMessageFinished(res);
 }
 
-void ChatsController::on_DeleteMessageFinished(const NetworkResult& res)
+void ChatsController::on_DeleteMessageFinished(const NetworkResult& res, RetryableRequest reReq)
 {
+    if (!res.ok)
+    {
+        static int errorCount = 0;
+        ++errorCount;
+        reReq.retryCount = errorCount;
+        emit errorOccurred(res, reReq);
+    }
     emit deleteMessageFinished(res);
 }

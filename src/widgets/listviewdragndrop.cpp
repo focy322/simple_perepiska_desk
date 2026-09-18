@@ -118,25 +118,37 @@ void ListViewDragNDrop::paintEvent(QPaintEvent *event)
     if (delegate)
     {
         const std::pair<quint64, quint64> lastReadMessage = delegate->getLastReadMessage();
-        if (lastReadMessage.second != ULONG_LONG_MAX) {
+        if (lastReadMessage.second != ULONG_LONG_MAX)
             setLastReadMessage(lastReadMessage.first, lastReadMessage.second);
-            scrollStopTimer->start();
-        }
     }
 
 }
 
 void ListViewDragNDrop::on_scrollStop()
 {
-    if (lastReadMessage_.second != ULONG_LONG_MAX && lastReadMessage_ != lastSentReadMessage_) {
+    if (lastReadMessage_.second != ULONG_LONG_MAX && lastReadMessage_ != lastSentReadMessage_)
+    {
         lastSentReadMessage_ = lastReadMessage_;
         emit needReadLastMessage(lastReadMessage_);
     }
 }
 
-void ListViewDragNDrop::on_scrollBarValueChanged(int value) const
+void ListViewDragNDrop::on_scrollBarValueChanged(int value)
 {
     scrollStopTimer->start();
+    auto *sb = verticalScrollBar();
+    int range = sb->maximum() - sb->minimum();
+    if (range <= 0)
+        return;
+
+    double pos = static_cast<double>(value - sb->minimum()) / static_cast<double>(range);
+    double topTrigger = 0.15; // верхние 15%
+
+    if (pos <= topTrigger && !isLoadingMore_ && hasMoreHistory_)
+    {
+        isLoadingMore_ = true;
+        emit needLoadMoreMessages(this->currentChatId);
+    }
 }
 
 void ListViewDragNDrop::setLastReadMessage(const quint64 chatId, const quint64 messageId)
@@ -148,9 +160,8 @@ void ListViewDragNDrop::mouseMoveEvent(QMouseEvent *event)
 {
     QListView::mouseMoveEvent(event);
     QModelIndex idx = indexAt(event->pos());
-    if (idx.isValid()) {
+    if (idx.isValid())
         update(idx);
-    }
 }
 
 void ListViewDragNDrop::leaveEvent(QEvent *event)

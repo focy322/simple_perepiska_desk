@@ -122,11 +122,6 @@ private:
     // --- Внутренние объекты сети ---
     QNetworkAccessManager *network;                       //!< Менеджер сети для выполнения HTTP-запросов
 
-    // --- Адреса API (Endpoints) ---
-    QString                baseUrl;                       //!< Базовый адрес API
-    QString                myUserInfoUrl;                 //!< Путь API для получения информации о себе
-    QString                userByUsernameUrl;             //!< Зарезервированный путь API для получения информации о пользователе по логину (не используется)
-    QString                findUserUrl;                   //!< Путь API для поиска пользователей
 };
 
 #endif // USERINFOSERVICE_H

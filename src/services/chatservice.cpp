@@ -1,24 +1,20 @@
-#include "services/chatservice.h"
 #include <cmath>
 #include <algorithm>
 #include <QUrlQuery>
 
+#include "services/chatservice.h"
 #include "utils/requests/retryable_request.h"
+#include "utils/endpoints.h"
 
 ChatService::ChatService(QObject *parent)
     : QObject{parent}
     , network(new QNetworkAccessManager(this))
-    , baseUrl(baseHttpUrl)
-    , myChatsUrl("/api/chats/")
-    , chatMessagesUrl("/api/chats/%1")
-    , createDirectChatUrl("/api/chats/create")
-    , markMessageReadUrl("/api/chats/%1/mark-read")
 {}
 
 void ChatService::getMyChats(const QString &accToken, RetryableRequest retryableReq)
 {
     emit getMyChatsInProgress();
-    QUrl url(baseUrl + myChatsUrl);
+    QUrl url(baseHttpUrl + myChatsUrl);
     QNetworkRequest req(url);
     // Передаем токен в заголовке
     req.setRawHeader("Authorization", "Bearer " + accToken.toUtf8());
@@ -135,11 +131,16 @@ const std::vector<ParsedChatsListArrayObject> ChatService::parseChatsListArray(c
     return parsedArrayObjects;
 }
 
-void ChatService::getChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest retryableReq)
+void ChatService::getChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest retryableReq, quint64 lastMsgId)
 {
     emit getChatMessagesInProgress();
-    QString currentChatMessagesUrl = QString(chatMessagesUrl).arg(chatId);
-    QUrl url(baseUrl + currentChatMessagesUrl);
+    QUrlQuery query;
+    query.addQueryItem("limit", QString::number(30));
+    if (lastMsgId > 0)
+        query.addQueryItem("before_message_id", QString::number(lastMsgId));
+    QString currentChatMessagesUrl = chatMessagesUrl.arg(chatId);
+    QUrl url(baseHttpUrl + currentChatMessagesUrl);
+    url.setQuery(query);
     QNetworkRequest req(url);
     // Передаем токен в заголовке
     req.setRawHeader("Authorization", "Bearer " + accToken.toUtf8());
@@ -231,7 +232,7 @@ const std::vector<ParsedChatMessagesArrayObject> ChatService::parseChatMessagesA
 void ChatService::createDirectChat(const unsigned long long &userId, const QString &accToken)
 {
     emit createDirectChatInProgress();
-    QUrl url(baseUrl + createDirectChatUrl);
+    QUrl url(baseHttpUrl + createDirectChatUrl);
     QUrlQuery query;
     query.addQueryItem("user_id", QString::number(userId));
     url.setQuery(query);
@@ -282,7 +283,7 @@ void ChatService::createDirectChat(const unsigned long long &userId, const QStri
 
 void ChatService::markMessageRead(const std::pair<quint64, quint64> &msg, const QString &accToken)
 {
-    QUrl url(baseUrl + markMessageReadUrl.arg(msg.first));
+    QUrl url(baseHttpUrl + markMessageReadUrl.arg(msg.first));
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     req.setRawHeader("Authorization", "Bearer " + accToken.toUtf8());
@@ -321,9 +322,9 @@ void ChatService::markMessageRead(const std::pair<quint64, quint64> &msg, const 
 
 }
 
-void ChatService::editMessage(const quint64 messageId, const quint64 chatId, const QString &newText, const QString &accToken)
+void ChatService::editMessage(const quint64 messageId, const quint64 chatId, const QString &newText, const QString &accToken, RetryableRequest reReq)
 {
-    QUrl url(baseUrl + QString("/api/messages/%1").arg(messageId));
+    QUrl url(baseHttpUrl + editMessageUrl.arg(messageId));
     QUrlQuery query;
     query.addQueryItem("chat_id", QString::number(chatId));
     url.setQuery(query);
@@ -337,32 +338,33 @@ void ChatService::editMessage(const quint64 messageId, const quint64 chatId, con
     QJsonDocument doc(json);
 
     QNetworkReply *reply = network->sendCustomRequest(req, "PATCH", doc.toJson());
-    connect(reply, &QNetworkReply::finished, this, [this, reply](){
+    connect(reply, &QNetworkReply::finished, this, [this, reply, reReq](){
         auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
             NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
-            emit editMessageFinished(res);
+            emit editMessageFinished(res, reReq);
             reply->deleteLater();
             return;
         }
         if (httpCode == 200)
         {
             NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
-            emit editMessageFinished(res);
+            emit editMessageFinished(res, reReq);
         }
         else
         {
             NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), generateMessageForError(static_cast<ERROR_TYPES>(httpCode))};
-            emit editMessageFinished(res);
+            emit editMessageFinished(res, reReq);
         }
         reply->deleteLater();
     });
 }
 
-void ChatService::deleteMessage(const std::vector<quint64>& messageIds, const quint64 chatId, const bool deleteForAll, const QString &accToken)
+void ChatService::deleteMessage(const std::vector<quint64>& messageIds, const quint64 chatId, const bool deleteForAll, const QString &accToken, RetryableRequest
+                                retReq)
 {
-    QUrl url(baseUrl + "/api/messages/");
+    QUrl url(baseHttpUrl + deleteMessagesUrl);
 
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -376,27 +378,29 @@ void ChatService::deleteMessage(const std::vector<quint64>& messageIds, const qu
     QJsonObject json;
     json["message_ids"] = msgIdsArray;
     json["chat_id"] = static_cast<qint64>(chatId);
+    if (deleteForAll)
+        json["for_everyone"] = true;
     QJsonDocument doc(json);
 
     QNetworkReply *reply = network->sendCustomRequest(req, "DELETE", doc.toJson());
-    connect(reply, &QNetworkReply::finished, this, [this, reply](){
+    connect(reply, &QNetworkReply::finished, this, [this, reply, retReq](){
         auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
             NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
-            emit deleteMessageFinished(res);
+            emit deleteMessageFinished(res, retReq);
             reply->deleteLater();
             return;
         }
         if (httpCode == 200)
         {
             NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
-            emit deleteMessageFinished(res);
+            emit deleteMessageFinished(res, retReq);
         }
         else
         {
             NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), generateMessageForError(static_cast<ERROR_TYPES>(httpCode))};
-            emit deleteMessageFinished(res);
+            emit deleteMessageFinished(res, retReq);
         }
         reply->deleteLater();
     });

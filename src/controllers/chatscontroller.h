@@ -27,8 +27,9 @@ public:
      * \param chatId идентификатор чата
      * \param accToken токен доступа (Access Token) для авторизации запроса
      * \param req
+     * \param lastMsgId идентификатор последнего сообщения, которое уже загружено
      */
-    void requestChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest req);
+    void requestChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest req, quint64 lastMsgId = 0);
 
     /**
      * Создает новый личный чат с указанным пользователем.
@@ -50,8 +51,10 @@ public:
      * \param chatId идентификатор чата
      * \param newText новый текст сообщения
      * \param accToken токен доступа (Access Token) для авторизации запроса
+     * \param req
+     * \param req
      */
-    void requestEditMessage(const quint64 messageId, const quint64 chatId, const QString &newText, const QString &accToken);
+    void requestEditMessage(const quint64 messageId, const quint64 chatId, const QString &newText, const QString &accToken, RetryableRequest req);
 
     /**
      * Отправляет запрос на удаление сообщений.
@@ -59,8 +62,10 @@ public:
      * \param chatId идентификатор чата
      * \param deleteForAll флаг удаления сообщения для всех участников (true) или только для себя (false)
      * \param accToken токен доступа (Access Token) для авторизации запроса
+     * \param req
      */
-    void requestDeleteMessage(const std::vector<quint64>& messageIds, const quint64 chatId, const bool deleteForAll, const QString &accToken);
+    void requestDeleteMessage(const std::vector<quint64>& messageIds, const quint64 chatId, const bool deleteForAll, const QString &accToken, RetryableRequest
+                              req);
 
 private slots:
     // --- Слоты для обработки сигналов от ChatService ---
@@ -68,8 +73,8 @@ private slots:
     void on_GetMyChatsFinished(const NetworkResult &res, RetryableRequest reReq, const std::vector<ParsedChatsListArrayObject>& paObjects);
     void on_GetChatMessagesFinished(const NetworkResult &res, RetryableRequest reReq, const unsigned long long chatId, const std::vector<ParsedChatMessagesArrayObject>& paObjects);
     void on_CreateDirectChatFinished(const NetworkResult &res);
-    void on_EditMessageFinished(const NetworkResult &res);
-    void on_DeleteMessageFinished(const NetworkResult &res);
+    void on_EditMessageFinished(const NetworkResult &res, RetryableRequest reReq);
+    void on_DeleteMessageFinished(const NetworkResult &res, RetryableRequest reReq);
 
 signals:
     // --- Сигналы процессов ---

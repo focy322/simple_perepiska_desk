@@ -76,6 +76,10 @@ public:
      */
     void removeFileByPath(unsigned long long chatId, const QString &filePath);
 
+    void setHasMoreHistory(bool hasMore) { hasMoreHistory_ = hasMore; }
+
+    void setIsLoadingMore(bool isLoading) { isLoadingMore_ = isLoading; }
+
 protected:
     // --- События отрисовки и ввода ---
 
@@ -105,7 +109,7 @@ private:
      */
     void on_scrollStop();
 
-    void on_scrollBarValueChanged(int value) const;
+    void on_scrollBarValueChanged(int value);
 
     /**
      * \brief Запоминает последнее прочитанное сообщение.
@@ -118,7 +122,8 @@ private:
     // --- Внутренние переменные ---
     QHash<unsigned long long, QSet<QString>> filePathsByChat;                     //!< Хранилище путей файлов по чатам
     unsigned long long                       currentChatId = ULONG_LONG_MAX;      //!< ID текущего открытого чата
-
+    bool                                     isLoadingMore_ = false;              //!< Флаг, указывающий, что идет загрузка дополнительных сообщений
+    bool                                     hasMoreHistory_ = true;              //!< Флаг, указывающий, что есть еще история сообщений
     QTimer                                  *scrollStopTimer;                     //!< Таймер для определения конца прокрутки
     inline static constexpr uint             SCROLL_STOP_TIMER_INTERVAL = 500;    //!< Интервал таймера остановки прокрутки (мс)
 
@@ -139,6 +144,8 @@ signals:
      * \param message Пара из ID чата и ID сообщения.
      */
     void needReadLastMessage(const std::pair<quint64, quint64> &message);
+
+    void needLoadMoreMessages(quint64 chatId);
 };
 
 #endif // LISTVIEWDRAGNDROP_H

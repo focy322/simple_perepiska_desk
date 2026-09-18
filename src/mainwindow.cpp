@@ -379,6 +379,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(filesController, &FilesController::downloadFileFinished, this, &MainWindow::on_downloadFileFinished);
     connect(retryableRequestErrorHandler, &RetryableRequestErrorHandler::needRefreshToken, this, &MainWindow::on_needRefreshToken);
     connect(retryableRequestErrorHandler, &RetryableRequestErrorHandler::needImmediateLogOut, this, &MainWindow::on_needImmediateLogOut);
+    connect(ui->messagesView, &ListViewDragNDrop::needLoadMoreMessages, this, &MainWindow::on_needLoadMoreMessages);
     // Изменение высоты строки ввода собщения при переносе строки
     connect(ui->messageInput, &QTextEdit::textChanged, this, &MainWindow::on_textChanged);
 
@@ -503,10 +504,10 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
 {
     if (chatItem.isValid())
     {
-        if (isLeftPanelExpanded) {
+        if (isLeftPanelExpanded)
             toggleLeftPanel();
-        }
-        if (ui->chatsView->model() == searchListModel) {
+        if (ui->chatsView->model() == searchListModel)
+        {
             unsigned long long userId = chatItem.data(SearchListModel::UserIdRole).toULongLong();
             // fixIt: вместо того чтобы делать запрос на создание чата можно сначало пройтись по списку чатов на наличие уже существуещего
             // и если чат с таким userId уже есть то просто переключиться на него не запрашивая создания чата
@@ -519,6 +520,7 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
         saveDraftForChat(currentChatId);
         editingMessageId = ULONG_LONG_MAX;
         hideEditStatusLabelSmoothly();
+        auto previousChatId = currentChatId;
         currentChatId = chatItem.data(ChatListModel::ChatIdRole).toULongLong();
         ui->messagesView->setCurrentChatId(currentChatId);
         currentChatName = chatItem.data(ChatListModel::ChatNameRole).toString().trimmed();
@@ -551,22 +553,19 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
         if (chatIt != chatMessages.constEnd())
         {
             messagesListModel->setMessages(chatIt.value());
-            ui->messagesView->scrollToBottom();
-        } else
+            if (chatItem.data(ChatListModel::UnreadCountRole).toUInt() > 0)
+                ui->messagesView->scrollToBottom();
+        }
+        else
         {
             messagesListModel->clear();
+            // Если мы переключились на другой чат, то нужно загрузить его сообщения
+            if (previousChatId != currentChatId)
+                getChatMessages(currentChatId);
         }
+
         loadDraftForChat(currentChatId);
         updateSendButtonState(currentChatId);
-        // Честно говоря не уверен когда нужно вызвать ее ведь у меня есть вебсокет по сути это лишняя нагрузка на сервер всегда ее вызывать поэтому пока ее else ветку засунул
-        // но может быть нужно ее вызывать и при каждом клике на чат для актуализации сообщений, хз
-        getChatMessages(currentChatId);
-
-
-#ifdef QT_DEBUG
-        qDebug() << chatItem.data(ChatListModel::UserIdRole);
-        qDebug() << typeid(chatItem).name();
-#endif
     }
     else
     {
@@ -613,7 +612,16 @@ void MainWindow::on_sendMessageBtn_clicked()
     {
         if (editingMessageId != ULONG_LONG_MAX)
         {
-            chatsController->requestEditMessage(editingMessageId, currentChatId, msgToSend, accessToken);
+            RetryableRequest req
+            {
+                .type = RequestType::REQUEST_EDIT_MESSAGE,
+                .requestFunction = [this, msgToSend](RetryableRequest req)
+                {
+                    chatsController->requestEditMessage(editingMessageId, currentChatId, msgToSend, accessToken, req);
+                },
+                .isReplaceable = false,
+            };
+            chatsController->requestEditMessage(editingMessageId, currentChatId, msgToSend, accessToken, req);
 
             auto chatIt = chatMessages.find(currentChatId);
             if (chatIt != chatMessages.end())
@@ -1794,24 +1802,30 @@ void MainWindow::on_getChatMessagesInProgress()
 
 }
 
-// TODO: chatId сделать ссылкой и везде где он прокидывается до mainWindow
-// (хз может я уже так делал и вылетел segmentation fault поэтому я ссылку убрал, но в принципе 8 байт не так страшно или сколько там sizeof)
 void MainWindow::on_getChatMessagesFinished(const NetworkResult &res, const unsigned long long chatId, const std::vector<ParsedChatMessagesArrayObject>& paObjects)
 {
+    ui->messagesView->setIsLoadingMore(false);
+    ui->messagesView->setHasMoreHistory(true);
     if (res.ok)
     {
         if (!paObjects.empty())
         {
-            // TODO: одинаковые сообещения накладываются друг на друга сверху
-            //chatMessages[chatId].insert(chatMessages[chatId].cbegin(), paObjects.cbegin(), paObjects.cend());
-            chatMessages[chatId] = paObjects; // TODO: если работает то что выше то это удалить
-            if (currentChatId == chatId) {
+            auto &messages = chatMessages[chatId];
+            bool isFirstLoad = messages.empty();
+
+            messages.insert(messages.begin(), paObjects.begin(), paObjects.end());
+
+            if (currentChatId == chatId)
+            {
                 messagesListModel->setMessages(chatMessages[chatId]);
-                ui->messagesView->scrollToBottom();
+                if (isFirstLoad)
+                    ui->messagesView->scrollToBottom();
             }
-            //messagesListModel->setMessages(paObjects); // TODO: если работает то что выше то это удалить
             autoDownloadImages(paObjects);
         }
+        else
+            ui->messagesView->setHasMoreHistory(false);
+
         qDebug() << "on_getChatMessagesFinished = true!!!";
     }
     else
@@ -1936,7 +1950,12 @@ void MainWindow::on_newMessageRecieved(const ParsedChatMessagesArrayObject &newM
 
     auto chatIt = chatsList.find(newMsgChatId);
     if (chatIt != chatsList.end())
-        refreshChatState(newMsgChatId, newMessage, true);
+    {
+        if (newMessage.senderId != myUserId)
+            refreshChatState(newMsgChatId, newMessage, true);
+        else
+            refreshChatState(newMsgChatId, newMessage, false);
+    }
     else
         getChatsList();
 }
@@ -2903,6 +2922,32 @@ void MainWindow::on_needImmediateLogOut()
     on_logOutFinished({.ok = true});
 }
 
+void MainWindow::on_needLoadMoreMessages(quint64 chatId)
+{
+    if (chatId == ULONG_LONG_MAX)
+        return;
+
+    auto chatIt = chatMessages.find(chatId);
+    if (chatIt != chatMessages.end())
+    {
+        auto &messages = chatIt.value();
+        if (!messages.empty())
+        {
+            quint64 lastMessageId = messages.front().messageId;
+            RetryableRequest req
+            {
+                .type = RequestType::REQUEST_CHAT_MESSAGES,
+                .requestFunction = [this, chatId, lastMessageId](RetryableRequest req)
+                {
+                    chatsController->requestChatMessages(chatId, accessToken, req, lastMessageId);
+                },
+                .isReplaceable = false,
+            };
+            chatsController->requestChatMessages(chatId, accessToken, req, lastMessageId);
+        }
+    }
+}
+
 void MainWindow::onEditMessageRequested(quint64 messageId, const QString &currentText)
 {
     bool wasAlreadyEditing = (editingMessageId != ULONG_LONG_MAX);
@@ -2933,24 +2978,25 @@ void MainWindow::onEditMessageRequested(quint64 messageId, const QString &curren
 
 void MainWindow::on_editMessageFinished(const NetworkResult &res)
 {
-    if (!res.ok) {
-        if (currentChatId != ULONG_LONG_MAX) {
-            RetryableRequest req
-            {
-                .type = RequestType::REQUEST_CHAT_MESSAGES,
-                .requestFunction = [this](RetryableRequest req)
-                {
-                    chatsController->requestChatMessages(currentChatId, accessToken, req);
-                },
-                .isReplaceable = false,
-            };
-            chatsController->requestChatMessages(currentChatId, accessToken, req);
-        }
-    }
+    // if (!res.ok) {
+    //     if (currentChatId != ULONG_LONG_MAX) {
+    //         RetryableRequest req
+    //         {
+    //             .type = RequestType::REQUEST_CHAT_MESSAGES,
+    //             .requestFunction = [this](RetryableRequest req)
+    //             {
+    //                 chatsController->requestChatMessages(currentChatId, accessToken, req);
+    //             },
+    //             .isReplaceable = false,
+    //         };
+    //         chatsController->requestChatMessages(currentChatId, accessToken, req);
+    //     }
+    // }
 }
 
 void MainWindow::onDeleteMessageRequested(quint64 messageId)
 {
+    //TODO: попробовать прокидывать chatID вместе с messageId
     QMessageBox msgBox(this);
     msgBox.setWindowTitle("Удаление сообщения");
     msgBox.setText("Вы уверены, что хотите удалить это сообщение?");
@@ -2960,13 +3006,24 @@ void MainWindow::onDeleteMessageRequested(quint64 messageId)
     QCheckBox *cb = new QCheckBox("Удалить у всех", &msgBox);
     msgBox.setCheckBox(cb);
 
-    if (msgBox.exec() == QMessageBox::Yes) {
+    if (msgBox.exec() == QMessageBox::Yes)
+    {
         bool deleteForAll = cb->isChecked();
         std::vector<quint64> ids = {messageId};
-        chatsController->requestDeleteMessage(ids, currentChatId, deleteForAll, accessToken);
+        RetryableRequest req
+        {
+            .type = RequestType::REQUEST_DELETE_MESSAGE,
+            .requestFunction = [this, ids, deleteForAll](RetryableRequest req)
+            {
+                chatsController->requestDeleteMessage(ids, currentChatId, deleteForAll, accessToken, req);
+            },
+            .isReplaceable = false,
+        };
+        chatsController->requestDeleteMessage(ids, currentChatId, deleteForAll, accessToken, req);
         
         auto chatIt = chatMessages.find(currentChatId);
-        if (chatIt != chatMessages.end()) {
+        if (chatIt != chatMessages.end())
+        {
             auto &msgs = chatIt.value();
             msgs.erase(std::remove_if(msgs.begin(), msgs.end(),
                 [messageId](const ParsedChatMessagesArrayObject& m) { return m.messageId == messageId; }),
@@ -2979,21 +3036,21 @@ void MainWindow::onDeleteMessageRequested(quint64 messageId)
 
 void MainWindow::on_deleteMessageFinished(const NetworkResult &res)
 {
-    if (!res.ok) {
-        qDebug() << "Ошибка удаления сообщения: " << res.error << " - " << res.message;
-        if (currentChatId != ULONG_LONG_MAX) {
-            RetryableRequest req
-            {
-                .type = RequestType::REQUEST_CHAT_MESSAGES,
-                .requestFunction = [this](RetryableRequest req)
-                {
-                    chatsController->requestChatMessages(currentChatId, accessToken, req);
-                },
-                .isReplaceable = false,
-            };
-            chatsController->requestChatMessages(currentChatId, accessToken, req);
-        }
-    }
+    // if (!res.ok) {
+    //     qDebug() << "Ошибка удаления сообщения: " << res.error << " - " << res.message;
+    //     if (currentChatId != ULONG_LONG_MAX) {
+    //         RetryableRequest req
+    //         {
+    //             .type = RequestType::REQUEST_CHAT_MESSAGES,
+    //             .requestFunction = [this](RetryableRequest req)
+    //             {
+    //                 chatsController->requestChatMessages(currentChatId, accessToken, req);
+    //             },
+    //             .isReplaceable = false,
+    //         };
+    //         chatsController->requestChatMessages(currentChatId, accessToken, req);
+    //     }
+    // }
 }
 
 void MainWindow::autoDownloadImages(const std::vector<ParsedChatMessagesArrayObject>& messages)
@@ -3312,5 +3369,3 @@ void MainWindow::decreaseUnreadCount(quint64 chatId, int count)
         }
     
 }
-
-

@@ -6,8 +6,6 @@
 WebsocketService::WebsocketService(QObject *parent)
     : QObject{parent}
     , websocket(new QWebSocket(QString(), QWebSocketProtocol::VersionLatest, this))
-    , baseUrl(baseWebsocketUrl)
-    , webSocketUrl("/ws/")
     , ackFlushTimer(new QTimer(this))
     , outgoingMessagesFlushTimer(new QTimer(this))
     , ackFlushIntervalMs(5000)
@@ -56,7 +54,7 @@ void WebsocketService::connectSocket(const QString &accessToken)
 {
     emit socketConnectionInProgress();
 
-    QUrl url(baseUrl + webSocketUrl);
+    QUrl url(baseWebsocketUrl + webSocketUrl);
     QNetworkRequest req(url);
     req.setRawHeader("Authorization", "Bearer " + accessToken.toUtf8());
 
@@ -226,6 +224,7 @@ void WebsocketService::flushPendingAcks()
     };
 
     const QString jsonText = QString::fromUtf8(QJsonDocument(obj).toJson(QJsonDocument::Compact));
+    qDebug() << "Flushing pending acks, count:" << pendingDeliveryIds.size() << ", json:" << jsonText;
     websocket->sendTextMessage(jsonText);
 }
 

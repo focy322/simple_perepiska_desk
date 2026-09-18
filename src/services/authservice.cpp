@@ -1,18 +1,14 @@
-﻿#include "services/authservice.h"
-
-#include <keychain.h>
+﻿#include <keychain.h>
 
 #include <QSysInfo>
 #include <QUrlQuery>
 
+#include "services/authservice.h"
+#include "utils/endpoints.h"
+
 AuthService::AuthService(QObject *parent)
     : QObject{parent}
     , network(new QNetworkAccessManager(this))
-    , baseUrl(baseHttpUrl)
-    , registerUrl("/api/users/")
-    , logInUrl("/api/auth/token")
-    , refreshAccessTokenUrl("/api/auth/token/refresh")
-    , logOutUrl("/api/auth/token/revoke")
 {
 
 }
@@ -38,7 +34,7 @@ void AuthService::registerUser(const QString &login, const QString &password)
 {
     emit registrationInProgress();
 
-    QUrl url(baseUrl + registerUrl);
+    QUrl url(baseHttpUrl + registerUrl);
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     // Данные о системе
@@ -111,7 +107,7 @@ void AuthService::registerUser(const QString &login, const QString &password)
 void AuthService::logIn(const QString &login, const QString &password)
 {
     emit logInProgress();
-    QUrl url(baseUrl + logInUrl);
+    QUrl url(baseHttpUrl + logInUrl);
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded"); // Поставить JSON-заголовок
     QString ua = QString("Vent Desktop/0.01 (%1; %2)").arg(QSysInfo::prettyProductName(), QSysInfo::currentCpuArchitecture());
@@ -185,7 +181,7 @@ void AuthService::logIn(const QString &login, const QString &password)
 void AuthService::logOut(const QString &accToken, const QString &refToken)
 {
     emit logOutInProgress();
-    QUrl url(baseUrl + logOutUrl);
+    QUrl url(baseHttpUrl + logOutUrl);
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     // Передаем токен в заголовке
@@ -230,7 +226,7 @@ void AuthService::logOut(const QString &accToken, const QString &refToken)
 void AuthService::refreshAccessToken(const QString &refToken, RetryableRequest retryableReq)
 {
     emit refreshAccessTokenInProgress();
-    QUrl url(baseUrl + refreshAccessTokenUrl);
+    QUrl url(baseHttpUrl + refreshAccessTokenUrl);
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     // Данные о системе

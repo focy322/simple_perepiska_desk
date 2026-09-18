@@ -6,7 +6,6 @@
 #include <QtNetwork/QNetworkReply>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include "utils/endpoints.h"
 #include "utils/requests/retryable_request.h"
 
 /**
@@ -115,12 +114,6 @@ private:
     // --- Внутренние объекты сети ---
     QNetworkAccessManager *network;                       //!< Менеджер сети для выполнения HTTP-запросов
 
-    // --- Адреса API (Endpoints) ---
-    QString                baseUrl;                       //!< Базовый адрес API
-    QString                registerUrl;                   //!< Путь API для регистрации
-    QString                logInUrl;                      //!< Путь API для авторизации
-    QString                refreshAccessTokenUrl;         //!< Путь API для обновления токена
-    QString                logOutUrl;                     //!< Путь API для выхода из аккаунта
 };
 
 #endif // AUTHSERVICE_H

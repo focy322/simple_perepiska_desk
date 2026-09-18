@@ -13,15 +13,12 @@
 FileService::FileService(QObject *parent)
     : QObject{parent}
     , network(new QNetworkAccessManager(this))
-    , baseUrl(baseHttpUrl)
-    , uploadFileUrl("/api/files/")
-    , downloadFileUrl("/api/files/%1")
 {}
 
 void FileService::uploadFile(const QString &accessToken, const QSet<QString> &filePaths, const unsigned long long &chatId)
 {
     emit uploadFileInProgress();
-    QUrl url (baseUrl + uploadFileUrl);
+    QUrl url (baseHttpUrl + uploadFileUrl);
     QUrlQuery query;
     query.addQueryItem("chat_id", QString::number(chatId));
     url.setQuery(query);
@@ -94,7 +91,7 @@ void FileService::downloadFileInfo(const QString &accessToken, const std::vector
     emit downloadFileInfoInProgress();
     for (int id : fileIds)
     {
-        QUrl url(baseUrl + downloadFileUrl.arg(id));
+        QUrl url(baseHttpUrl + downloadFileUrl.arg(id));
         QNetworkRequest req(url);
         req.setRawHeader("Authorization", "Bearer " + accessToken.toUtf8());
         QNetworkReply *reply = network->get(req);

@@ -124,10 +124,6 @@ private:
     // --- Внутренние объекты сети ---
     QNetworkAccessManager *network;                       //!< Менеджер сети для выполнения HTTP-запросов
 
-    // --- Адреса API (Endpoints) ---
-    QString                baseUrl;                       //!< Базовый адрес API
-    QString                uploadFileUrl;                 //!< Путь API для загрузки файла на сервер
-    QString                downloadFileUrl;               //!< Путь API для получения информации о файле
 };
 
 #endif // FILESERVICE_H
