@@ -224,7 +224,6 @@ void WebsocketService::flushPendingAcks()
     };
 
     const QString jsonText = QString::fromUtf8(QJsonDocument(obj).toJson(QJsonDocument::Compact));
-    qDebug() << "Flushing pending acks, count:" << pendingDeliveryIds.size() << ", json:" << jsonText;
     websocket->sendTextMessage(jsonText);
 }
 
@@ -353,21 +352,41 @@ void WebsocketService::on_error(const QJsonObject &payload)
 
 void WebsocketService::on_messageEdited(const QJsonObject &payload)
 {
+    QJsonValue editedMessageVal = payload.value("edited_message");
+    if (!editedMessageVal.isObject())
+        return;
 
+    QJsonObject editedMessageObj = editedMessageVal.toObject();
+    quint64 chatId = static_cast<quint64>(editedMessageObj.value("chat_id").toInteger(-1));
+    quint64 messageId = static_cast<quint64>(editedMessageObj.value("message_id").toInteger(-1));
+    QString message = editedMessageObj.value("message").toString();
+
+    if (chatId == ULONG_LONG_MAX || messageId == ULONG_LONG_MAX || message.isEmpty())
+        return;
+
+    emit messageEdited(chatId, messageId, message);
 }
-
 void WebsocketService::on_messageDeleted(const QJsonObject &payload)
 {
+    quint64 chatId = static_cast<quint64>(payload.value("chat_id").toInteger(-1));
+    if (chatId == ULONG_LONG_MAX || !(payload.value("deleted_message_ids").isArray()) || payload.value("deleted_message_ids").toArray().isEmpty())
+        return;
 
+    QJsonArray deletedMessageIds = payload.value("deleted_message_ids").toArray();
+    std::vector<quint64> deletedMessageIdVector;
+    for (const QJsonValue &idValue : std::as_const(deletedMessageIds))
+    {
+        deletedMessageIdVector.push_back(static_cast<quint64>(idValue.toInteger()));
+    }
+
+    emit messageDeleted(chatId, deletedMessageIdVector);
 }
 
 void WebsocketService::callHandler(const QString &type, const QJsonObject &payload)
 {
     const auto it = handlersMapByTypeOfMessage.constFind(type);
     if (it == handlersMapByTypeOfMessage.cend())
-    {
         return;
-    }
 
     auto func = it.value();
     (this->*func)(payload);

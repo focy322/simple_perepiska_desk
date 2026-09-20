@@ -369,6 +369,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(websocketController, &WebsocketController::newMessageRecieved, this, &MainWindow::on_newMessageRecieved);
     connect(websocketController, &WebsocketController::messageAccepted, this, &MainWindow::on_messageAccepted);
     connect(websocketController, &WebsocketController::messageMarkedRead, this, &MainWindow::on_messageMarkedRead);
+    connect(websocketController, &WebsocketController::messageEdited, this, &MainWindow::on_messageEdited);
+    connect(websocketController, &WebsocketController::messageDeleted, this, &MainWindow::on_messageDeleted);
     connect(ui->messagesView, &ListViewDragNDrop::gotDragNDropFiles, this, &MainWindow::on_gotDragNDropFiles);
     connect(filesController, &FilesController::uploadFileInProgress, this, &MainWindow::on_uploadFileInProgress);
     connect(filesController, &FilesController::uploadFileFinished, this, &MainWindow::on_uploadFileFinished);
@@ -400,8 +402,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->messagesView->setMouseTracking(true);
     messagesItemDelegate->setParent(ui->messagesView);
     ui->messagesView->setItemDelegate(messagesItemDelegate);
-    connect(messagesItemDelegate, &ChatMessagesItemDelegate::editMessageRequested, this, &MainWindow::onEditMessageRequested);
-    connect(messagesItemDelegate, &ChatMessagesItemDelegate::deleteMessageRequested, this, &MainWindow::onDeleteMessageRequested);
+    connect(messagesItemDelegate, &ChatMessagesItemDelegate::editMessageRequested, this, &MainWindow::on_editMessageRequested);
+    connect(messagesItemDelegate, &ChatMessagesItemDelegate::deleteMessageRequested, this, &MainWindow::on_deleteMessageRequested);
 
     chatListSortProxyModel->setSourceModel(chatsListModel);
     chatListSortProxyModel->setDynamicSortFilter(true);
@@ -604,7 +606,7 @@ void MainWindow::on_sendMessageBtn_clicked()
         editingMessageId = ULONG_LONG_MAX;
         hideEditStatusLabelSmoothly();
         ui->messageInput->clear();
-        onDeleteMessageRequested(msgIdToDelete);
+        on_deleteMessageRequested(msgIdToDelete);
         return;
     }
 
@@ -632,11 +634,13 @@ void MainWindow::on_sendMessageBtn_clicked()
                     {
                         msg.message = msgToSend;
                         msg.edited = true;
-                        refreshChatState(currentChatId, msg, false);
+                        if (msg.messageId == chatIt.value().back().messageId)
+                            refreshChatState(currentChatId, msg, false);
+
+                        messagesListModel->setMessages(chatIt.value());
                         break;
                     }
                 }
-                messagesListModel->setMessages(chatIt.value());
             }
             ui->messageInput->clear();
             editingMessageId = ULONG_LONG_MAX;
@@ -785,7 +789,6 @@ void MainWindow::tryAuthorize()
 
 void MainWindow::getMyInfo()
 {
-    qDebug() << "Отправленный  accessToken в getMyInfo " << accessToken;
     RetryableRequest req
     {
         .type = RequestType::REQUEST_GET_MY_USER_INFO,
@@ -1275,7 +1278,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
                     const auto &msgs = chatMessages[currentChatId];
                     for (auto it = msgs.rbegin(); it != msgs.rend(); ++it) {
                         if (it->senderId == myUserId) {
-                            onEditMessageRequested(it->messageId, it->message);
+                            on_editMessageRequested(it->messageId, it->message);
                             return true;
                         }
                     }
@@ -1988,7 +1991,9 @@ void MainWindow::on_messageAccepted(const ParsedMessageAcceptedObject &msgAccObj
             //TODO: может быть можно как то перерисовать без переприсваивания вектора
             messagesListModel->setMessages(messages);
 
-        refreshChatState(msgAccObj.chatId, *rit, false);
+        if (rit->messageId == messages.back().messageId)
+            refreshChatState(msgAccObj.chatId, *rit, false);
+
         return;
     }
 }
@@ -2948,7 +2953,54 @@ void MainWindow::on_needLoadMoreMessages(quint64 chatId)
     }
 }
 
-void MainWindow::onEditMessageRequested(quint64 messageId, const QString &currentText)
+void MainWindow::on_messageDeleted(const quint64 chatId, const std::vector<quint64>& deletedMessageIds)
+{
+    auto chatIt = chatMessages.find(chatId);
+    if (chatIt != chatMessages.end())
+    {
+        auto &messages = chatIt.value();
+        std::erase_if(messages, [&deletedMessageIds](const ParsedChatMessagesArrayObject &m)
+        {
+            return std::ranges::find(deletedMessageIds, m.messageId) != deletedMessageIds.end();
+        });
+
+        if (currentChatId == chatId)
+            messagesListModel->setMessages(messages);
+
+        if (!messages.empty())
+            refreshChatState(chatId, messages.back(), false);
+        else
+            refreshChatState(chatId, {}, false);
+    }
+}
+
+void MainWindow::on_messageEdited(const quint64 chatId, const quint64 messageId, const QString& newMessage)
+{
+    auto chatIt = chatMessages.find(chatId);
+    if (chatIt != chatMessages.end())
+    {
+        auto &messages = chatIt.value();
+        for (auto &message : messages)
+        {
+            if (message.messageId == messageId)
+            {
+                message.message = newMessage;
+                message.edited = true;
+                if (currentChatId == chatId)
+                    messagesListModel->setMessages(messages);
+
+                if (!messages.empty() && messages.back().messageId == messageId)
+                    refreshChatState(chatId, messages.back(), false);
+                else if (messages.empty())
+                    refreshChatState(chatId, {}, false);
+
+                break;
+            }
+        }
+    }
+}
+
+void MainWindow::on_editMessageRequested(quint64 messageId, const QString &currentText)
 {
     bool wasAlreadyEditing = (editingMessageId != ULONG_LONG_MAX);
     
@@ -2994,7 +3046,7 @@ void MainWindow::on_editMessageFinished(const NetworkResult &res)
     // }
 }
 
-void MainWindow::onDeleteMessageRequested(quint64 messageId)
+void MainWindow::on_deleteMessageRequested(quint64 messageId)
 {
     //TODO: попробовать прокидывать chatID вместе с messageId
     QMessageBox msgBox(this);
@@ -3028,8 +3080,12 @@ void MainWindow::onDeleteMessageRequested(quint64 messageId)
             msgs.erase(std::remove_if(msgs.begin(), msgs.end(),
                 [messageId](const ParsedChatMessagesArrayObject& m) { return m.messageId == messageId; }),
                 msgs.end());
+
             messagesListModel->setMessages(msgs);
-            refreshChatState(currentChatId,msgs.back(), false);
+            if (!msgs.empty())
+                refreshChatState(currentChatId,msgs.back(), false);
+            else
+                refreshChatState(currentChatId, {}, false);
         }
     }
 }
@@ -3056,9 +3112,12 @@ void MainWindow::on_deleteMessageFinished(const NetworkResult &res)
 void MainWindow::autoDownloadImages(const std::vector<ParsedChatMessagesArrayObject>& messages)
 {
     std::vector<quint64> imageFileIds;
-    for (const auto& msg : messages) {
-        if (!msg.hasAttachments) continue;
-        for (const auto& attachmentValue : std::as_const(msg.attachments)) {
+    for (const auto& msg : messages)
+    {
+        if (!msg.hasAttachments)
+            continue;
+        for (const auto& attachmentValue : std::as_const(msg.attachments))
+        {
             QJsonObject obj = attachmentValue.toObject();
             QString fileName = obj.value("filename").toString();
             bool isImage = fileName.endsWith(".png", Qt::CaseInsensitive)  ||
@@ -3067,24 +3126,25 @@ void MainWindow::autoDownloadImages(const std::vector<ParsedChatMessagesArrayObj
                            fileName.endsWith(".bmp", Qt::CaseInsensitive)  ||
                            fileName.endsWith(".gif", Qt::CaseInsensitive);
             
-            if (isImage) {
+            if (isImage)
+            {
                 QString localPath = obj.value("local_path").toString();
-                if (!localPath.isEmpty() && QFileInfo::exists(localPath)) continue;
+                if (!localPath.isEmpty() && QFileInfo::exists(localPath))
+                    continue;
 
                 QString path = appDownloadsDir + "/" + fileName;
-                if (!QFileInfo::exists(path)) {
+                if (!QFileInfo::exists(path))
+                {
                     quint64 fileId = static_cast<quint64>(obj.value("file_id").toInteger(-1));
-                    if (fileId != static_cast<quint64>(-1)) {
+                    if (fileId != static_cast<quint64>(-1))
                         imageFileIds.push_back(fileId);
-                    }
                 }
             }
         }
     }
     
-    if (!imageFileIds.empty()) {
+    if (!imageFileIds.empty())
         filesController->requestDownloadFileInfo(accessToken, imageFileIds);
-    }
 }
 
 void MainWindow::autoDownloadImages(const ParsedChatMessagesArrayObject& message)

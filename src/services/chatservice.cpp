@@ -371,7 +371,8 @@ void ChatService::deleteMessage(const std::vector<quint64>& messageIds, const qu
     req.setRawHeader("Authorization", "Bearer " + accToken.toUtf8());
 
     QJsonArray msgIdsArray;
-    for (auto id : messageIds) {
+    for (auto id : messageIds)
+    {
         msgIdsArray.append(static_cast<qint64>(id));
     }
     

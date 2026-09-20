@@ -40,13 +40,34 @@ if(WIN32)
     set(APP_ICON_RESOURCE_WINDOWS "resources/enot_windows.rc")
 endif()
 
-qt_add_executable(vent
-    ${SOURCES}
-    ${HEADERS}
-    ${FORMS}
-    ${RESOURCES}
-    ${APP_ICON_RESOURCE_WINDOWS}
-)
+option(VENT_WINDOWS_CONSOLE "Build Windows app with console window" ON)
+
+if(WIN32)
+    if(VENT_WINDOWS_CONSOLE)
+        qt_add_executable(vent
+                ${SOURCES}
+                ${HEADERS}
+                ${FORMS}
+                ${RESOURCES}
+                ${APP_ICON_RESOURCE_WINDOWS}
+        )
+    else()
+        qt_add_executable(vent WIN32
+                ${SOURCES}
+                ${HEADERS}
+                ${FORMS}
+                ${RESOURCES}
+                ${APP_ICON_RESOURCE_WINDOWS}
+        )
+    endif()
+else()
+    qt_add_executable(vent
+            ${SOURCES}
+            ${HEADERS}
+            ${FORMS}
+            ${RESOURCES}
+    )
+endif()
 
 # Линковка библиотеки Qt6 и qtkeychain
 target_link_libraries(vent PRIVATE

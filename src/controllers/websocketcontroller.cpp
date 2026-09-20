@@ -13,6 +13,8 @@ WebsocketController::WebsocketController(QObject *parent)
     connect(websocketService, &WebsocketService::newMessageRecieved, this, &WebsocketController::newMessageRecieved);
     connect(websocketService, &WebsocketService::messageAccepted, this, &WebsocketController::messageAccepted);
     connect(websocketService, &WebsocketService::messageMarkedRead, this, &WebsocketController::messageMarkedRead);
+    connect(websocketService, &WebsocketService::messageDeleted, this, &WebsocketController::messageDeleted);
+    connect(websocketService, &WebsocketService::messageEdited, this, &WebsocketController::messageEdited);
 }
 
 void WebsocketController::requestConnectSocket(const QString &accessToken)

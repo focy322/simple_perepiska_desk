@@ -81,6 +81,11 @@ signals:
      */
     void messageMarkedRead(const quint64 userId, const quint64 chatId, const quint64 lastReadMessageId);
 
+    void messageDeleted(const quint64 chatId, const std::vector<quint64> &deletedMessageIds);
+
+    void messageEdited(const quint64 chatId, const quint64 messageId, const QString &newMessage);
+
+
 private:
     // --- Внутренние сервисы ---
     WebsocketService *websocketService;   //!< Сервис для работы с WebSocket соединением

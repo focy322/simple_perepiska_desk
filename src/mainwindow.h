@@ -397,13 +397,13 @@ private slots:
      * \param messageId идентификатор сообщения
      * \param currentText текущий текст сообщения
      */
-    void onEditMessageRequested(quint64 messageId, const QString &currentText);
+    void on_editMessageRequested(quint64 messageId, const QString &currentText);
 
     /**
      * Запрашивает подтверждение и инициирует удаление сообщения
      * \param messageId идентификатор сообщения
      */
-    void onDeleteMessageRequested(quint64 messageId);
+    void on_deleteMessageRequested(quint64 messageId);
 
     /**
      * Вызывается после ответа сервера на запрос редактирования сообщения
@@ -527,6 +527,10 @@ private slots:
     void on_needImmediateLogOut();
 
     void on_needLoadMoreMessages(quint64 chatId);
+
+    void on_messageDeleted(const quint64 chatId, const std::vector<quint64> &deletedMessageIds);
+
+    void on_messageEdited(const quint64 chatId, const quint64 messageId, const QString &newMessage);
 
 #ifndef QT_DEBUG
     /**
