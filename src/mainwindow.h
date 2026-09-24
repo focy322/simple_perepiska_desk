@@ -532,6 +532,8 @@ private slots:
 
     void on_messageEdited(const quint64 chatId, const quint64 messageId, const QString &newMessage);
 
+    void on_userStatus(const quint64 userId, const bool isOnline);
+
 #ifndef QT_DEBUG
     /**
      * Обрабатывает действия с иконкой приложения в трее (восстановление окна)
@@ -595,7 +597,9 @@ private:
     // Хранилища данных
     QHash<unsigned long long, std::deque<ParsedChatMessagesArrayObject>> chatMessages;  //!< Хранилище сообщений по chatId
     QHash<unsigned long long, ParsedChatMessagesArrayObject> draftsByChatId;            //!< Черновики сообщений по chatId
-    QHash<unsigned long long, ParsedChatsListArrayObject> chatsList;     //!< Хранилище информации о чатах по chatId
+    QHash<unsigned long long, ParsedChatsListArrayObject> chatsList;                    //!< Хранилище информации о чатах по chatId
+    QHash<unsigned long long, bool> onlineStatuses;                                     //!< Хранилище статусов онлайн пользователей по userId
+
     QString currentChatName;                                             //!< Название текущего открытого чата
     unsigned long long currentChatId;                                    //!< Идентификатор текущего открытого чата
     quint64 editingMessageId = ULONG_LONG_MAX;                           //!< Идентификатор редактируемого в данный момент сообщения

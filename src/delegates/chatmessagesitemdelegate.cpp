@@ -702,7 +702,7 @@ bool ChatMessagesItemDelegate::editorEvent(QEvent *event, QAbstractItemModel *mo
                         if (QFileInfo::exists(path)) {
                             VideoPlayerDialog *dialog = new VideoPlayerDialog(path, nullptr);
                             dialog->setAttribute(Qt::WA_DeleteOnClose);
-                            QObject::connect(dialog, &QDialog::finished, dialog, &QObject::deleteLater);
+                            connect(dialog, &QDialog::finished, dialog, &QObject::deleteLater);
                             dialog->show();
                             return true;
                         }

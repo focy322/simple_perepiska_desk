@@ -342,7 +342,12 @@ void WebsocketService::on_markedRead(const QJsonObject &payload)
 
 void WebsocketService::on_userStatus(const QJsonObject &payload)
 {
+    quint64 userId = static_cast<quint64>(payload.value("user_id").toInteger(-1));
+    bool isOnline = payload.value("online").toBool(false);
+    if (userId == ULONG_LONG_MAX)
+        return;
 
+    emit userStatus(userId, isOnline);
 }
 
 void WebsocketService::on_error(const QJsonObject &payload)

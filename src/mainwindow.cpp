@@ -6,6 +6,8 @@
 #include "widgets/customtitlebar.h"
 #include "widgets/imageviewerwindow.h"
 #include "widgets/imagecropperdialog.h"
+#include "widgets/stagingimagelabel.h"
+#include "widgets/avataroutlineoverlay.h"
 #include "utils/paths.h"
 #include "utils/videohelpers.h"
 #include "utils/avatarhelper.h"
@@ -117,6 +119,7 @@ MainWindow::MainWindow(QWidget *parent)
     , chatsController(new ChatsController(this))
     , isFirstOpen(true)
     , chatsList{}
+    , onlineStatuses{}
     , websocketController(new WebsocketController(this))
     , notificationSound(new QSoundEffect(this))
     , filesController(new FilesController(this))
@@ -371,6 +374,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(websocketController, &WebsocketController::messageMarkedRead, this, &MainWindow::on_messageMarkedRead);
     connect(websocketController, &WebsocketController::messageEdited, this, &MainWindow::on_messageEdited);
     connect(websocketController, &WebsocketController::messageDeleted, this, &MainWindow::on_messageDeleted);
+    connect(websocketController, &WebsocketController::userStatus, this, &MainWindow::on_userStatus);
     connect(ui->messagesView, &ListViewDragNDrop::gotDragNDropFiles, this, &MainWindow::on_gotDragNDropFiles);
     connect(filesController, &FilesController::uploadFileInProgress, this, &MainWindow::on_uploadFileInProgress);
     connect(filesController, &FilesController::uploadFileFinished, this, &MainWindow::on_uploadFileFinished);
@@ -1700,44 +1704,54 @@ void MainWindow::on_uploadAvatarFinished(const NetworkResult &res, const QString
 
 void MainWindow::on_getUserInfoFinished(const NetworkResult &res, const ParsedFoundUsersObject &user)
 {
-    if (res.ok && !user.lastSeen.isEmpty())
+    if (res.ok && !user.lastSeen.isEmpty() && (chatsList.value(currentChatId,{}).userId == user.userId))
     {
-        QDateTime dt = QDateTime::fromString(user.lastSeen, Qt::ISODateWithMs);
-        if (!dt.isValid())
-            dt = QDateTime::fromString(user.lastSeen, Qt::ISODate);
-
+        bool isUserOnline = onlineStatuses.value(user.userId, false);
         QString lastSeenText;
-        if (dt.isValid()) {
-            QDateTime now = QDateTime::currentDateTime();
-            if (dt.daysTo(now) == 0) {
-                lastSeenText = "Был(а) сегодня в " + dt.toLocalTime().toString("HH:mm");
-            } else if (dt.daysTo(now) == 1) {
-                lastSeenText = "Был(а) вчера в " + dt.toLocalTime().toString("HH:mm");
-            } else {
-                lastSeenText = "Был(а) " + dt.toLocalTime().toString("dd.MM.yyyy в HH:mm");
-            }
-        } else {
-            lastSeenText = user.lastSeen;
-        }
+        if (!isUserOnline)
+        {
+            QDateTime dt = QDateTime::fromString(user.lastSeen, Qt::ISODateWithMs);
+            if (!dt.isValid())
+                dt = QDateTime::fromString(user.lastSeen, Qt::ISODate);
 
+            if (dt.isValid()) {
+                QDateTime now = QDateTime::currentDateTime();
+                if (dt.daysTo(now) == 0) {
+                    lastSeenText = "Был(а) сегодня в " + dt.toLocalTime().toString("HH:mm");
+                } else if (dt.daysTo(now) == 1) {
+                    lastSeenText = "Был(а) вчера в " + dt.toLocalTime().toString("HH:mm");
+                } else {
+                    lastSeenText = "Был(а) " + dt.toLocalTime().toString("dd.MM.yyyy в HH:mm");
+                }
+            } else {
+                lastSeenText = user.lastSeen;
+            }
+        }
+        else
+            lastSeenText = "В сети";
+
+        QString color = isUserOnline ? "#1770ff" : "#8C96A0";
         QString richText = QString("<div style='text-align: center;'>"
                                    "<span style='font-size: 10pt; font-weight: bold; color: #E6E8EB;'>%1</span><br>"
-                                   "<span style='font-size: 8pt; font-weight: normal; color: #8C96A0;'>%2</span>"
+                                   "<span style='font-size: 8pt; font-weight: normal; color: %2;'>%3</span>"
                                    "</div>")
                                .arg(currentChatName.toHtmlEscaped())
+                               .arg(color)
                                .arg(lastSeenText.toHtmlEscaped());
 
         ui->interlocutorNameLabel->setText(richText);
 
-        if (user.avatarFileUrl.isEmpty() || user.avatarFileUrl.isNull()) {
+        if (user.avatarFileUrl.isEmpty() || user.avatarFileUrl.isNull())
+        {
             currentInterlocutorAvatarFull = AvatarHelper::generatePlaceholder(user.nickname.isEmpty() ? user.username : user.nickname, 150);
             ui->interlocutorAvatar->setPixmap(AvatarHelper::generatePlaceholder(user.nickname.isEmpty() ? user.username : user.nickname, 40));
-        } else {
-            // TODO: Загрузить актуальный аватар собеседника
+        }
+        else
+        {
             QString fullUrl = user.avatarFileUrl;
-            if (!fullUrl.startsWith("http")) {
-                fullUrl = baseHttpUrl + fullUrl;
-            }
+            if (!fullUrl.startsWith("http"))
+                fullUrl = baseHttpUrl + fullUrl; // БЛЯ Чё это?
+
             QNetworkAccessManager *manager = new QNetworkAccessManager(this);
             QNetworkRequest request((QUrl(fullUrl)));
             QNetworkReply *reply = manager->get(request);
@@ -2248,9 +2262,9 @@ void MainWindow::appendAttachmentToDraft(unsigned long long chatId, const Parsed
     QJsonObject attachment;
     attachment.insert("file_id", static_cast<qint64>(fileInfo.fileId));
     attachment.insert("filename", fileInfo.filename);
-    if (!localPath.isEmpty()) {
+    if (!localPath.isEmpty())
         attachment.insert("local_path", localPath);
-    }
+
     draft.attachments.append(attachment);
     draft.attachmentsCount = static_cast<unsigned int>(draft.attachments.size());
     draft.hasAttachments = !draft.attachments.isEmpty();
@@ -2279,225 +2293,6 @@ QString MainWindow::stripAttachmentMarker(const QString &text) const
 
     return lines.join("\n");
 }
-
-//FixIt : чуть позже
-
-class PreviewOverlayButton : public QPushButton {
-public:
-    int m_alpha = 0;
-    
-    PreviewOverlayButton(const QColor& defaultColor, const QColor& hoverBgColor, QWidget* parent = nullptr)
-        : QPushButton(parent), m_defaultColor(defaultColor), m_hoverBgColor(hoverBgColor), m_isHovered(false) {
-        setFixedSize(18, 18);
-        setCursor(Qt::PointingHandCursor);
-        setStyleSheet("QPushButton { background: transparent; border: none; }");
-    }
-    
-    void setAlpha(int alpha) {
-        if (m_alpha != alpha) {
-            m_alpha = alpha;
-            update();
-        }
-    }
-    
-protected:
-    void paintEvent(QPaintEvent* event) override {
-        QPushButton::paintEvent(event);
-        if (m_alpha <= 0) return;
-        
-        QPainter painter(this);
-        painter.setRenderHint(QPainter::Antialiasing);
-
-        if (m_isHovered) {
-            QColor hc = m_hoverBgColor;
-            hc.setAlpha((hc.alpha() * m_alpha) / 255);
-            painter.setBrush(hc);
-            painter.setPen(Qt::NoPen);
-            painter.drawEllipse(rect());
-        }
-
-        QColor dc = m_defaultColor;
-        dc.setAlpha((dc.alpha() * m_alpha) / 255);
-        painter.setBrush(dc);
-        painter.setPen(Qt::NoPen);
-        // Внутренний круг
-        painter.drawEllipse(4, 4, 10, 10);
-    }
-
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    void enterEvent(QEnterEvent* event) override {
-#else
-    void enterEvent(QEvent* event) override {
-#endif
-        m_isHovered = true;
-        update();
-        QPushButton::enterEvent(event);
-    }
-
-    void leaveEvent(QEvent* event) override {
-        m_isHovered = false;
-        update();
-        QPushButton::leaveEvent(event);
-    }
-
-private:
-    QColor m_defaultColor;
-    QColor m_hoverBgColor;
-    bool m_isHovered;
-};
-
-class OverlayContainer : public QLabel {
-public:
-    int m_alpha = 0;
-
-    OverlayContainer(QWidget* parent = nullptr) : QLabel(parent) {
-        setAttribute(Qt::WA_TranslucentBackground);
-    }
-    
-    void setAlpha(int alpha) {
-        if (m_alpha != alpha) {
-            m_alpha = alpha;
-            update();
-        }
-    }
-
-protected:
-    void paintEvent(QPaintEvent* event) override {
-        QLabel::paintEvent(event);
-        if (m_alpha <= 0) return;
-        
-        QPainter p(this);
-        p.setRenderHint(QPainter::Antialiasing);
-        p.setPen(Qt::NoPen);
-        int a = (204 * m_alpha) / 255;
-        p.setBrush(QColor(36, 42, 49, a));
-        p.drawRoundedRect(rect(), 12, 12);
-    }
-};
-
-class StagingImageLabel : public QLabel {
-public:
-    QPixmap originalPix;
-    OverlayContainer* overlayContainer;
-    PreviewOverlayButton* btnEnlarge;
-    PreviewOverlayButton* btnDelete;
-    QVariantAnimation* overlayAnim;
-    
-    std::function<void()> onDeleteClicked;
-    std::function<void()> onEnlargeClicked;
-
-    StagingImageLabel(QWidget* parent = nullptr) : QLabel(parent) {
-        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-        setAttribute(Qt::WA_TranslucentBackground);
-        setAttribute(Qt::WA_StyledBackground, false);
-        setAlignment(Qt::AlignCenter);
-
-        overlayContainer = new OverlayContainer(this);
-        overlayContainer->setFixedSize(60, 24);
-        
-        overlayAnim = new QVariantAnimation(this);
-        overlayAnim->setDuration(150); // плавное появление
-        connect(overlayAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant& value) {
-            int alpha = value.toInt();
-            overlayContainer->setAlpha(alpha);
-            btnEnlarge->setAlpha(alpha);
-            btnDelete->setAlpha(alpha);
-            
-            if (alpha == 0) {
-                overlayContainer->hide();
-            } else {
-                overlayContainer->show();
-            }
-        });
-        
-        overlayContainer->hide(); // изначально скрыто (alpha = 0)
-
-        QHBoxLayout* overlayLayout = new QHBoxLayout(overlayContainer);
-        overlayLayout->setContentsMargins(6, 0, 6, 0);
-        overlayLayout->setSpacing(4);
-
-        QColor defaultCircleColor(250, 249, 246);
-        
-        btnEnlarge = new PreviewOverlayButton(defaultCircleColor, QColor(255, 255, 255, 30), overlayContainer);
-        btnDelete = new PreviewOverlayButton(defaultCircleColor, QColor(255, 0, 0, 100), overlayContainer);
-
-        overlayLayout->addWidget(btnEnlarge);
-        overlayLayout->addWidget(btnDelete);
-
-        connect(btnDelete, &QAbstractButton::clicked, this, [this]() {
-            if (onDeleteClicked) onDeleteClicked();
-        });
-        connect(btnEnlarge, &QAbstractButton::clicked, this, [this]() {
-            if (onEnlargeClicked) onEnlargeClicked();
-        });
-    }
-
-    void setOriginalPixmap(const QPixmap& pix)
-    {
-        originalPix = pix;
-        qobject_cast<QAbstractItemView*>(this->parent())->updateGeometry();
-        qobject_cast<QAbstractItemView*>(this->parent())->update();
-    }
-
-    bool hasHeightForWidth() const override { return true; }
-    int heightForWidth(int w) const override {
-        if (originalPix.isNull() || originalPix.width() == 0) return w;
-        int h = (w * originalPix.height()) / originalPix.width();
-        return qMin(h, 400); // 400px максимальная высота
-    }
-
-    QSize sizeHint() const override {
-        int w = width() > 0 ? width() : 200;
-        return QSize(w, heightForWidth(w));
-    }
-
-protected:
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    void enterEvent(QEnterEvent* event) override {
-#else
-    void enterEvent(QEvent* event) override {
-#endif
-        QLabel::enterEvent(event);
-        overlayAnim->stop();
-        overlayAnim->setStartValue(overlayContainer->m_alpha);
-        overlayAnim->setEndValue(255);
-        overlayAnim->start();
-    }
-
-    void leaveEvent(QEvent* event) override {
-        QLabel::leaveEvent(event);
-        overlayAnim->stop();
-        overlayAnim->setStartValue(overlayContainer->m_alpha);
-        overlayAnim->setEndValue(0);
-        overlayAnim->start();
-    }
-
-    void resizeEvent(QResizeEvent* event) override {
-        QLabel::resizeEvent(event);
-        overlayContainer->move(width() - overlayContainer->width() - 8, 8); // справа сверху
-    }
-
-    void paintEvent(QPaintEvent* event) override {
-        if (originalPix.isNull()) {
-            QLabel::paintEvent(event);
-            return;
-        }
-        
-        QPainter p(this);
-        p.setRenderHint(QPainter::Antialiasing);
-        p.setRenderHint(QPainter::SmoothPixmapTransform);
-        
-        QPixmap scaled = originalPix.scaled(size(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
-        
-        QPainterPath path;
-        path.addRoundedRect(rect(), 8, 8);
-        p.setClipPath(path);
-        
-        int x = (width() - scaled.width()) / 2;
-        int y = (height() - scaled.height()) / 2;
-        p.drawPixmap(x, y, scaled);
-    }
-};
 
 void MainWindow::updateStagingCloudsUI(unsigned long long chatId)
 {
@@ -2673,8 +2468,8 @@ void MainWindow::updateStagingCloudsUI(unsigned long long chatId)
                 };
                 
                 lbl->onEnlargeClicked = [this, isImage, localPath, lbl]() {
-                    if (isImage && !lbl->originalPix.isNull()) {
-                        ImageViewerWindow* viewer = new ImageViewerWindow(lbl->originalPix);
+                    if (isImage && !lbl->originalPixmap().isNull()) {
+                        ImageViewerWindow* viewer = new ImageViewerWindow(lbl->originalPixmap());
                         viewer->showFullScreen();
                     }
                 };
@@ -2821,7 +2616,18 @@ void MainWindow::on_messagesView_clicked(const QModelIndex &index)
         for (const auto &attachmentValue : std::as_const(attachments))
         {
             QJsonObject attachmentObj = attachmentValue.toObject();
-            fileIds.push_back(static_cast<quint64>(attachmentObj.value("file_id").toInteger(-1)));
+            QString fileName = attachmentObj.value("filename").toString();
+            QString localPath = attachmentObj.value("local_path").toString();
+            if (!localPath.isEmpty() && QFileInfo::exists(localPath))
+                continue;
+
+            QString path = appDownloadsDir + "/" + fileName;
+            if (!QFileInfo::exists(path))
+            {
+                quint64 fileId = static_cast<quint64>(attachmentObj.value("file_id").toInteger(-1));
+                if (fileId != static_cast<quint64>(-1))
+                    fileIds.push_back(fileId);
+            }
         }
         filesController->requestDownloadFileInfo(accessToken, fileIds);
     }
@@ -2997,6 +2803,22 @@ void MainWindow::on_messageEdited(const quint64 chatId, const quint64 messageId,
                 break;
             }
         }
+    }
+}
+
+void MainWindow::on_userStatus(const quint64 userId, const bool isOnline)
+{
+    onlineStatuses[userId] = isOnline;
+    if (chatsList.value(currentChatId,{}).userId == userId)
+    {
+        QString richText = QString("<div style='text-align: center;'>"
+                           "<span style='font-size: 10pt; font-weight: bold; color: #E6E8EB;'>%1</span><br>"
+                           "<span style='font-size: 8pt; font-weight: normal; color: #1770ff;'>%2</span>"
+                           "</div>")
+                       .arg(currentChatName.toHtmlEscaped())
+                       .arg(isOnline ? QString("В сети").toHtmlEscaped() : QString("Был(а) недавно").toHtmlEscaped());
+
+        ui->interlocutorNameLabel->setText(richText);
     }
 }
 
@@ -3182,37 +3004,6 @@ void MainWindow::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason)
     }
 }
 #endif
-
-class AvatarOutlineOverlay : public QLabel {
-public:
-    int m_alpha = 0;
-    AvatarOutlineOverlay(QWidget* parent = nullptr) : QLabel(parent) {
-        setAttribute(Qt::WA_TransparentForMouseEvents);
-        setAttribute(Qt::WA_TranslucentBackground);
-    }
-    void setAlpha(int alpha) {
-        if (m_alpha != alpha) {
-            m_alpha = alpha;
-            update();
-        }
-    }
-    
-protected:
-    void paintEvent(QPaintEvent* event) override {
-        QLabel::paintEvent(event);
-        if (m_alpha <= 0) return;
-        
-        QPainter p(this);
-        p.setRenderHint(QPainter::Antialiasing);
-        p.setPen(QPen(QColor(255, 255, 255, m_alpha), 2));
-        p.setBrush(Qt::NoBrush);
-        int cx = parentWidget() ? parentWidget()->width() / 2 : width() / 2;
-        int cy = parentWidget() ? parentWidget()->height() / 2 : height() / 2;
-        QRect avatarRect(cx - 20, cy - 20, 40, 40);
-        // Draw the ellipse matching the original eventFilter logic
-        p.drawEllipse(avatarRect.adjusted(-3, -3, 3, 3));
-    }
-};
 
 void MainWindow::setupInterlocutorAvatarPanel()
 {

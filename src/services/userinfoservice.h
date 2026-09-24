@@ -20,7 +20,7 @@ struct ParsedFoundUsersObject
     QString            nickname;                          //!< Никнейм (отображаемое имя)
     QString            lastSeen;                          //!< Временная метка последней активности
     QString            avatarFileUrl;                     //!< Ссылка на аватар
-    unsigned long long userId = ULONG_LONG_MAX;           //!< Идентификатор пользователя
+    quint64            userId = ULONG_LONG_MAX;           //!< Идентификатор пользователя
 };
 
 /**

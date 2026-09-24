@@ -122,6 +122,8 @@ signals:
 
     void messageEdited(const quint64 chatId, const quint64 messageId, const QString &newMessage);
 
+    void userStatus(const quint64 userId, const bool isOnline);
+
 private slots:
     // --- Внутренние слоты-обработчики WebSocket'а ---
 
