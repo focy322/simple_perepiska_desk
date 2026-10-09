@@ -43,6 +43,29 @@ CustomTitleBar::CustomTitleBar(QWidget *parent)
     setStyleSheet("CustomTitleBar { background-color: #0A0A0A; border-top-left-radius: 0px; border-top-right-radius: 0px; }");
 }
 
+#ifdef Q_OS_LINUX
+void CustomTitleBar::mousePressEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton) {
+        if (QWindow *handle = window()->windowHandle(); handle && handle->startSystemMove()) {
+            event->accept();
+            return;
+        }
+    }
+    QWidget::mousePressEvent(event);
+}
+
+void CustomTitleBar::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton) {
+        onMaximizeRestoreClicked();
+        event->accept();
+        return;
+    }
+    QWidget::mouseDoubleClickEvent(event);
+}
+#endif
+
 void CustomTitleBar::onMinimizeClicked()
 {
     window()->showMinimized();

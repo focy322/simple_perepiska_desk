@@ -32,10 +32,10 @@
 #include "controllers/chatscontroller.h"
 #include "controllers/websocketcontroller.h"
 #include "controllers/filescontroller.h"
-#include "utils/chat_list_sort_proxy_model.h"
+#include "models/chat_list_sort_proxy_model.h"
 #include "utils/requests/retryable_request_error_handler.h"
 #include "utils/requests/request_status.h"
-#include "utils/chat_list_sort_proxy_model.h"
+#include "models/chat_list_sort_proxy_model.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {

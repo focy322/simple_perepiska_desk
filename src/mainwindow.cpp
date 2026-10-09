@@ -216,6 +216,9 @@ MainWindow::MainWindow(QWidget *parent)
     // Оставляем стандартные флаги окна, чтобы Windows продолжала считать окно обычным
     // (сохраняются нативные анимации, Aero Snap, двойной клик). Рамка будет скрыта через WM_NCCALCSIZE.
     setWindowFlags(Qt::Window | Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
+#ifdef Q_OS_LINUX
+    setWindowFlag(Qt::FramelessWindowHint);
+#endif
     CustomTitleBar *titleBar = new CustomTitleBar(this);
     setMenuWidget(titleBar);
 
@@ -1293,8 +1296,10 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
                 QTextCursor cursor = ui->messageInput->textCursor();
                 cursor.insertBlock();
                 return true;
-            } else {
-                on_sendMessageBtn_clicked();
+            }
+            else
+            {
+                ui->sendMessageBtn->click();
                 return true;
             }
         } else if (keyEvent->key() == Qt::Key_Escape) {
@@ -2262,6 +2267,7 @@ void MainWindow::appendAttachmentToDraft(unsigned long long chatId, const Parsed
     QJsonObject attachment;
     attachment.insert("file_id", static_cast<qint64>(fileInfo.fileId));
     attachment.insert("filename", fileInfo.filename);
+    attachment.insert("category", fileInfo.category);
     if (!localPath.isEmpty())
         attachment.insert("local_path", localPath);
 
@@ -2275,14 +2281,11 @@ void MainWindow::appendAttachmentToDraft(unsigned long long chatId, const Parsed
 
 void MainWindow::updateSendButtonState(unsigned long long chatId)
 {
-    if (chatId == ULONG_LONG_MAX)
-    {
-        ui->sendMessageBtn->setEnabled(false);
-        return;
-    }
-
     bool hasPendingFiles = ui->messagesView->hasPendingFiles(chatId);
-    ui->sendMessageBtn->setEnabled(!hasPendingFiles);
+    if (chatId == ULONG_LONG_MAX || hasPendingFiles)
+        ui->sendMessageBtn->setEnabled(false);
+    else
+        ui->sendMessageBtn->setEnabled(true);
 }
 
 QString MainWindow::stripAttachmentMarker(const QString &text) const

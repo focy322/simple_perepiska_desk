@@ -35,14 +35,10 @@ file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS "src/*.h")
 file(GLOB_RECURSE FORMS CONFIGURE_DEPENDS "src/*.ui")                                                                                                                                                
 file(GLOB_RECURSE RESOURCES CONFIGURE_DEPENDS "resources/*.qrc") 
 
-# Иконка для Windows
-if(WIN32)
-    set(APP_ICON_RESOURCE_WINDOWS "resources/enot_windows.rc")
-endif()
-
 option(VENT_WINDOWS_CONSOLE "Build Windows app with console window" ON)
 
 if(WIN32)
+    set(APP_ICON_RESOURCE_WINDOWS "resources/enot_windows.rc")
     if(VENT_WINDOWS_CONSOLE)
         qt_add_executable(vent
                 ${SOURCES}

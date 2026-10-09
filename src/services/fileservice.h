@@ -15,6 +15,7 @@ struct ParsedUploadedFileInfo
     QString    filename;                          //!< Имя загруженного файла
     QString    contentType;                       //!< MIME-тип содержимого
     QString    uploadedAt;                        //!< Временная метка загрузки
+    QString    category;
     qulonglong fileId = ULONG_LONG_MAX;           //!< Идентификатор файла на сервере
     qulonglong fileSize = ULONG_LONG_MAX;         //!< Размер файла в байтах
 };

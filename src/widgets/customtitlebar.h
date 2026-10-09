@@ -15,6 +15,12 @@ class CustomTitleBar : public QWidget
 public:
     explicit CustomTitleBar(QWidget *parent = nullptr);
 
+#ifdef Q_OS_LINUX
+protected:
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+#endif
+
 private slots:
     // --- Внутренние обработчики ---
 

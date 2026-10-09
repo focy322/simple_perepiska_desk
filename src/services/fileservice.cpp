@@ -1,5 +1,6 @@
 #include "services/fileservice.h"
 #include "utils/paths.h"
+#include "utils/file_extensions.h"
 
 #include <QUrlQuery>
 #include <QJsonDocument>
@@ -18,12 +19,6 @@ FileService::FileService(QObject *parent)
 void FileService::uploadFile(const QString &accessToken, const QSet<QString> &filePaths, const unsigned long long &chatId)
 {
     emit uploadFileInProgress();
-    QUrl url (baseHttpUrl + uploadFileUrl);
-    QUrlQuery query;
-    query.addQueryItem("chat_id", QString::number(chatId));
-    url.setQuery(query);
-    QNetworkRequest req(url);
-    req.setRawHeader("Authorization", "Bearer " + accessToken.toUtf8());
 
     for (const auto &filePath : std::as_const(filePaths))
     {
@@ -46,6 +41,14 @@ void FileService::uploadFile(const QString &accessToken, const QSet<QString> &fi
         file->setParent(multiPart);
         multiPart->append(filePart);
 
+        // Создание запроса внутри так как разыне категории файлов могут быть
+        QUrl url (baseHttpUrl + uploadFileUrl);
+        QUrlQuery query;
+        query.addQueryItem("chat_id", QString::number(chatId));
+        query.addQueryItem("category", defineFileCategory(filePath));
+        url.setQuery(query);
+        QNetworkRequest req(url);
+        req.setRawHeader("Authorization", "Bearer " + accessToken.toUtf8());
         QNetworkReply *reply = network->post(req, multiPart);
         multiPart->setParent(reply);
 
@@ -231,5 +234,6 @@ const ParsedUploadedFileInfo FileService::parseUploadedFileInfo(const QJsonDocum
     fInfo.contentType = obj.value("content_type").toString();
     fInfo.fileSize = toUnsignedLongLong(obj.value("file_size"));
     fInfo.uploadedAt = obj.value("uploaded_at").toString();
+    fInfo.category = obj.value("category").toString();
     return fInfo;
 }
