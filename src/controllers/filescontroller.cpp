@@ -26,7 +26,7 @@ void FilesController::requestDownloadFileInfo(const QString &accessToken, const 
 
 void FilesController::on_downloadFileInfoFinished(const NetworkResult &res, const ParsedDownloadedFileInfo &fileInfo)
 {
-    if (res.ok && !fileInfo.downloadUrl.isEmpty())
+    if (res.ok && !fileInfo.downloadFileUrl.isEmpty())
     {
         fileService->downloadFile(fileInfo);
     }

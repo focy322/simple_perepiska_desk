@@ -15,8 +15,16 @@ ChatListSortProxyModel::ChatListSortProxyModel(QObject* parent)
 
 bool ChatListSortProxyModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
 {
-    QDateTime dateLeft = left.data(ChatListModel::LastMessageTimestampRole).toDateTime();
-    QDateTime dateRight = right.data(ChatListModel::LastMessageTimestampRole).toDateTime();
+    QString leftTimestamp = left.data(ChatListModel::LastMessageRole).value<MessagePreview>().timestamp;
+    QString rightTimestamp = right.data(ChatListModel::LastMessageRole).value<MessagePreview>().timestamp;
+
+    QDateTime dateLeft = QDateTime::fromString(leftTimestamp,Qt::ISODateWithMs);
+    if ( !dateLeft.isValid() )
+        dateLeft = QDateTime::fromString(leftTimestamp,Qt::ISODate);
+
+    QDateTime dateRight = QDateTime::fromString(rightTimestamp,Qt::ISODateWithMs);
+    if ( !dateRight.isValid() )
+        dateRight = QDateTime::fromString(rightTimestamp,Qt::ISODate);
 
     return dateLeft < dateRight;
 }

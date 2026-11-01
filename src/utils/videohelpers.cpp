@@ -3,6 +3,11 @@
 #include <QPainter>
 #include <QAudioOutput>
 #include <QTimer>
+#include <QFileInfo>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <utility>
 
 VideoThumbnailManager* VideoThumbnailManager::instance()
 {
@@ -10,12 +15,33 @@ VideoThumbnailManager* VideoThumbnailManager::instance()
     return &manager;
 }
 
-VideoThumbnailManager::VideoThumbnailManager(QObject *parent) : QObject(parent)
+VideoThumbnailManager::VideoThumbnailManager(QObject *parent)
+    : QObject(parent)
+    , m_networkManager(new QNetworkAccessManager(this))
 {
 }
 
-QPixmap VideoThumbnailManager::getThumbnail(const QString &path)
+QPixmap VideoThumbnailManager::getThumbnail(const QString &path, const QString &thumbnailUrl)
 {
+    if (!thumbnailUrl.trimmed().isEmpty()) {
+        const QUrl url(thumbnailUrl.trimmed());
+        if (url.isValid() && (url.scheme() == "http" || url.scheme() == "https")) {
+            const QString key = url.toString(QUrl::FullyEncoded);
+            if (m_cache.contains(key))
+                return m_cache.value(key);
+
+            if (!m_retryAfter.contains(key) || QDateTime::currentDateTimeUtc() >= m_retryAfter.value(key)) {
+                if (!m_pending.value(key, false)) {
+                    m_pending.insert(key, true);
+                    downloadThumbnail(url);
+                }
+                return {};
+            }
+        }
+    }
+
+    if (path.isEmpty() || !QFileInfo(path).isFile())
+        return {};
     if (m_cache.contains(path)) {
         return m_cache.value(path);
     }
@@ -26,6 +52,30 @@ QPixmap VideoThumbnailManager::getThumbnail(const QString &path)
     }
     
     return QPixmap();
+}
+
+void VideoThumbnailManager::downloadThumbnail(const QUrl &url)
+{
+    const QString key = url.toString(QUrl::FullyEncoded);
+    QNetworkRequest request(url);
+    request.setTransferTimeout(15000);
+    QNetworkReply *reply = m_networkManager->get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, key]() {
+        m_pending.remove(key);
+        QPixmap thumbnail;
+        if (reply->error() == QNetworkReply::NoError)
+            thumbnail.loadFromData(reply->readAll());
+
+        if (!thumbnail.isNull()) {
+            m_cache.insert(key, thumbnail);
+            m_retryAfter.remove(key);
+        } else {
+            // Не повторяем неудачный запрос на каждой перерисовке списка.
+            m_retryAfter.insert(key, QDateTime::currentDateTimeUtc().addSecs(30));
+        }
+        reply->deleteLater();
+        emit thumbnailReady(key);
+    });
 }
 
 void VideoThumbnailManager::extractThumbnail(const QString &path)
@@ -77,7 +127,7 @@ VideoPlayerDialog::VideoPlayerDialog(const QString &path, QWidget *parent)
     layout->addWidget(m_videoWidget);
     
     m_player = new QMediaPlayer(this);
-    QAudioOutput *audioOutput = new QAudioOutput(this);
+    QAudioOutput *audioOutput = new QAudioOutput(m_player);
     m_player->setAudioOutput(audioOutput);
     m_player->setVideoOutput(m_videoWidget);
     
@@ -87,16 +137,32 @@ VideoPlayerDialog::VideoPlayerDialog(const QString &path, QWidget *parent)
 
 VideoPlayerDialog::~VideoPlayerDialog()
 {
+    releasePlayer();
+}
 
+void VideoPlayerDialog::releasePlayer()
+{
+    QMediaPlayer *player = std::exchange(m_player, nullptr);
+    if (!player)
+        return;
+
+    // Освобождаем кадр и плеер, пока QVideoWidget и его нативное окно ещё существуют.
+    player->blockSignals(true);
+    player->setVideoOutput(nullptr);
+    if (m_videoWidget)
+        m_videoWidget->videoSink()->setVideoFrame(QVideoFrame());
+    player->stop();
+    delete player;
+}
+
+void VideoPlayerDialog::done(int result)
+{
+    releasePlayer();
+    QDialog::done(result);
 }
 
 void VideoPlayerDialog::closeEvent(QCloseEvent *event)
 {
-    if (m_player)
-    {
-        m_player->pause();
-        m_player->setSource(QUrl());
-    }
-
+    releasePlayer();
     QDialog::closeEvent(event);
 }

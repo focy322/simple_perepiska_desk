@@ -9,54 +9,8 @@
 #include <QJsonArray>
 #include <vector>
 #include "utils/errortypes.h"
-#include "utils/requests/retryable_request.h"
-
-/**
- * Структура для хранения распарсенных данных о чате из списка чатов.
- */
-struct ParsedChatsListArrayObject
-{
-    //TODO: Вова добавил новое поле надо распарсить + добавить отрисовку галочек/ожидания
-    QString            chatName;                          //!< Имя чата
-    QString            type;                              //!< Тип чата
-    QString            username;                          //!< Логин собеседника
-    QString            nickname;                          //!< Никнейм собеседника
-    QString            userAvatarFileUrl;                 //!< Ссылка на аватар пользователя
-    QString            lastMessage;                       //!< Текст последнего сообщения
-    QString            lastMessageTimestamp;              //!< Время последнего сообщения
-    QString            lastMessageAttachmentType;         //!< Тип вложения последнего сообщения
-    unsigned long long chatId = ULONG_LONG_MAX;           //!< Идентификатор чата
-    unsigned long long chatAvatarFileId = ULONG_LONG_MAX; //!< Идентификатор аватара чата
-    unsigned long long userId = ULONG_LONG_MAX;           //!< Идентификатор пользователя
-    unsigned long long lastMessageId = ULONG_LONG_MAX;    //!< Идентификатор последнего сообщения
-    unsigned long long lastMessageSenderId = ULONG_LONG_MAX; //!< Идентификатор отправителя последнего сообщения
-    unsigned long long lastMessageAttachmentsCount = 0;   //!< Количество вложений в последнем сообщении
-    unsigned int       unreadCount = 0;                   //!< Количество непрочитанных сообщений
-    bool               lastMessageHasAttachments = false; //!< Наличие вложений в последнем сообщении
-    bool               isPending = false;                 //!< При отправке сообщения для отрисовки значка ожидания
-};
-
-/**
- * Структура для хранения распарсенных данных об отдельном сообщении.
- */
-struct ParsedChatMessagesArrayObject
-{
-    QString            message;                           //!< Текст сообщения
-    QString            timestamp;                         //!< Временная метка отправки
-    QString            clientMessageId;                   //!< Временный идентификатор на клиенте
-    QString            editedAt;                          //!< Временная метка редактирования
-    QString            readAt;                            //!< Временная метка прочтения
-    //TODO : распарсить на вектор чтобы было читабельней а то хуй знает какие поля тут есть
-    QJsonArray         attachments;                       //!< Массив вложений
-    unsigned long long messageId = ULONG_LONG_MAX;        //!< Идентификатор сообщения
-    unsigned long long senderId = ULONG_LONG_MAX;         //!< Идентификатор отправителя
-    unsigned long long chatId = ULONG_LONG_MAX;           //!< Идентификатор чата
-    unsigned int       attachmentsCount = 0;              //!< Количество вложений
-    bool               isPending = false;                 //!< Флаг ожидания отправки
-    bool               read = false;                      //!< Флаг прочтения
-    bool               edited = false;                    //!< Флаг редактирования
-    bool               hasAttachments = false;            //!< Флаг наличия вложений
-};
+#include "utils/parsed_objects.h"
+#include "requests/retryable_request.h"
 
 /**
  * Сервис для взаимодействия с API чатов.
@@ -86,20 +40,6 @@ public:
      * \param retryableReq
      */
     void getChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest retryableReq, quint64 lastMsgId = 0);
-
-    /**
-     * Разбирает JSON-документ со списком чатов в вектор структур ParsedChatsListArrayObject.
-     * \param doc JSON документ от API
-     * \return список чатов
-     */
-    const std::vector<ParsedChatsListArrayObject> parseChatsListArray(const QJsonDocument &doc);
-
-    /**
-     * Разбирает JSON-документ с истории сообщений в вектор структур ParsedChatMessagesArrayObject.
-     * \param doc JSON документ от API
-     * \return список сообщений
-     */
-    const std::vector<ParsedChatMessagesArrayObject> parseChatMessagesArray(const QJsonDocument &doc);
 
     /**
      * Выполняет сетевой запрос на создание нового личного чата.

@@ -6,32 +6,7 @@
 #include <QtNetwork/QNetworkReply>
 #include "utils/errortypes.h"
 #include "utils/endpoints.h"
-
-/**
- * Структура для хранения распарсенных данных об успешно загруженном файле на сервер.
- */
-struct ParsedUploadedFileInfo
-{
-    QString    filename;                          //!< Имя загруженного файла
-    QString    contentType;                       //!< MIME-тип содержимого
-    QString    uploadedAt;                        //!< Временная метка загрузки
-    QString    category;
-    qulonglong fileId = ULONG_LONG_MAX;           //!< Идентификатор файла на сервере
-    qulonglong fileSize = ULONG_LONG_MAX;         //!< Размер файла в байтах
-};
-
-/**
- * Структура для хранения распарсенных данных (метаданных) о файле для его скачивания.
- */
-struct ParsedDownloadedFileInfo
-{
-    QString    filename;                          //!< Имя файла
-    QString    contentType;                       //!< MIME-тип содержимого
-    QString    uploadedAt;                        //!< Временная метка загрузки файла
-    QString    downloadUrl;                       //!< URL для скачивания
-    qulonglong fileId = ULONG_LONG_MAX;           //!< Идентификатор файла на сервере
-    qulonglong fileSize = ULONG_LONG_MAX;         //!< Размер файла в байтах
-};
+#include "utils/parsed_objects.h"
 
 /**
  * Сервис для взаимодействия с API файлов.
@@ -63,20 +38,6 @@ public:
      * \param fileInfo метаданные файла, содержащие URL для скачивания
      */
     void downloadFile(const ParsedDownloadedFileInfo &fileInfo);
-
-    /**
-     * Разбирает JSON-документ с информацией об успешно загруженном файле.
-     * \param doc JSON документ от API
-     * \return структура с информацией о загруженном файле
-     */
-    const ParsedUploadedFileInfo parseUploadedFileInfo(const QJsonDocument &doc);
-
-    /**
-     * Разбирает JSON-документ с информацией о файле, доступном для скачивания.
-     * \param doc JSON документ от API
-     * \return структура с метаданными файла
-     */
-    const ParsedDownloadedFileInfo parseDownloadedFileInfo(const QJsonDocument &doc);
 
 signals:
     // --- Сигналы процессов ---

@@ -6,7 +6,7 @@
 #include <QtNetwork/QNetworkReply>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include "utils/requests/retryable_request.h"
+#include "requests/retryable_request.h"
 
 /**
  * Сервис для взаимодействия с API авторизации.

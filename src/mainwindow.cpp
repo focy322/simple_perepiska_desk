@@ -11,6 +11,7 @@
 #include "utils/paths.h"
 #include "utils/videohelpers.h"
 #include "utils/avatarhelper.h"
+#include "utils/attachmenthelper.h"
 #include "utils/endpoints.h"
 
 #include <QMenu>
@@ -56,6 +57,8 @@
 #include <QAbstractButton>
 
 #include <keychain.h>
+
+#include "utils/file_extensions.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -544,7 +547,8 @@ void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
         ui->backBtn->show();
 
         // Получить информацию о пользователе, чтобы узнать время последнего посещения
-        unsigned long long userId = chatItem.data(ChatListModel::UserIdRole).toULongLong();
+        Interlocutor interlocutor = chatItem.data(ChatListModel::InterlocutorRole).value<Interlocutor>();
+        quint64 userId = interlocutor.userId;
         if (userId != ULONG_LONG_MAX && userId != 0) {
             RetryableRequest req
             {
@@ -601,7 +605,7 @@ void MainWindow::on_sendMessageBtn_clicked()
     //TODO: что то тут может быть не чисто с toPlainText
     QString msgToSend = stripAttachmentMarker(ui->messageInput->toPlainText());
     const auto draftIt = draftsByChatId.constFind(currentChatId);
-    bool hasDraftAttachments = draftIt != draftsByChatId.constEnd() && !draftIt.value().attachments.isEmpty();
+    bool hasDraftAttachments = draftIt != draftsByChatId.constEnd() && !draftIt.value().attachments.empty();
     bool isMessageEmpty = msgToSend.trimmed().isEmpty() && !hasDraftAttachments;
 
     if (currentChatId == ULONG_LONG_MAX)
@@ -640,7 +644,7 @@ void MainWindow::on_sendMessageBtn_clicked()
                     if (msg.messageId == editingMessageId)
                     {
                         msg.message = msgToSend;
-                        msg.edited = true;
+                        msg.isEdited = true;
                         if (msg.messageId == chatIt.value().back().messageId)
                             refreshChatState(currentChatId, msg, false);
 
@@ -667,7 +671,7 @@ void MainWindow::on_sendMessageBtn_clicked()
         {
             localMessage.attachments = draftIt.value().attachments;
             localMessage.attachmentsCount = static_cast<unsigned int>(localMessage.attachments.size());
-            localMessage.hasAttachments = !localMessage.attachments.isEmpty();
+            localMessage.hasAttachments = !localMessage.attachments.empty();
         }
 
         chatMessages[currentChatId].push_back(localMessage);
@@ -1336,8 +1340,9 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
                         tooltipHideTimer->stop();
 
                         QString title = index.data(ChatListModel::ChatNameRole).toString().trimmed();
-                        QString subtitle = index.data(ChatListModel::LastMessageRole).toString().trimmed();
-                        QString timestamp = index.data(ChatListModel::LastMessageTimestampRole).toString().trimmed();
+                        MessagePreview messagePreview = index.data(ChatListModel::LastMessageRole).value<MessagePreview>();
+                        QString subtitle = messagePreview.message.trimmed();
+                        QString timestamp = messagePreview.timestamp.trimmed();
                         int unreadCount = index.data(ChatListModel::UnreadCountRole).toInt();
 
                         tooltipTitleLabel->setText(QFontMetrics(tooltipTitleLabel->font()).elidedText(title, Qt::ElideRight, 130));
@@ -1709,7 +1714,7 @@ void MainWindow::on_uploadAvatarFinished(const NetworkResult &res, const QString
 
 void MainWindow::on_getUserInfoFinished(const NetworkResult &res, const ParsedFoundUsersObject &user)
 {
-    if (res.ok && !user.lastSeen.isEmpty() && (chatsList.value(currentChatId,{}).userId == user.userId))
+    if (res.ok && !user.lastSeen.isEmpty() && (chatsList.value(currentChatId,{}).interlocutor.userId == user.userId))
     {
         bool isUserOnline = onlineStatuses.value(user.userId, false);
         QString lastSeenText;
@@ -2226,7 +2231,7 @@ void MainWindow::saveDraftForChat(unsigned long long chatId)
     draft.chatId = chatId;
     draft.message = stripAttachmentMarker(ui->messageInput->toPlainText());
 
-    if (draft.message.trimmed().isEmpty() && draft.attachments.isEmpty())
+    if (draft.message.trimmed().isEmpty() && draft.attachments.empty())
     {
         draftsByChatId.remove(chatId);
         return;
@@ -2264,16 +2269,20 @@ void MainWindow::appendAttachmentToDraft(unsigned long long chatId, const Parsed
 
     ParsedChatMessagesArrayObject draft = draftsByChatId.value(chatId);
     draft.chatId = chatId;
-    QJsonObject attachment;
-    attachment.insert("file_id", static_cast<qint64>(fileInfo.fileId));
-    attachment.insert("filename", fileInfo.filename);
-    attachment.insert("category", fileInfo.category);
+    Attachment attachment;
+    attachment.fileId = fileInfo.fileId;
+    attachment.fileName = fileInfo.fileName;
+    attachment.category = fileInfo.category;
+    attachment.contentType = fileInfo.contentType;
+    attachment.fileSize = fileInfo.fileSize;
+    //TODO: У attachment нету fileInfo.uploadedAt
     if (!localPath.isEmpty())
-        attachment.insert("local_path", localPath);
+        attachment.localPath = localPath;
+    attachment.category = AttachmentHelper::category(attachment);
 
-    draft.attachments.append(attachment);
+    draft.attachments.push_back(attachment);
     draft.attachmentsCount = static_cast<unsigned int>(draft.attachments.size());
-    draft.hasAttachments = !draft.attachments.isEmpty();
+    draft.hasAttachments = !draft.attachments.empty();
 
     draftsByChatId.insert(chatId, draft);
     updateStagingCloudsUI(chatId);
@@ -2299,13 +2308,16 @@ QString MainWindow::stripAttachmentMarker(const QString &text) const
 
 void MainWindow::updateStagingCloudsUI(unsigned long long chatId)
 {
-    if (chatId == ULONG_LONG_MAX) {
+    if (chatId == ULONG_LONG_MAX)
+    {
         QLayoutItem *item;
-        while ((item = stagingMediaLayout->takeAt(0)) != nullptr) {
+        while ((item = stagingMediaLayout->takeAt(0)) != nullptr)
+        {
             if (item->widget()) item->widget()->deleteLater();
             delete item;
         }
-        while ((item = stagingFilesLayout->takeAt(0)) != nullptr) {
+        while ((item = stagingFilesLayout->takeAt(0)) != nullptr)
+        {
             if (item->widget()) item->widget()->deleteLater();
             delete item;
         }
@@ -2314,19 +2326,21 @@ void MainWindow::updateStagingCloudsUI(unsigned long long chatId)
     }
     
     const auto draftIt = draftsByChatId.constFind(chatId);
-    if (draftIt == draftsByChatId.constEnd() || draftIt.value().attachments.isEmpty()) {
+    if (draftIt == draftsByChatId.constEnd() || draftIt.value().attachments.empty())
+    {
         messageInputHorizontalAnim->disconnect();
 
-        if (stagingWidget->isVisible()) {
+        if (stagingWidget->isVisible())
+        {
             QGraphicsOpacityEffect *effect = qobject_cast<QGraphicsOpacityEffect*>(stagingWidget->graphicsEffect());
-            if (!effect) {
+            if (!effect)
+            {
                 effect = new QGraphicsOpacityEffect(stagingWidget);
                 stagingWidget->setGraphicsEffect(effect);
                 effect->setOpacity(1.0);
             }
-            if (stagingContentWidget->graphicsEffect()) {
+            if (stagingContentWidget->graphicsEffect())
                 stagingContentWidget->setGraphicsEffect(nullptr);
-            }
             
             QPropertyAnimation *fadeAnim = new QPropertyAnimation(effect, "opacity", this);
             fadeAnim->setDuration(200);
@@ -2334,7 +2348,8 @@ void MainWindow::updateStagingCloudsUI(unsigned long long chatId)
             fadeAnim->setEndValue(0.0);
             
             connect(fadeAnim, &QPropertyAnimation::finished, this, [this, fadeAnim](){
-                if (stagingWidget->graphicsEffect() != fadeAnim->targetObject()) {
+                if (stagingWidget->graphicsEffect() != fadeAnim->targetObject())
+                {
                     fadeAnim->deleteLater();
                     return;
                 }
@@ -2345,11 +2360,13 @@ void MainWindow::updateStagingCloudsUI(unsigned long long chatId)
                 fadeAnim->deleteLater();
                 
                 QLayoutItem *item;
-                while ((item = stagingMediaLayout->takeAt(0)) != nullptr) {
+                while ((item = stagingMediaLayout->takeAt(0)) != nullptr)
+                {
                     if (item->widget()) item->widget()->deleteLater();
                     delete item;
                 }
-                while ((item = stagingFilesLayout->takeAt(0)) != nullptr) {
+                while ((item = stagingFilesLayout->takeAt(0)) != nullptr)
+                {
                     if (item->widget()) item->widget()->deleteLater();
                     delete item;
                 }
@@ -2370,13 +2387,17 @@ void MainWindow::updateStagingCloudsUI(unsigned long long chatId)
                 messageInputHorizontalAnim->start();
             });
             fadeAnim->start();
-        } else {
+        }
+        else
+        {
             QLayoutItem *item;
-            while ((item = stagingMediaLayout->takeAt(0)) != nullptr) {
+            while ((item = stagingMediaLayout->takeAt(0)) != nullptr)
+            {
                 if (item->widget()) item->widget()->deleteLater();
                 delete item;
             }
-            while ((item = stagingFilesLayout->takeAt(0)) != nullptr) {
+            while ((item = stagingFilesLayout->takeAt(0)) != nullptr)
+            {
                 if (item->widget()) item->widget()->deleteLater();
                 delete item;
             }
@@ -2384,9 +2405,8 @@ void MainWindow::updateStagingCloudsUI(unsigned long long chatId)
             ui->horizontalSpacerInputLeft->changeSize(170, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
             ui->horizontalSpacerInputRight->changeSize(170, 20, QSizePolicy::Fixed, QSizePolicy::Minimum);
             ui->messageInputLayout->invalidate();
-            if (ui->messageInput->parentWidget()) {
+            if (ui->messageInput->parentWidget())
                 ui->messageInput->parentWidget()->layout()->activate();
-            }
         }
         return;
     }
@@ -2410,22 +2430,11 @@ void MainWindow::updateStagingCloudsUI(unsigned long long chatId)
     }
     
     int totalMediaCount = 0;
-    for (const QJsonValue &value : std::as_const(draftIt.value().attachments)) {
-        if (value.isObject()) {
-            QJsonObject obj = value.toObject();
-            QString filename = obj.value("filename").toString();
-            bool isImage = filename.endsWith(".png", Qt::CaseInsensitive)  || 
-                           filename.endsWith(".jpg", Qt::CaseInsensitive)  || 
-                           filename.endsWith(".jpeg", Qt::CaseInsensitive) || 
-                           filename.endsWith(".bmp", Qt::CaseInsensitive)  || 
-                           filename.endsWith(".gif", Qt::CaseInsensitive);
-            bool isVideo = filename.endsWith(".mp4", Qt::CaseInsensitive) || 
-                           filename.endsWith(".avi", Qt::CaseInsensitive) || 
-                           filename.endsWith(".mov", Qt::CaseInsensitive) || 
-                           filename.endsWith(".mkv", Qt::CaseInsensitive);
-            if (isImage || isVideo) 
-                totalMediaCount++;
-        }
+    for (const Attachment &value : std::as_const(draftIt.value().attachments))
+    {
+        const QString category = AttachmentHelper::category(value);
+        if (category == "image" || category == "video")
+            totalMediaCount++;
     }
     
     int cols = 1;
@@ -2437,86 +2446,85 @@ void MainWindow::updateStagingCloudsUI(unsigned long long chatId)
     int mediaCount = 0;
     int attachIndex = 0;
     
-    for (const QJsonValue &value : std::as_const(draftIt.value().attachments)) {
-        if (value.isObject()) {
-            QJsonObject obj = value.toObject();
-            QString filename = obj.value("filename").toString();
-            QString localPath = obj.value("local_path").toString();
-            if (localPath.isEmpty()) localPath = appDownloadsDir + "/" + filename;
-            
-            bool isImage = filename.endsWith(".png", Qt::CaseInsensitive)  ||
-                           filename.endsWith(".jpg", Qt::CaseInsensitive)  ||
-                           filename.endsWith(".jpeg", Qt::CaseInsensitive) ||
-                           filename.endsWith(".bmp", Qt::CaseInsensitive)  ||
-                           filename.endsWith(".gif", Qt::CaseInsensitive);
-            
-            bool isVideo = filename.endsWith(".mp4", Qt::CaseInsensitive) ||
-                           filename.endsWith(".avi", Qt::CaseInsensitive) ||
-                           filename.endsWith(".mov", Qt::CaseInsensitive) ||
-                           filename.endsWith(".mkv", Qt::CaseInsensitive);
-            
-            if (isImage || isVideo) {
-                StagingImageLabel *lbl = new StagingImageLabel(ui->chatsView);
-                lbl->onDeleteClicked = [this, chatId, attachIndex]() {
-                    if (draftsByChatId.contains(chatId)) {
-                        auto draft = draftsByChatId.value(chatId);
-                        if (attachIndex >= 0 && attachIndex < draft.attachments.size()) {
-                            draft.attachments.removeAt(attachIndex);
-                            draft.attachmentsCount = static_cast<unsigned int>(draft.attachments.size());
-                            draft.hasAttachments = !draft.attachments.isEmpty();
-                            draftsByChatId.insert(chatId, draft);
+    for (const Attachment &value : std::as_const(draftIt.value().attachments))
+    {
+        QString filename = value.fileName;
+        QString localPath = value.localPath;
+        if (localPath.isEmpty())
+            localPath = appDownloadsDir + "/" + filename;
+
+        const QString category = AttachmentHelper::category(value);
+        const bool isImage = category == "image";
+        const bool isVideo = category == "video";
+
+        if (isImage || isVideo)
+        {
+            StagingImageLabel *lbl = new StagingImageLabel(ui->chatsView);
+            lbl->onDeleteClicked = [this, chatId, attachIndex]() {
+                if (draftsByChatId.contains(chatId))
+                {
+                    auto draft = draftsByChatId.value(chatId);
+                    if (attachIndex >= 0 && attachIndex < draft.attachments.size())
+                    {
+                        draft.attachments.erase(draft.attachments.begin() + attachIndex);
+                        draft.attachmentsCount = static_cast<unsigned int>(draft.attachments.size());
+                        draft.hasAttachments = !draft.attachments.empty();
+                        draftsByChatId.insert(chatId, draft);
+                        updateStagingCloudsUI(chatId);
+                    }
+                }
+            };
+
+            lbl->onEnlargeClicked = [this, isImage, localPath, lbl]() {
+                if (isImage && !lbl->originalPixmap().isNull()) {
+                    ImageViewerWindow* viewer = new ImageViewerWindow(lbl->originalPixmap());
+                    viewer->showFullScreen();
+                }
+            };
+
+            QPixmap pix;
+            if (isImage)
+                pix.load(localPath);
+            else if (isVideo)
+            {
+                pix = VideoThumbnailManager::instance()->getThumbnail(localPath);
+                if (pix.isNull())
+                {
+                    lbl->setText("Загрузка...");
+                    // обновление превью после того как оно будет готово
+                    connect(VideoThumbnailManager::instance(), &VideoThumbnailManager::thumbnailReady, lbl, [this, localPath, chatId](const QString &readyPath) {
+                        if (localPath == readyPath) {
                             updateStagingCloudsUI(chatId);
                         }
-                    }
-                };
-                
-                lbl->onEnlargeClicked = [this, isImage, localPath, lbl]() {
-                    if (isImage && !lbl->originalPixmap().isNull()) {
-                        ImageViewerWindow* viewer = new ImageViewerWindow(lbl->originalPixmap());
-                        viewer->showFullScreen();
-                    }
-                };
-                
-                QPixmap pix;
-                if (isImage) {
-                    pix.load(localPath);
-                } else if (isVideo) {
-                    pix = VideoThumbnailManager::instance()->getThumbnail(localPath);
-                    if (pix.isNull()) {
-                        lbl->setText("Загрузка...");
-                        // обновление превью после того как оно будет готово
-                        connect(VideoThumbnailManager::instance(), &VideoThumbnailManager::thumbnailReady, lbl, [this, localPath, chatId](const QString &readyPath) {
-                            if (localPath == readyPath) {
-                                updateStagingCloudsUI(chatId);
-                            }
-                        });
-                    }
+                    });
                 }
-                
-                if (!pix.isNull()) {
-                    lbl->setOriginalPixmap(pix);
-                }
-                
-                int row = mediaCount / cols;
-                int col = mediaCount % cols;
-                stagingMediaLayout->addWidget(lbl, row, col);
-                mediaCount++;
-            } else {
-                QLabel *lbl = new QLabel(filename);
-                lbl->setStyleSheet("background-color: #242A31; color: #E6E8EB; border-radius: 8px; padding: 4px 10px; font-size: 11px;");
-                lbl->setFixedHeight(24);
-                stagingFilesLayout->addWidget(lbl);
             }
+
+            if (!pix.isNull())
+                lbl->setOriginalPixmap(pix);
+
+            int row = mediaCount / cols;
+            int col = mediaCount % cols;
+            stagingMediaLayout->addWidget(lbl, row, col);
+            mediaCount++;
+        } else
+        {
+            QLabel *lbl = new QLabel(filename);
+            lbl->setStyleSheet("background-color: #242A31; color: #E6E8EB; border-radius: 8px; padding: 4px 10px; font-size: 11px;");
+            lbl->setFixedHeight(24);
+            stagingFilesLayout->addWidget(lbl);
         }
         attachIndex++;
     }
     
-    if (stagingWidget->layout()) {
+    if (stagingWidget->layout())
+    {
         stagingWidget->layout()->invalidate();
         stagingWidget->layout()->activate();
     }
     
-    if (!stagingWidget->isVisible()) {
+    if (!stagingWidget->isVisible())
+    {
         messageInputHorizontalAnim->disconnect();
         messageInputHorizontalAnim->stop();
         
@@ -2611,30 +2619,14 @@ void MainWindow::on_uploadFileFinished(const NetworkResult &res, const QString &
 // Скачивание сразу всех вложений при нажатии на сообщение
 void MainWindow::on_messagesView_clicked(const QModelIndex &index)
 {
-    bool hasAttachments = index.data(ChatMessagesListModel::HasAttachmentsRole).toBool();
-    if (hasAttachments)
-    {
-        std::vector<quint64> fileIds{};
-        QJsonArray attachments = index.data(ChatMessagesListModel::AttachmentsRole).toJsonArray();
-        for (const auto &attachmentValue : std::as_const(attachments))
-        {
-            QJsonObject attachmentObj = attachmentValue.toObject();
-            QString fileName = attachmentObj.value("filename").toString();
-            QString localPath = attachmentObj.value("local_path").toString();
-            if (!localPath.isEmpty() && QFileInfo::exists(localPath))
-                continue;
-
-            QString path = appDownloadsDir + "/" + fileName;
-            if (!QFileInfo::exists(path))
-            {
-                quint64 fileId = static_cast<quint64>(attachmentObj.value("file_id").toInteger(-1));
-                if (fileId != static_cast<quint64>(-1))
-                    fileIds.push_back(fileId);
-            }
-        }
-        filesController->requestDownloadFileInfo(accessToken, fileIds);
+    const auto attachments = index.data(ChatMessagesListModel::AttachmentsRole).value<std::vector<Attachment>>();
+    std::vector<quint64> fileIds;
+    for (const Attachment &attachment : attachments) {
+        if (attachment.fileId != ULONG_LONG_MAX && AttachmentHelper::localFilePath(attachment).isEmpty())
+            fileIds.push_back(attachment.fileId);
     }
-
+    if (!fileIds.empty())
+        filesController->requestDownloadFileInfo(accessToken, fileIds);
 }
 
 void MainWindow::on_needReadLastMessage(const std::pair<quint64, quint64> &message)
@@ -2664,17 +2656,17 @@ void MainWindow::on_messageMarkedRead(const quint64 userId, const quint64 chatId
             if (userId != myUserId)
             {
                 // Собеседник прочитал наши сообщения
-                if ((message.senderId == myUserId) && (message.messageId <= lastReadMessageId) && !message.read)
+                if ((message.senderId == myUserId) && (message.messageId <= lastReadMessageId) && !message.isRead)
                 {
-                    message.read = true;
+                    message.isRead = true;
                 }
             }
             else
             {
                 // Мы прочитали сообщения собеседника
-                if ((message.senderId != myUserId) && (message.messageId <= lastReadMessageId) && !message.read)
+                if ((message.senderId != myUserId) && (message.messageId <= lastReadMessageId) && !message.isRead)
                 {
-                    message.read = true;
+                    message.isRead = true;
                     readCount++;
                 }
             }
@@ -2713,6 +2705,7 @@ void MainWindow::on_downloadFileInProgress()
 void MainWindow::on_downloadFileFinished(const NetworkResult &res, const ParsedDownloadedFileInfo &fileInfo)
 {
     if (res.ok) {
+        ui->messagesView->doItemsLayout();
         ui->messagesView->viewport()->update();
     }
 }
@@ -2794,7 +2787,7 @@ void MainWindow::on_messageEdited(const quint64 chatId, const quint64 messageId,
             if (message.messageId == messageId)
             {
                 message.message = newMessage;
-                message.edited = true;
+                message.isEdited = true;
                 if (currentChatId == chatId)
                     messagesListModel->setMessages(messages);
 
@@ -2812,7 +2805,7 @@ void MainWindow::on_messageEdited(const quint64 chatId, const quint64 messageId,
 void MainWindow::on_userStatus(const quint64 userId, const bool isOnline)
 {
     onlineStatuses[userId] = isOnline;
-    if (chatsList.value(currentChatId,{}).userId == userId)
+    if (chatsList.value(currentChatId,{}).interlocutor.userId == userId)
     {
         QString richText = QString("<div style='text-align: center;'>"
                            "<span style='font-size: 10pt; font-weight: bold; color: #E6E8EB;'>%1</span><br>"
@@ -2939,32 +2932,11 @@ void MainWindow::autoDownloadImages(const std::vector<ParsedChatMessagesArrayObj
     std::vector<quint64> imageFileIds;
     for (const auto& msg : messages)
     {
-        if (!msg.hasAttachments)
-            continue;
-        for (const auto& attachmentValue : std::as_const(msg.attachments))
+        for (const auto& attachment : std::as_const(msg.attachments))
         {
-            QJsonObject obj = attachmentValue.toObject();
-            QString fileName = obj.value("filename").toString();
-            bool isImage = fileName.endsWith(".png", Qt::CaseInsensitive)  ||
-                           fileName.endsWith(".jpg", Qt::CaseInsensitive)  ||
-                           fileName.endsWith(".jpeg", Qt::CaseInsensitive) ||
-                           fileName.endsWith(".bmp", Qt::CaseInsensitive)  ||
-                           fileName.endsWith(".gif", Qt::CaseInsensitive);
-            
-            if (isImage)
-            {
-                QString localPath = obj.value("local_path").toString();
-                if (!localPath.isEmpty() && QFileInfo::exists(localPath))
-                    continue;
-
-                QString path = appDownloadsDir + "/" + fileName;
-                if (!QFileInfo::exists(path))
-                {
-                    quint64 fileId = static_cast<quint64>(obj.value("file_id").toInteger(-1));
-                    if (fileId != static_cast<quint64>(-1))
-                        imageFileIds.push_back(fileId);
-                }
-            }
+            if (AttachmentHelper::category(attachment) == "image" &&
+                attachment.fileId != ULONG_LONG_MAX && AttachmentHelper::localFilePath(attachment).isEmpty())
+                imageFileIds.push_back(attachment.fileId);
         }
     }
     
@@ -2993,6 +2965,14 @@ void MainWindow::closeEvent(QCloseEvent *event)
 #endif
 }
 
+void MainWindow::showAndActivate()
+{
+    setWindowState(windowState() & ~Qt::WindowMinimized);
+    show();
+    raise();
+    activateWindow();
+}
+
 #ifndef QT_DEBUG
 void MainWindow::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason)
 {
@@ -3000,9 +2980,7 @@ void MainWindow::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason)
         if (isVisible() && !isMinimized()) {
             hide();
         } else {
-            showNormal();
-            activateWindow();
-            raise();
+            showAndActivate();
         }
     }
 }
@@ -3125,13 +3103,13 @@ void MainWindow::hideInterlocutorAvatarPanel()
 void MainWindow::updateInterlocutorAvatarOutline()
 {
     int targetAlpha = 0;
-    if (interlocutorAvatarPanel && interlocutorAvatarPanel->isVisible()) {
+    if (interlocutorAvatarPanel && interlocutorAvatarPanel->isVisible())
         targetAlpha = 80;
-    } else if (ui->interlocutorAvatar->underMouse()) {
+    else if (ui->interlocutorAvatar->underMouse())
         targetAlpha = 30;
-    }
     
-    if (interlocutorAvatarOutlineAnim->endValue().toInt() != targetAlpha) {
+    if (interlocutorAvatarOutlineAnim->endValue().toInt() != targetAlpha)
+    {
         interlocutorAvatarOutlineAnim->stop();
         interlocutorAvatarOutlineAnim->setStartValue(interlocutorAvatarOutlineAlpha);
         interlocutorAvatarOutlineAnim->setEndValue(targetAlpha);
@@ -3139,62 +3117,56 @@ void MainWindow::updateInterlocutorAvatarOutline()
     }
 }
 
-void MainWindow::refreshChatState(unsigned long long chatId,
-                                  const ParsedChatMessagesArrayObject &newMessage, bool isNeedIncrementUnread)
+void MainWindow::refreshChatState(const unsigned long long chatId,
+                                  const ParsedChatMessagesArrayObject & newMessage, const bool isNeedIncrementUnread)
 {
     auto chatIt = chatsList.find(chatId);
     if (chatIt == chatsList.end())
         return;
+
     //TODO: При accept сообщения можно просто timeStamp и pending менять
-    //TODO: как будто можно .value() общий сделать а не на каждый
-    chatIt.value().lastMessage = newMessage.message;
-    chatIt.value().lastMessageTimestamp = newMessage.timestamp;
+    auto & chat = chatIt.value();
+
+    chat.isPending = newMessage.isPending;
     if (isNeedIncrementUnread)
-        chatIt.value().unreadCount += 1;
-    chatIt.value().isPending = newMessage.isPending;
-    chatIt.value().lastMessageId = newMessage.messageId;
-    chatIt.value().lastMessageSenderId = newMessage.senderId;
-    chatIt.value().lastMessageAttachmentsCount = newMessage.attachmentsCount;
-    chatIt.value().lastMessageHasAttachments = newMessage.hasAttachments;
-    if (!newMessage.hasAttachments)
-        chatIt.value().lastMessageAttachmentType = "";
-    else
+        chat.unreadCount += 1;
+
+    chat.lastMessage.messageId = newMessage.messageId;
+    chat.lastMessage.senderId = newMessage.senderId;
+    chat.lastMessage.message = newMessage.message;
+    chat.lastMessage.timestamp = newMessage.timestamp;
+    chat.lastMessage.attachmentsCount = newMessage.attachmentsCount;
+    chat.lastMessage.isRead = newMessage.isRead;
+    chat.lastMessage.hasAttachments = newMessage.hasAttachments;
+    if (newMessage.hasAttachments)
     {
         bool hasImage = false;
-        bool hasFile = false;
         bool hasVideo = false;
-        for (const auto& attachmentValue : std::as_const(newMessage.attachments)) 
+        bool hasAudio = false;
+        bool hasDocument = false;
+        for (const auto & attachment : std::as_const(newMessage.attachments))
         {
-            QJsonObject obj = attachmentValue.toObject();
-            QString fileName = obj.value("filename").toString();
-            bool isImage = fileName.endsWith(".png", Qt::CaseInsensitive)  ||
-                            fileName.endsWith(".jpg", Qt::CaseInsensitive)  ||
-                            fileName.endsWith(".jpeg", Qt::CaseInsensitive) ||
-                            fileName.endsWith(".bmp", Qt::CaseInsensitive)  ||
-                            fileName.endsWith(".gif", Qt::CaseInsensitive);
-
-            bool isVideo = fileName.endsWith(".mp4", Qt::CaseInsensitive)  ||
-                            fileName.endsWith(".m4v", Qt::CaseInsensitive)  ||
-                            fileName.endsWith(".mkv", Qt::CaseInsensitive) ||
-                            fileName.endsWith(".avi", Qt::CaseInsensitive)  ||
-                            fileName.endsWith(".mov", Qt::CaseInsensitive);
-            if (isImage) 
+             QStringView category = attachment.category;
+            if (category.compare(fileCategories[0], Qt::CaseInsensitive) == 0)
                 hasImage = true;
-            else if (isVideo)
+            else if (category.compare(fileCategories[1], Qt::CaseInsensitive) == 0)
                 hasVideo = true;
-            else
-                hasFile = true;
-
+            else if (category.compare(fileCategories[2], Qt::CaseInsensitive) == 0)
+                hasAudio = true;
+            else if (category.compare(fileCategories[3], Qt::CaseInsensitive) == 0)
+                hasDocument = true;
         }
-        if (hasFile) 
-            chatIt.value().lastMessageAttachmentType = "File";
+        // TODO: Спросить у Вовчика
+        if (hasDocument)
+            chat.lastMessage.category = fileCategories[3].data();
         else if (hasImage && hasVideo)
-            chatIt.value().lastMessageAttachmentType = "Media";
+            chat.lastMessage.category = fileCategories[3].data();
         else if (hasImage)
-            chatIt.value().lastMessageAttachmentType = "Image";
+            chat.lastMessage.category = fileCategories[0].data();
         else if (hasVideo)
-            chatIt.value().lastMessageAttachmentType = "Video";
-
+            chat.lastMessage.category = fileCategories[1].data();
+        else if (hasAudio)
+            chat.lastMessage.category = fileCategories[2].data();
     }
     chatsListModel->updateChat(chatIt.value());
 }

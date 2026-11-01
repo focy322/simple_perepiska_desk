@@ -3,8 +3,9 @@
 #include <QUrlQuery>
 
 #include "services/chatservice.h"
-#include "utils/requests/retryable_request.h"
+#include "requests/retryable_request.h"
 #include "utils/endpoints.h"
+#include "utils/parsed_objects.h"
 
 ChatService::ChatService(QObject *parent)
     : QObject{parent}
@@ -54,83 +55,6 @@ void ChatService::getMyChats(const QString &accToken, RetryableRequest retryable
 
 }
 
-const std::vector<ParsedChatsListArrayObject> ChatService::parseChatsListArray(const QJsonDocument &doc)
-{
-    std::vector<ParsedChatsListArrayObject> parsedArrayObjects;  //!< Объекты разобранного JSON-массива
-
-    // Безопасное преобразование JSON-числа к unsigned long long.
-    auto toUnsignedLongLong = [](const QJsonValue &value, unsigned long long defaultValue = ULONG_LONG_MAX) -> unsigned long long
-    {
-        if (!value.isDouble())
-            return defaultValue;
-
-        const double number = value.toDouble();
-        if (number < 0 || std::floor(number) != number)
-            return defaultValue;
-
-        return static_cast<unsigned long long>(number);
-    };
-
-    const QJsonArray chats = doc.array();
-    for (const QJsonValue &chatValue : chats)
-    {
-        if (!chatValue.isObject())
-            continue;
-
-        const QJsonObject chatObject = chatValue.toObject();
-
-        ParsedChatsListArrayObject paObj;
-        paObj.chatId = toUnsignedLongLong(chatObject.value("chat_id"));
-        paObj.chatName = chatObject.value("chat_name").toString();
-        paObj.chatAvatarFileId = toUnsignedLongLong(chatObject.value("chat_avatar_file_id"));
-        paObj.type = chatObject.value("type").toString();
-
-        const QJsonValue interlocutorValue = chatObject.value("interlocutor");
-        if (interlocutorValue.isObject())
-        {
-            // Для group-чата user может отсутствовать, поэтому блок опциональный.
-            const QJsonObject interlocutorObj = interlocutorValue.toObject();
-            paObj.userId = toUnsignedLongLong(interlocutorObj.value("user_id"));
-            paObj.username = interlocutorObj.value("username").toString();
-            paObj.nickname = interlocutorObj.value("nickname").toString();
-            paObj.userAvatarFileUrl = interlocutorObj.value("avatar_file_url").toString();
-        }
-
-        const QString normalizedChatName = paObj.chatName.trimmed();
-        if (paObj.type.compare("private", Qt::CaseInsensitive) == 0
-            && (normalizedChatName.isEmpty() || normalizedChatName.compare("none", Qt::CaseInsensitive) == 0))
-        {
-            const QString nickname = paObj.nickname.trimmed();
-            const QString username = paObj.username.trimmed();
-            // Для private-диалогов используем nickname/username как отображаемое имя чата.
-            if (!nickname.isEmpty())
-                paObj.chatName = nickname;
-            else if (!username.isEmpty())
-                paObj.chatName = username;
-        }
-
-        const QJsonValue lastMessageValue = chatObject.value("last_message");
-        if (lastMessageValue.isObject())
-        {
-            // last_message опционален: заполняем только если объект присутствует.
-            const QJsonObject lastMessageObject = lastMessageValue.toObject();
-            paObj.lastMessageId = toUnsignedLongLong(lastMessageObject.value("message_id"));
-            paObj.lastMessageSenderId = toUnsignedLongLong(lastMessageObject.value("sender_id"));
-            paObj.lastMessage = lastMessageObject.value("message").toString();
-            paObj.lastMessageTimestamp = lastMessageObject.value("timestamp").toString();
-            paObj.lastMessageHasAttachments = lastMessageObject.value("has_attachments").toBool(false);
-            paObj.lastMessageAttachmentType = lastMessageObject.value("attachment_type").toString();
-            paObj.lastMessageAttachmentsCount = toUnsignedLongLong(lastMessageObject.value("attachments_count"), 0);
-        }
-
-        if (chatObject.contains("unread_count"))
-            paObj.unreadCount = static_cast<unsigned int>(toUnsignedLongLong(chatObject.value("unread_count"), 0));
-
-        parsedArrayObjects.push_back(paObj);
-    }
-    return parsedArrayObjects;
-}
-
 void ChatService::getChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest retryableReq, quint64 lastMsgId)
 {
     emit getChatMessagesInProgress();
@@ -177,56 +101,6 @@ void ChatService::getChatMessages(const unsigned long long &chatId, const QStrin
         emit getChatMessagesFinished(res, retryableReq);
         reply->deleteLater();
     });
-}
-
-const std::vector<ParsedChatMessagesArrayObject> ChatService::parseChatMessagesArray(const QJsonDocument &doc)
-{
-    std::vector<ParsedChatMessagesArrayObject> parsedArrayObjects;
-
-    // Безопасное преобразование JSON-числа к unsigned long long.
-    auto toUnsignedLongLong = [](const QJsonValue &value, unsigned long long defaultValue = ULONG_LONG_MAX) -> unsigned long long
-    {
-        if (!value.isDouble())
-            return defaultValue;
-
-        const double number = value.toDouble();
-        if (number < 0 || std::floor(number) != number)
-            return defaultValue;
-
-        return static_cast<unsigned long long>(number);
-    };
-
-    const QJsonArray messages = doc.array();
-    for (const QJsonValue &messageValue : messages)
-    {
-        if (!messageValue.isObject())
-            continue;
-
-        const QJsonObject messageObject = messageValue.toObject();
-
-        ParsedChatMessagesArrayObject paObj;
-        paObj.messageId = toUnsignedLongLong(messageObject.value("message_id"));
-        paObj.senderId = toUnsignedLongLong(messageObject.value("sender_id"));
-        paObj.chatId = toUnsignedLongLong(messageObject.value("chat_id"));
-        paObj.message = messageObject.value("message").toString();
-        paObj.timestamp = messageObject.value("timestamp").toString();
-        paObj.read = messageObject.value("read").toBool(false);
-        paObj.readAt = messageObject.value("read_at").toString();
-        paObj.edited = messageObject.value("edited").toBool(false);
-        paObj.editedAt = messageObject.value("edited_at").toString();
-        if (messageObject.value("attachments").isArray())
-        {
-            paObj.attachments = messageObject.value("attachments").toArray();
-            paObj.attachmentsCount = static_cast<unsigned int>(paObj.attachments.size());
-            paObj.hasAttachments = !paObj.attachments.isEmpty();
-        }
-
-        parsedArrayObjects.push_back(paObj);
-    }
-    // reverse т.к API-шка возвращает массив "новые -> старые" а мне для отрисовки "сверху - вниз"
-    // нужно чтобы сначала были старые сообщения а в конце новые
-    std::reverse(parsedArrayObjects.begin(), parsedArrayObjects.end());
-    return parsedArrayObjects;
 }
 
 void ChatService::createDirectChat(const unsigned long long &userId, const QString &accToken)

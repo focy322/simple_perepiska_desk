@@ -28,6 +28,12 @@ public:
      * \return размер элемента
      */
     QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
+
+private:
+    static int avatarSizeForFont(const QFont &font);
+    static QString lastSeenText(const QString &timestamp);
+    static void paintAvatar(QPainter *painter, const QRect &rect, const QString &name,
+                            const QFont &font, bool isSelected);
 };
 
 #endif // SEARCHITEMDELEGATE_H

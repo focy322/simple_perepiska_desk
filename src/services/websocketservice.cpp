@@ -1,4 +1,5 @@
 #include "services/websocketservice.h"
+#include "utils/parsed_objects.h"
 
 #include <cmath>
 #include <QString>
@@ -81,27 +82,19 @@ void WebsocketService::sendMessage(const ParsedChatMessagesArrayObject &message)
     }
 
     // Приходитсья кастить к signed так как jsonvalue не принимает ULL тип
-    qint64 chatIdCasted = message.chatId;
+    qint64 chatIdCasted = static_cast<qint64>(message.chatId);
     QJsonObject payload{
         {"chat_id", chatIdCasted},
         {"message", message.message},
         {"client_message_id", message.clientMessageId}
     };
-    if (!message.attachments.isEmpty())
+    if (!message.attachments.empty())
     {
         QJsonArray attachmentIds;
-        for (const QJsonValue &value : std::as_const(message.attachments))
+        for (const Attachment &attachment : std::as_const(message.attachments))
         {
-            if (value.isObject())
-            {
-                const QJsonObject obj = value.toObject();
-                if (!obj.value("file_id").isUndefined())
-                    attachmentIds.append(obj.value("file_id").toVariant().toLongLong());
-            }
-            else if (value.isDouble())
-            {
-                attachmentIds.append(value.toVariant().toLongLong());
-            }
+            if (attachment.fileId != ULONG_LONG_MAX)
+                attachmentIds.append(static_cast<qint64>(attachment.fileId)); // Дай бог чтобы не дошло до знакового бита а то пизда тогда будет
         }
         if (!attachmentIds.isEmpty())
             payload.insert("attachments_ids", attachmentIds);
@@ -153,44 +146,13 @@ void WebsocketService::fillHandlersMap()
 
 void WebsocketService::on_newMessage(const QJsonObject &payload)
 {
-    // Безопасное преобразование JSON-числа к unsigned long long.
-    auto toUnsignedLongLong = [](const QJsonValue &value, unsigned long long defaultValue = 0ULL) -> unsigned long long
-    {
-        if (!value.isDouble())
-            return defaultValue;
-
-        const double number = value.toDouble();
-        if (number < 0 || std::floor(number) != number)
-            return defaultValue;
-
-        return static_cast<unsigned long long>(number);
-    };
-
-    const unsigned long long deliveryId = toUnsignedLongLong(payload.value("delivery_id"));
+    const unsigned long long deliveryId = ConvertToUnsignedLongLong(payload.value("delivery_id"), 0);
     QJsonValue messageValue = payload.value("message");
     if (!messageValue.isObject() || deliveryId == 0)
-    {
-        //TODO: реализация
         return;
-    }
     const QJsonObject messageObject = messageValue.toObject();
 
-    ParsedChatMessagesArrayObject newMessage;
-    newMessage.messageId = toUnsignedLongLong(messageObject.value("message_id"));
-    newMessage.senderId = toUnsignedLongLong(messageObject.value("sender_id"));
-    newMessage.chatId = toUnsignedLongLong(messageObject.value("chat_id"));
-    newMessage.message = messageObject.value("message").toString();
-    newMessage.timestamp = messageObject.value("timestamp").toString();
-    newMessage.read = messageObject.value("read").toBool(false);
-    newMessage.readAt = messageObject.value("read_at").toString();
-    newMessage.edited = messageObject.value("edited").toBool(false);
-    newMessage.editedAt = messageObject.value("edited_at").toString();
-    if (messageObject.value("attachments").isArray())
-    {
-        newMessage.attachments = messageObject.value("attachments").toArray();
-        newMessage.attachmentsCount = static_cast<unsigned int>(newMessage.attachments.size());
-        newMessage.hasAttachments = !newMessage.attachments.isEmpty();
-    }
+    ParsedChatMessagesArrayObject newMessage = parseChatMessageObject(messageObject);
 
     pendingDeliveryIds.insert(deliveryId);
     emit newMessageRecieved(newMessage);
@@ -199,15 +161,8 @@ void WebsocketService::on_newMessage(const QJsonObject &payload)
 
 void WebsocketService::flushPendingAcks()
 {
-    if (pendingDeliveryIds.isEmpty())
-    {
+    if (pendingDeliveryIds.isEmpty() || !websocket->isValid())
         return;
-    }
-
-    if (!websocket->isValid())
-    {
-        return;
-    }
 
     QJsonArray deliveryIdsJson;
     for (const unsigned long long deliveryId : std::as_const(pendingDeliveryIds))
@@ -229,15 +184,8 @@ void WebsocketService::flushPendingAcks()
 
 void WebsocketService::flushPendingOutgoingMessages()
 {
-    if (pendingOutgoingMessages.isEmpty())
-    {
+    if (pendingOutgoingMessages.isEmpty() || !websocket->isValid())
         return;
-    }
-
-    if (!websocket->isValid())
-    {
-        return;
-    }
 
     for (auto it = pendingOutgoingMessages.cbegin(); it != pendingOutgoingMessages.cend(); ++it)
     {
@@ -248,72 +196,24 @@ void WebsocketService::flushPendingOutgoingMessages()
 
 void WebsocketService::on_messageAccepted(const QJsonObject &payload)
 {
-    auto toUnsignedLongLong = [](const QJsonValue &value, unsigned long long defaultValue = 0ULL) -> unsigned long long
-    {
-        if (!value.isDouble())
-            return defaultValue;
+    std::optional<ParsedMessageAcceptedObject> paObj = parseMessageAcceptedObject(payload);
 
-        const double number = value.toDouble();
-        if (number < 0 || std::floor(number) != number)
-            return defaultValue;
-
-        return static_cast<unsigned long long>(number);
-    };
-
-    const QJsonValue clientMessageIdValue = payload.value("client_message_id");
-    const QJsonValue messageIdValue = payload.value("message_id");
-    const QJsonValue timestampValue = payload.value("timestamp");
-    const QJsonValue dedupedValue = payload.value("deduped");
-    const QJsonValue chatIdValue = payload.value("chat_id");
-    if (!clientMessageIdValue.isString() || !messageIdValue.isDouble() || !timestampValue.isString() || !chatIdValue.isDouble())
-    {
-        // TODO: обработка некорректного payload
+    if (!paObj.has_value())
         return;
-    }
 
-    const QString clientMessageId = clientMessageIdValue.toString();
-    const unsigned long long messageId = toUnsignedLongLong(messageIdValue);
-    const unsigned long long chatId = toUnsignedLongLong(chatIdValue);
-    const QString timestamp = timestampValue.toString();
-    const bool deduped = dedupedValue.toBool(false);
-
-    if (clientMessageId.isEmpty() || messageId == 0 || timestamp.isEmpty() || chatId == 0)
-    {
-        // TODO: обработка некорректного payload
-        return;
-    }
-
-    ParsedMessageAcceptedObject paObj;
-    paObj.clientMessageId = clientMessageId;
-    paObj.messageId = messageId;
-    paObj.deduped = deduped;
-    paObj.timestamp = timestamp;
-    paObj.chatId = chatId;
-
-    pendingOutgoingMessages.remove(clientMessageId);
-    emit messageAccepted(paObj);
+    pendingOutgoingMessages.remove(paObj->clientMessageId);
+    emit messageAccepted(*paObj);
 }
 
 void WebsocketService::on_ackResult(const QJsonObject &payload)
 {
-    auto toUnsignedLongLong = [](const QJsonValue &value, unsigned long long defaultValue = 0ULL) -> unsigned long long
-    {
-        if (!value.isDouble())
-            return defaultValue;
-
-        const double number = value.toDouble();
-        if (number < 0 || std::floor(number) != number)
-            return defaultValue;
-
-        return static_cast<unsigned long long>(number);
-    };
     QJsonValue ackedCountValue = payload.value("acked_count");
     QJsonValue deliveryIdsValue = payload.value("delivery_ids");
     if (!ackedCountValue.isDouble() || !deliveryIdsValue.isArray())
     {
         return;
     }
-    unsigned long long ackedCount = toUnsignedLongLong(ackedCountValue);
+    unsigned long long ackedCount = ConvertToUnsignedLongLong(ackedCountValue, 0);
     QJsonArray deliveryIds = deliveryIdsValue.toArray();
     if (ackedCount == 0 || deliveryIds.size() == 0)
     {
@@ -323,7 +223,7 @@ void WebsocketService::on_ackResult(const QJsonObject &payload)
     {
         if(!deliveryIdValue.isDouble())
             continue;
-        unsigned long long deliveryId = toUnsignedLongLong(deliveryIdValue);
+        unsigned long long deliveryId = ConvertToUnsignedLongLong(deliveryIdValue, 0);
         pendingDeliveryIds.remove(deliveryId);
     }
 }

@@ -6,6 +6,9 @@
 #include <QMap>
 #include <QTimer>
 
+class QPixmap;
+struct MessagePreview;
+
 class ChatListItemDelegate : public QStyledItemDelegate
 {
     Q_OBJECT
@@ -29,9 +32,15 @@ public:
     QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
 
 private:
+    static int avatarSizeForFont(const QFont &font);
+    static QString messagePreviewText(const MessagePreview &message);
+    static QString messageTimeText(const QString &timestamp);
+    static void drawAvatar(QPainter *painter, const QRect &rect, const QString &title,
+                           const QFont &font, const QPixmap &pixmap);
+
     mutable QMap<qulonglong, qreal> m_avatarOpacities;
     mutable QMap<qulonglong, qreal> m_targetOpacities;
-    mutable QTimer *m_animationTimer = nullptr;
+    QTimer *m_animationTimer;
 };
 
 #endif // CHATLISTITEMDELEGATE_H

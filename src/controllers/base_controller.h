@@ -7,7 +7,7 @@
 #include <QObject>
 
 #include "utils/errortypes.h"
-#include "utils/requests/retryable_request.h"
+#include "requests/retryable_request.h"
 
 class BaseController : public QObject
 {

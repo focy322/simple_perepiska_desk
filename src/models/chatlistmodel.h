@@ -25,20 +25,14 @@ public:
     {
         ChatIdRole = Qt::UserRole + 1,       //!< ID чата
         ChatNameRole,                        //!< Название чата
-        LastMessageRole,                     //!< Текст последнего сообщения
-        LastMessageTimestampRole,            //!< Временная метка последнего сообщения
+        LastMessageRole,                     //!< Данные последнего сообщения в чате
         AvatarFileIdRole,                    //!< ID файла аватара чата
         ChatTypeRole,                        //!< Тип чата (личный/групповой)
-        UserIdRole,                          //!< ID собеседника (для личных чатов)
-        UsernameRole,                        //!< Имя собеседника (для личных чатов)
-        NicknameRole,                        //!< Никнейм собеседника (для личных чатов)
-        UserAvatarFileUrlRole,               //!< Ссылка на аватар собеседника
+        InterlocutorRole,                    //!< Информация о собеседнике (для личных чатов)
         UnreadCountRole,                     //!< Количество непрочитанных сообщений
-        LastMessageHasAttachmentsRole,       //!< Флаг наличия вложений в последнем сообщении
-        LastMessageAttachmentTypeRole,       //!< Тип вложения (изображение, файл и т.д.)
-        LastMessageAttachmentsCountRole,     //!< Количество вложений
         AvatarPixmapRole                     //!< Загруженное изображение аватара (QPixmap)
     };
+    Q_ENUM(ChatRoles)
 
     explicit ChatListModel(QObject *parent = nullptr);
 

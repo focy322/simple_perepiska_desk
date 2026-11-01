@@ -3,7 +3,7 @@
 #include <QHttpMultiPart>
 #include <QHttpPart>
 
-#include "utils/requests/retryable_request.h"
+#include "requests/retryable_request.h"
 
 UserInfoService::UserInfoService(QObject *parent)
     : QObject{parent}
@@ -152,45 +152,6 @@ void UserInfoService::uploadAvatar(const QString &accToken, const QByteArray &im
     });
 }
 
-const std::vector<ParsedFoundUsersObject> UserInfoService::parseFoundUsersArray(const QJsonDocument &doc)
-{
-    std::vector<ParsedFoundUsersObject> parsedArrayObjects;
-
-    // Безопасное преобразование JSON-числа к unsigned long long.
-    auto toUnsignedLongLong = [](const QJsonValue &value, unsigned long long defaultValue = ULONG_LONG_MAX) -> unsigned long long
-    {
-        if (!value.isDouble())
-            return defaultValue;
-
-        const double number = value.toDouble();
-        if (number < 0 || std::floor(number) != number)
-            return defaultValue;
-
-        return static_cast<unsigned long long>(number);
-    };
-
-    const QJsonArray users = doc.array();
-    for (const QJsonValue &userValue : users)
-    {
-        if (!userValue.isObject())
-            continue;
-
-        const QJsonObject userObject = userValue.toObject();
-
-        ParsedFoundUsersObject paObj;
-        paObj.username = userObject.value("username").toString();
-        paObj.nickname = userObject.value("nickname").toString();
-        paObj.userId = toUnsignedLongLong(userObject.value("user_id"));
-        paObj.lastSeen = userObject.value("last_seen").toString();
-        paObj.avatarFileUrl = userObject.value("avatar_file_url").toString();
-
-        parsedArrayObjects.push_back(paObj);
-    }
-
-    return parsedArrayObjects;
-}
-
-
 void UserInfoService::findUser(const QString &accToken, const QString &input)
 {
     emit findUserInProgress();
@@ -225,20 +186,10 @@ void UserInfoService::findUser(const QString &accToken, const QString &input)
         }
         if (httpCode == 200)
         {
-            const auto parsedArrayObjects = parseFoundUsersArray(doc);
-
-            //TODO: как будто бы можно сразу erase в parsedArrayObjects а не создавать новый вектор
-            //ВООБЩЕ НАХУЯ ТОЧНОЕ СОВПАДЕНИЕ
-            std::vector<ParsedFoundUsersObject> exactMatchObjects;
-            for (const auto& obj : parsedArrayObjects) {
-                if (obj.username.compare(input, Qt::CaseInsensitive) == 0 || 
-                    obj.nickname.compare(input, Qt::CaseInsensitive) == 0) {
-                    exactMatchObjects.push_back(obj);
-                }
-            }
+            auto parsedArrayObjects = parseFoundUsersArray(doc);
 
             NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
-            emit findUserFinished(res, exactMatchObjects);
+            emit findUserFinished(res, parsedArrayObjects);
             reply->deleteLater();
             return;
         }

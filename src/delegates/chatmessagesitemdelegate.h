@@ -2,6 +2,14 @@
 #define CHATMESSAGESITEMDELEGATE_H
 
 #include <QStyledItemDelegate>
+#include <QCache>
+#include <QPixmap>
+
+#include <climits>
+#include <utility>
+
+class QDateTime;
+struct Attachment;
 
 /**
  * Делегат для пользовательской отрисовки элементов списка сообщений чата.
@@ -74,21 +82,39 @@ signals:
     void deleteMessageRequested(quint64 messageId);
 
 private:
-    // --- Внутренние методы ---
+    enum class AttachmentKind { Image, Video, File };
+    struct AttachmentLayout;
+    struct MessageLayout;
+
+    static QDateTime localDateTime(const QString &timestamp);
+    static QString dateBadgeText(const QModelIndex &index, const QDateTime &dateTime);
+    static QString messageTimeText(const QDateTime &dateTime, bool isEdited);
+    static AttachmentKind attachmentKind(const Attachment &attachment);
+    static QString attachmentFilePath(const Attachment &attachment);
+    static QPixmap decodeBlurhash(const QString &hash);
+    QPixmap blurhashPlaceholder(const QString &hash) const;
+    void openVideoPlayer(const QString &path);
+
+    MessageLayout createLayout(const QStyleOptionViewItem &option, const QModelIndex &index) const;
+    static void paintDateBadge(QPainter *painter, const MessageLayout &layout);
+    void paintAttachments(QPainter *painter, const MessageLayout &layout) const;
+    static void paintDeliveryStatus(QPainter *painter, const MessageLayout &layout);
+    static void paintActionButtons(QPainter *painter, const QStyleOptionViewItem &option,
+                                   const MessageLayout &layout);
 
     /**
      * Обновляет состояние последнего прочитанного сообщения во время отрисовки.
      * \param chatId идентификатор чата
-     * \param MessageId идентификатор сообщения
+     * \param messageId идентификатор сообщения
      */
-    void setLastReadMessage(const quint64 chatId, const quint64 MessageId) const;
+    void setLastReadMessage(quint64 chatId, quint64 messageId) const;
 
     // --- Внутренние переменные и состояние ---
     unsigned long long m_currentUserId;                   //!< Идентификатор текущего пользователя
 
     mutable std::pair<quint64, quint64> lastReadMessage;  //!< Пара (ChatId, MessageId) последнего прочитанного сообщения
-    mutable QHash<quint64, QRect> m_editBtnRects;         //!< Хранилище областей кнопок "Редактировать" по messageId
-    mutable QHash<quint64, QRect> m_deleteBtnRects;       //!< Хранилище областей кнопок "Удалить" по messageId
+    mutable QCache<QString, QPixmap> m_blurhashCache{128}; //!< Кэш превью 32x32 по строке BlurHash
+    bool m_videoOpenScheduled = false;
 };
 
 #endif // CHATMESSAGESITEMDELEGATE_H

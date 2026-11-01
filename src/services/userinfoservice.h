@@ -9,19 +9,8 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include "utils/endpoints.h"
-#include "utils/requests/retryable_request.h"
-
-/**
- * Структура для хранения распарсенных данных о найденном пользователе.
- */
-struct ParsedFoundUsersObject
-{
-    QString            username;                          //!< Логин пользователя
-    QString            nickname;                          //!< Никнейм (отображаемое имя)
-    QString            lastSeen;                          //!< Временная метка последней активности
-    QString            avatarFileUrl;                     //!< Ссылка на аватар
-    quint64            userId = ULONG_LONG_MAX;           //!< Идентификатор пользователя
-};
+#include "utils/parsed_objects.h"
+#include "requests/retryable_request.h"
 
 /**
  * Сервис для взаимодействия с API информации о пользователях.
@@ -64,13 +53,6 @@ public:
      * \param input строка поиска (имя или логин)
      */
     void findUser(const QString &accToken, const QString &input);
-
-    /**
-     * Разбирает JSON-документ со списком найденных пользователей в вектор структур ParsedFoundUsersObject.
-     * \param doc JSON документ от API
-     * \return список найденных пользователей
-     */
-    const std::vector<ParsedFoundUsersObject> parseFoundUsersArray(const QJsonDocument &doc);
 
 signals:
     // --- Сигналы процессов ---

@@ -1,6 +1,7 @@
 #include "services/fileservice.h"
 #include "utils/paths.h"
 #include "utils/file_extensions.h"
+#include "utils/parsed_objects.h"
 
 #include <QUrlQuery>
 #include <QJsonDocument>
@@ -10,6 +11,7 @@
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QDir>
+#include <QMimeDatabase>
 
 FileService::FileService(QObject *parent)
     : QObject{parent}
@@ -36,7 +38,8 @@ void FileService::uploadFile(const QString &accessToken, const QSet<QString> &fi
         const QString fileName = QFileInfo(filePath).fileName();
         const QString disposition = QString("form-data; name=\"file\"; filename=\"%1\"").arg(fileName);
         filePart.setHeader(QNetworkRequest::ContentDispositionHeader, disposition);
-        filePart.setHeader(QNetworkRequest::ContentTypeHeader, "application/octet-stream");
+        const QString contentType = QMimeDatabase().mimeTypeForFile(filePath, QMimeDatabase::MatchContent).name();
+        filePart.setHeader(QNetworkRequest::ContentTypeHeader, contentType);
         filePart.setBodyDevice(file);
         file->setParent(multiPart);
         multiPart->append(filePart);
@@ -45,7 +48,7 @@ void FileService::uploadFile(const QString &accessToken, const QSet<QString> &fi
         QUrl url (baseHttpUrl + uploadFileUrl);
         QUrlQuery query;
         query.addQueryItem("chat_id", QString::number(chatId));
-        query.addQueryItem("category", defineFileCategory(filePath));
+        query.addQueryItem("category", defineFileCategory(filePath, contentType));
         url.setQuery(query);
         QNetworkRequest req(url);
         req.setRawHeader("Authorization", "Bearer " + accessToken.toUtf8());
@@ -92,7 +95,7 @@ void FileService::uploadFile(const QString &accessToken, const QSet<QString> &fi
 void FileService::downloadFileInfo(const QString &accessToken, const std::vector<quint64> &fileIds)
 {
     emit downloadFileInfoInProgress();
-    for (int id : fileIds)
+    for (quint64 id : fileIds)
     {
         QUrl url(baseHttpUrl + downloadFileUrl.arg(id));
         QNetworkRequest req(url);
@@ -136,7 +139,7 @@ void FileService::downloadFileInfo(const QString &accessToken, const std::vector
 void FileService::downloadFile(const ParsedDownloadedFileInfo &fileInfo)
 {
     emit downloadFileInProgress();
-    QUrl url = fileInfo.downloadUrl;
+    QUrl url = fileInfo.downloadFileUrl;
     QNetworkRequest req(url);
     QNetworkReply *reply = network->get(req);
     connect(reply, &QNetworkReply::finished, this, [this, reply, fileInfo](){
@@ -149,8 +152,8 @@ void FileService::downloadFile(const ParsedDownloadedFileInfo &fileInfo)
             return;
         }
         QByteArray raw = reply->readAll();
-        //QDir().mkpath(appDownloadsDir); хз как будто лишнее как будто нет хз
-        QString filePath = appDownloadsDir + "/" + fileInfo.filename;
+        //QDir().mkpath(appDownloadsDir); Как будто лишнее как будто нет хз
+        QString filePath = appDownloadsDir + "/" + fileInfo.fileName;
         QSaveFile saveFile(filePath, this);
         if (saveFile.open(QIODevice::WriteOnly))
         {
@@ -169,71 +172,14 @@ void FileService::downloadFile(const ParsedDownloadedFileInfo &fileInfo)
                 reply->deleteLater();
                 return;
             }
-            NetworkResult res{false, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
+            NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
             emit downloadFileFinished(res, fileInfo);
             reply->deleteLater();
             return;
         }
-        else
-        {
-            NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, "Couldn't save file"};
-            emit downloadFileFinished(res);
-            reply->deleteLater();
-            return;
-        }
-
+        NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, "Couldn't save file"};
+        emit downloadFileFinished(res);
+        reply->deleteLater();
     });
 
-}
-
-const ParsedDownloadedFileInfo FileService::parseDownloadedFileInfo(const QJsonDocument &doc)
-{
-    // Безопасное преобразование JSON-числа к unsigned long long.
-    auto toUnsignedLongLong = [](const QJsonValue &value, unsigned long long defaultValue = ULONG_LONG_MAX) -> unsigned long long
-    {
-        if (!value.isDouble())
-            return defaultValue;
-
-        const double number = value.toDouble();
-        if (number < 0 || std::floor(number) != number)
-            return defaultValue;
-
-        return static_cast<unsigned long long>(number);
-    };
-
-    QJsonObject obj = doc.object();
-    ParsedDownloadedFileInfo fInfo;
-    fInfo.fileId = toUnsignedLongLong(obj.value("file_id"));
-    fInfo.filename = obj.value("filename").toString();
-    fInfo.contentType = obj.value("content_type").toString();
-    fInfo.fileSize = toUnsignedLongLong(obj.value("file_size"));
-    fInfo.uploadedAt = obj.value("uploaded_at").toString();
-    fInfo.downloadUrl = obj.value("download_url").toString();
-    return fInfo;
-}
-
-const ParsedUploadedFileInfo FileService::parseUploadedFileInfo(const QJsonDocument &doc)
-{
-    // Безопасное преобразование JSON-числа к unsigned long long.
-    auto toUnsignedLongLong = [](const QJsonValue &value, unsigned long long defaultValue = ULONG_LONG_MAX) -> unsigned long long
-    {
-        if (!value.isDouble())
-            return defaultValue;
-
-        const double number = value.toDouble();
-        if (number < 0 || std::floor(number) != number)
-            return defaultValue;
-
-        return static_cast<unsigned long long>(number);
-    };
-
-    QJsonObject obj = doc.object();
-    ParsedUploadedFileInfo fInfo;
-    fInfo.fileId = toUnsignedLongLong(obj.value("file_id"));
-    fInfo.filename = obj.value("filename").toString();
-    fInfo.contentType = obj.value("content_type").toString();
-    fInfo.fileSize = toUnsignedLongLong(obj.value("file_size"));
-    fInfo.uploadedAt = obj.value("uploaded_at").toString();
-    fInfo.category = obj.value("category").toString();
-    return fInfo;
 }

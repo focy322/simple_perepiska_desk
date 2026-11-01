@@ -42,19 +42,19 @@ QVariant ChatMessagesListModel::data(const QModelIndex &index, int role) const
     case IsPendingRole:
         return message.isPending;
     case ReadRole:
-        return message.read;
+        return message.isRead;
     case ReadAtRole:
         return message.readAt;
     case EditedRole:
-        return message.edited;
+        return message.isEdited;
     case EditedAtRole:
         return message.editedAt;
     case HasAttachmentsRole:
         return message.hasAttachments;
     case AttachmentsCountRole:
-        return static_cast<uint>(message.attachmentsCount);
+        return message.attachmentsCount;
     case AttachmentsRole:
-        return message.attachments;
+        return QVariant::fromValue(message.attachments);
     default:
         return {};
     }

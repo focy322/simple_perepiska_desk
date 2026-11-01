@@ -25,7 +25,7 @@ set(BUILD_TRANSLATIONS OFF CACHE BOOL "Сборка переводов" FORCE)
 set(BUILD_TEST_APPLICATION OFF CACHE BOOL "Сборка тестового приложения" FORCE)
 
 # Собираем как динамическую библиотеку
-set(BUILD_SHARED_LIBS ON CACHE BOOL "Сборка qtkeychain как динамической библиотеки" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Сборка qtkeychain как динамической библиотеки" FORCE)
 
 FetchContent_MakeAvailable(qtkeychain)
 

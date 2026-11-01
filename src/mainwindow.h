@@ -33,8 +33,8 @@
 #include "controllers/websocketcontroller.h"
 #include "controllers/filescontroller.h"
 #include "models/chat_list_sort_proxy_model.h"
-#include "utils/requests/retryable_request_error_handler.h"
-#include "utils/requests/request_status.h"
+#include "requests/retryable_request_error_handler.h"
+#include "requests/request_status.h"
 #include "models/chat_list_sort_proxy_model.h"
 
 QT_BEGIN_NAMESPACE
@@ -51,6 +51,7 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+    void showAndActivate();
 
 protected:
     /**
@@ -734,8 +735,8 @@ private:
      * \param newMessage объект сообщения
      * \param isNeedIncrementUnread флаг необходимости увеличения счетчика непрочитанных сообщений
      */
-    void refreshChatState(unsigned long long chatId,
-                          const ParsedChatMessagesArrayObject &newMessage, bool isNeedIncrementUnread);
+    void refreshChatState(const unsigned long long chatId,
+                          const ParsedChatMessagesArrayObject &newMessage, const bool isNeedIncrementUnread);
 
     void setUnreadCount(quint64 chatId, int count);
     
