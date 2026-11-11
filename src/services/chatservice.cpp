@@ -82,7 +82,7 @@ void ChatService::getChatMessages(const unsigned long long &chatId, const QStrin
         QByteArray raw = reply->readAll();
         QJsonParseError pe;
         QJsonDocument doc = QJsonDocument::fromJson(raw, &pe);
-        if (pe.error || !doc.isArray())
+        if (pe.error || !doc.isObject())
         {
             NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit getChatMessagesFinished(res, retryableReq);

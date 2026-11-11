@@ -5,6 +5,7 @@
 
 #include <QMap>
 #include <QTimer>
+#include <QPointer>
 
 class QPixmap;
 struct MessagePreview;
@@ -14,6 +15,7 @@ class ChatListItemDelegate : public QStyledItemDelegate
     Q_OBJECT
 public:
     explicit ChatListItemDelegate(QObject *parent = nullptr);
+    ~ChatListItemDelegate() override;
 
     /**
      * Отрисовывает элемент списка чатов.
@@ -41,6 +43,8 @@ private:
     mutable QMap<qulonglong, qreal> m_avatarOpacities;
     mutable QMap<qulonglong, qreal> m_targetOpacities;
     QTimer *m_animationTimer;
+    QPointer<QWidget> m_styleWidget;
+    QPointer<QWidget> m_subtitleStyleWidget;
 };
 
 #endif // CHATLISTITEMDELEGATE_H

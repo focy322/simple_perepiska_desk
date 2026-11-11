@@ -17,7 +17,7 @@ PreviewOverlayButton::PreviewOverlayButton(const QColor &defaultColor, const QCo
 {
     setFixedSize(18, 18);
     setCursor(Qt::PointingHandCursor);
-    setStyleSheet("QPushButton { background: transparent; border: none; }");
+    setObjectName("previewOverlayButton");
 }
 
 void PreviewOverlayButton::setAlpha(int alpha)

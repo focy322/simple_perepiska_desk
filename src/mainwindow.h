@@ -22,10 +22,12 @@
 #include <QGridLayout>
 #include <queue>
 #include <list>
+#include <array>
 
 #include "models/chatlistmodel.h"
 #include "models/chatmessageslistmodel.h"
 #include "models/searchlistmodel.h"
+#include "models/settingslistmodel.h"
 #include "delegates/chatmessagesitemdelegate.h"
 #include "controllers/authcontroller.h"
 #include "controllers/userinfocontroller.h"
@@ -43,13 +45,19 @@ class MainWindow;
 }
 QT_END_NAMESPACE
 
+class ChatListItemDelegate;
+class SearchItemDelegate;
+class SettingsItemDelegate;
+class CustomizationPreview;
+class StyleManager;
+class QColorDialog;
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    MainWindow(QWidget *parent = nullptr, const QString &styleFilePath = QString());
     ~MainWindow();
     void showAndActivate();
 
@@ -125,10 +133,25 @@ private:
      */
     void toggleLeftPanel();
 
+    /// Переключает боковой список между чатами и пунктами меню настроек.
+    void setSettingsMenuVisible(bool visible);
+
+    /// Открывает конструктор интерфейса, сохраняя состояние рабочего окна.
+    void showCustomizationPage();
+    void showCustomizationPreview(int index, bool preserveSelection = false);
+    CustomizationPreview *activeCustomizationPreview() const;
+    void customizationSelectionChanged(const QString &title, const QString &objectName);
+    void updateCustomizationColor();
+    void showCustomizationColorPicker();
+    void updateStyleScreen();
+
     /// Флаг, указывающий, развернута ли левая панель или свернута
     bool isLeftPanelExpanded = false;
 
 private slots:
+    void on_settingsBtn_clicked();
+    void on_customizationBackBtn_clicked();
+
     /**
      * Вызывается при изменении текста в поле поиска пользователей
      * \param arg1 новый текст в поле поиска
@@ -592,6 +615,15 @@ private:
     ChatListModel *chatsListModel;                                       //!< Модель списка чатов с доступом к полям через роли
     ChatListSortProxyModel *chatListSortProxyModel;                      //!< Прокси-модель для сортировки списка чатов
     SearchListModel *searchListModel;                                    //!< Модель списка пользователей при поиске с доступом к полям через роли
+    SettingsListModel *settingsListModel;
+    ChatListItemDelegate *chatsItemDelegate;
+    SearchItemDelegate *searchItemDelegate;
+    SettingsItemDelegate *settingsItemDelegate;
+    std::array<CustomizationPreview *, 4> customizationPreviews{};
+    StyleManager *styleManager = nullptr;
+    QColorDialog *customizationColorDialog = nullptr;
+    QTimer *customizationRefreshTimer = nullptr;
+    QString customizationTarget;
     ChatMessagesListModel *messagesListModel;                            //!< Модель списка сообщений для выбранного чата
     ChatMessagesItemDelegate *messagesItemDelegate;                      //!< Делегат сообщений (выравнивание своих/чужих, отображение вложений)
 

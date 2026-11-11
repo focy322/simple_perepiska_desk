@@ -9,7 +9,7 @@ ImageCropperDialog::ImageCropperDialog(const QPixmap &image, QWidget *parent)
     : QDialog(parent), m_image(image), m_scale(1.0), m_isDragging(false), m_cropSize(200)
 {
     setFixedSize(400, 500);
-    setStyleSheet("background-color: #1E2328; color: white;");
+    setObjectName("imageCropperDialog");
 
     // Начальный масштаб для соответствия размеру обрезки
     double scaleX = (double)m_cropSize / m_image.width();
@@ -18,11 +18,11 @@ ImageCropperDialog::ImageCropperDialog(const QPixmap &image, QWidget *parent)
     m_offset = QPointF(width() / 2.0 - m_image.width() * m_scale / 2.0, 200 - m_image.height() * m_scale / 2.0);
 
     QPushButton *btnOk = new QPushButton("Сохранить", this);
-    btnOk->setStyleSheet("background-color: #2F6BFF; border: none; border-radius: 5px; padding: 10px; color: white; font-weight: bold;");
+    btnOk->setObjectName("cropperSaveBtn");
     connect(btnOk, &QPushButton::clicked, this, &QDialog::accept);
 
     QPushButton *btnCancel = new QPushButton("Отмена", this);
-    btnCancel->setStyleSheet("background-color: #3A424B; border: none; border-radius: 5px; padding: 10px; color: white; font-weight: bold;");
+    btnCancel->setObjectName("cropperCancelBtn");
     connect(btnCancel, &QPushButton::clicked, this, &QDialog::reject);
 
     QHBoxLayout *hLayout = new QHBoxLayout;

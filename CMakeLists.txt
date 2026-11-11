@@ -65,6 +65,9 @@ else()
     )
 endif()
 
+# Предпросмотр в src/widgets использует общую форму главного окна.
+set_property(TARGET vent PROPERTY AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/src")
+
 # Линковка библиотеки Qt6 и qtkeychain
 target_link_libraries(vent PRIVATE
     Qt6::Core
@@ -122,6 +125,8 @@ if(WIN32)
     set(CPACK_PACKAGE_INSTALL_DIRECTORY "Vent")        # Имя папки в Program Files
     set(CPACK_NSIS_MUI_FINISHPAGE_RUN "vent.exe")      # Файл для запуска по завершении
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON) # Удалять старую версию перед новой
+    set(CPACK_NSIS_EXECUTABLES_DIRECTORY ".")
+    set(CPACK_PACKAGE_EXECUTABLES "vent" "Vent")
 elseif(APPLE)
     # Настройки для macOS (дай бог когда-нибудь протестирую)
     set(CPACK_GENERATOR "DragNDrop")

@@ -22,26 +22,6 @@
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
-  <property name="styleSheet">
-   <string notr="true">QMainWindow, QWidget { background-color: #0A0A0A; color: #E6E8EB; font-family: "Segoe UI"; }
-QLabel { color: #E6E8EB; }
-QLineEdit { background-color: #1B1F24; color: #E6E8EB; border: 1px solid #2A3037; selection-background-color: #2F6BFF; }
-QLineEdit:focus { border: 1px solid #3E7BFF; }
-QTextEdit { background-color: #0A0A0A; color: #E6E8EB; border: none; padding: 6px 8px; selection-background-color: #2F6BFF; }
-QTextEdit:focus { border: none; }
-QPushButton { background-color: #242A31; color: #E6E8EB; border: 1px solid #2F3740; border-radius: 6px; padding: 6px 10px; outline: none; }
-QPushButton:hover { background-color: #3a4551; }
-QPushButton:pressed { background-color: #1F252B; }
-QListView { background-color: #14181C; border: none; }
-QScrollBar:vertical { background: #111418; width: 10px; margin: 2px; }
-QScrollBar::handle:vertical { background: #2B323A; border-radius: 5px; min-height: 20px; }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
-QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical { background: #111418;}
-QScrollBar:horizontal { background: #111418; height: 10px; margin: 2px; }
-QScrollBar::handle:horizontal { background: #2B323A; border-radius: 5px; min-width: 20px; }
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0px; }
-QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #111418;}</string>
-  </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_10">
     <property name="spacing">
@@ -60,7 +40,7 @@ QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #1
      <number>0</number>
     </property>
     <item>
-     <widget class="QStackedWidget" name="loadingAndContentWidgets">
+     <widget class="QStackedWidget" name="windowPages">
       <widget class="QWidget" name="loadingPage">
        <layout class="QVBoxLayout" name="verticalLayout_11">
         <property name="spacing">
@@ -145,16 +125,6 @@ QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal { background: #1
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">QWidget#pageAuth, QWidget#pageLogIn, QWidget#pageRegistration, QWidget#logInWidget, QWidget#registrationWidget, QLabel#succesLogInLabel, QLabel#succesRegistrationLabel { background-color: #0A0A0A; }
-QLineEdit#logInLogIn, QLineEdit#registrationLogin { background-color: #141414; color: #E6E8EB; border: 1px solid #333333; border-radius: 15px; padding: 0 15px; selection-background-color: #555555; }
-QLineEdit#logInPassword, QLineEdit#registrationPassword, QLineEdit#registrationPasswordConfirm { background-color: #141414; color: #E6E8EB; border: 1px solid #333333; border-radius: 15px; padding: 0 35px 0 15px; selection-background-color: #555555; }
-QLineEdit#logInLogIn:focus, QLineEdit#logInPassword:focus, QLineEdit#registrationLogin:focus, QLineEdit#registrationPassword:focus, QLineEdit#registrationPasswordConfirm:focus { border: 1px solid #666666; }
-QPushButton#logInBtn, QPushButton#switchToRegistrationBtn, QPushButton#registrationBtn, QPushButton#switchToLogInBtn { background-color: #141414; color: #E6E8EB; border: 1px solid #333333; border-radius: 15px; padding: 6px 10px; }
-QPushButton#logInBtn:hover, QPushButton#switchToRegistrationBtn:hover, QPushButton#registrationBtn:hover, QPushButton#switchToLogInBtn:hover { background-color: #1F1F1F; }
-QPushButton#logInBtn:pressed, QPushButton#switchToRegistrationBtn:pressed, QPushButton#registrationBtn:pressed, QPushButton#switchToLogInBtn:pressed { background-color: #0F0F0F; }
-QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, QPushButton#revealRegistrationPasswordConfirmBtn { background: transparent; border: none; }</string>
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_3">
             <property name="leftMargin">
@@ -641,9 +611,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
            </layout>
           </widget>
           <widget class="QWidget" name="pageApp">
-           <property name="styleSheet">
-            <string notr="true">QWidget#pageApp { background-color: #0A0A0A; }</string>
-           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
              <horstretch>0</horstretch>
@@ -668,9 +635,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
             </property>
             <item>
          <widget class="QWidget" name="narrowLeftPanel">
-           <property name="styleSheet">
-            <string notr="true">QWidget#narrowLeftPanel { background-color: #141414; border-radius: 25px; }</string>
-           </property>
            <property name="minimumSize">
             <size>
              <width>86</width>
@@ -718,9 +682,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                   <height>50</height>
                  </size>
                 </property>
-                <property name="styleSheet">
-                 <string notr="true">background-color: transparent;</string>
-                </property>
                 <property name="pixmap">
                  <pixmap>:/images/enot.png</pixmap>
                 </property>
@@ -740,9 +701,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                   <height>35</height>
                  </size>
                 </property>
-                <property name="styleSheet">
-                 <string notr="true">QLineEdit { background-color: #1B1F24; color: #E6E8EB; border: 1px solid #2A3037; border-radius: 17px; padding: 0 15px; selection-background-color: #2F6BFF; } QLineEdit:focus { border: 1px solid #3E7BFF; }</string>
-                </property>
                </widget>
               </item>
              </layout>
@@ -755,16 +713,10 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
               <property name="frameShadow">
                <enum>QFrame::Sunken</enum>
               </property>
-              <property name="styleSheet">
-               <string notr="true">background-color: #333333;</string>
-              </property>
              </widget>
             </item>
            <item>
             <widget class="QListView" name="chatsView">
-             <property name="styleSheet">
-              <string notr="true">background-color: transparent; border: none;</string>
-             </property>
              <property name="horizontalScrollBarPolicy">
               <enum>Qt::ScrollBarAlwaysOff</enum>
              </property>
@@ -777,9 +729,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
              </property>
              <property name="frameShadow">
               <enum>QFrame::Sunken</enum>
-             </property>
-             <property name="styleSheet">
-              <string notr="true">background-color: #333333;</string>
              </property>
             </widget>
            </item>
@@ -814,9 +763,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                  <height>50</height>
                 </size>
                </property>
-               <property name="styleSheet">
-                <string notr="true">background: transparent;</string>
-               </property>
               </widget>
              </item>
              <item>
@@ -829,9 +775,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                </property>
                <property name="text">
                 <string></string>
-               </property>
-               <property name="styleSheet">
-                <string notr="true">color: #E6E8EB; font-size: 16px; font-weight: bold; background-color: #141414;</string>
                </property>
               </widget>
              </item>
@@ -848,6 +791,53 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                </property>
               </spacer>
              </item>
+             <item>
+              <widget class="QPushButton" name="settingsBtn">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>40</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>40</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="cursor">
+                <cursorShape>PointingHandCursor</cursorShape>
+               </property>
+               <property name="toolTip">
+                <string>Настройки</string>
+               </property>
+               <property name="accessibleName">
+                <string>Настройки</string>
+               </property>
+               <property name="text">
+                <string />
+               </property>
+               <property name="icon">
+                <iconset resource="../resources/resources.qrc" theme="preferences-system">
+                 <normaloff>:/icons/settings.svg</normaloff>:/icons/settings.svg</iconset>
+               </property>
+               <property name="iconSize">
+                <size>
+                 <width>24</width>
+                 <height>24</height>
+                </size>
+               </property>
+               <property name="checkable">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
             </layout>
            </item>
           </layout>
@@ -861,9 +851,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                <widget class="ListViewDragNDrop" name="messagesView">
                 <property name="acceptDrops">
                  <bool>true</bool>
-                </property>
-                <property name="styleSheet">
-                 <string notr="true">background-color: transparent; border: none;</string>
                 </property>
                 <property name="editTriggers">
                  <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
@@ -890,9 +877,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                    <height>60</height>
                   </size>
                  </property>
-                 <property name="styleSheet">
-                  <string notr="true">background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(10, 10, 10, 255), stop:1 rgba(10, 10, 10, 0)); border: none;</string>
-                 </property>
                 </widget>
                </item>
                <item row="0" column="0" alignment="Qt::AlignTop">
@@ -916,9 +900,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                      <width>40</width>
                      <height>40</height>
                     </size>
-                   </property>
-                   <property name="styleSheet">
-                    <string notr="true">QPushButton#backBtn { background-color: #141414; border: none; border-radius: 20px; } QPushButton#backBtn:hover { background-color: #333333; }</string>
                    </property>
                    <property name="text">
                     <string/>
@@ -952,9 +933,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                      <height>50</height>
                     </size>
                    </property>
-                   <property name="styleSheet">
-                    <string notr="true">background: transparent;</string>
-                   </property>
                   </widget>
                  </item>
                  <item>
@@ -971,9 +949,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                     <pointsize>10</pointsize>
                     <bold>true</bold>
                    </font>
-                  </property>
-                  <property name="styleSheet">
-                   <string notr="true">QLabel#interlocutorNameLabel { background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1E2328, stop:1 #14181C); color: #E6E8EB; border: 1px solid #2A3037; border-top: 1px solid #3a424b; border-radius: 25px; padding: 6px 15px; }</string>
                   </property>
                   <property name="text">
                    <string/>
@@ -1010,9 +985,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                     <height>40</height>
                    </size>
                   </property>
-                  <property name="styleSheet">
-                   <string notr="true">background: transparent;</string>
-                  </property>
                  </widget>
                 </item>
                </layout>
@@ -1030,9 +1002,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                   <width>16777215</width>
                   <height>100</height>
                  </size>
-                </property>
-                <property name="styleSheet">
-                 <string notr="true">background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(10, 10, 10, 0), stop:1 rgba(10, 10, 10, 255)); border: none;</string>
                 </property>
                </widget>
               </item>
@@ -1070,9 +1039,6 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                   </property>
                   <property name="text">
                    <string/>
-                  </property>
-                  <property name="styleSheet">
-                   <string notr="true">QPushButton#attachFileBtn { background-color: #141414; color: #E6E8EB; font-size: 20px; border: none; border-radius: 20px; } QPushButton#attachFileBtn:hover { background-color: #333333; }</string>
                   </property>
                  </widget>
                 </item>
@@ -1123,7 +1089,7 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                   <property name="tabChangesFocus">
                    <bool>true</bool>
                   </property>
-                  <property name="styleSheet"><string notr="true">QTextEdit#messageInput { background-color: #141414; color: #E6E8EB; border: 1px solid #333333; border-radius: 20px; padding: 6px 15px; selection-background-color: #555555; } QTextEdit#messageInput:focus { border: 1px solid #666666; }</string></property></widget>
+                  </widget>
                 </item>
                 <item alignment="Qt::AlignVCenter">
                  <widget class="QPushButton" name="sendMessageBtn">
@@ -1163,7 +1129,7 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
                     <height>16</height>
                    </size>
                   </property>
-                  <property name="styleSheet"><string notr="true">QPushButton#sendMessageBtn { background-color: #FFFFFF; border-radius: 20px; } QPushButton#sendMessageBtn:hover { background-color: #E0E0E0; }</string></property></widget>
+                  </widget>
                 </item>
                 <item>
                  <spacer name="horizontalSpacerInputRight">
@@ -1178,6 +1144,218 @@ QPushButton#revealLogInPasswordBtn, QPushButton#revealRegistrationPasswordBtn, Q
             </item>
            </layout>
           </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="customizationPage">
+       <layout class="QVBoxLayout" name="customizationPageLayout">
+        <property name="spacing"><number>16</number></property>
+        <property name="leftMargin"><number>28</number></property>
+        <property name="topMargin"><number>16</number></property>
+        <property name="rightMargin"><number>28</number></property>
+        <property name="bottomMargin"><number>20</number></property>
+        <item>
+         <layout class="QHBoxLayout" name="customizationHeaderLayout">
+          <property name="spacing"><number>16</number></property>
+          <item>
+           <widget class="QPushButton" name="customizationBackBtn">
+            <property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+            <property name="minimumSize"><size><width>100</width><height>40</height></size></property>
+            <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+            <property name="toolTip"><string>Вернуться к настройкам (Esc)</string></property>
+            <property name="text"><string>Назад</string></property>
+            <property name="iconSize"><size><width>20</width><height>20</height></size></property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QVBoxLayout" name="customizationTitleLayout">
+            <property name="spacing"><number>4</number></property>
+            <item>
+             <widget class="QLabel" name="customizationTitleLabel">
+              <property name="text"><string>Кастомизация</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="customizationHintLabel">
+              <property name="text"><string>Нажмите на элемент, выберите цвет и сохраните оформление.</string></property>
+              <property name="wordWrap"><bool>true</bool></property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="customizationScreenButtonsLayout">
+          <property name="spacing"><number>8</number></property>
+          <item>
+           <widget class="QPushButton" name="customizationAppBtn">
+            <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+            <property name="text"><string>Основное окно</string></property>
+            <property name="checkable"><bool>true</bool></property>
+            <property name="checked"><bool>true</bool></property>
+            <property name="customizationScreenTab" stdset="0"><bool>true</bool></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="customizationLoadingBtn">
+            <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+            <property name="text"><string>Загрузка</string></property>
+            <property name="checkable"><bool>true</bool></property>
+            <property name="customizationScreenTab" stdset="0"><bool>true</bool></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="customizationRegistrationBtn">
+            <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+            <property name="text"><string>Регистрация</string></property>
+            <property name="checkable"><bool>true</bool></property>
+            <property name="customizationScreenTab" stdset="0"><bool>true</bool></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="customizationLoginBtn">
+            <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+            <property name="text"><string>Вход</string></property>
+            <property name="checkable"><bool>true</bool></property>
+            <property name="customizationScreenTab" stdset="0"><bool>true</bool></property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="customizationScreenButtonsSpacer">
+            <property name="orientation"><enum>Qt::Horizontal</enum></property>
+            <property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="customizationSaveLayout">
+          <property name="spacing"><number>10</number></property>
+          <item><widget class="QPushButton" name="customizationSaveBtn">
+           <property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+           <property name="enabled"><bool>false</bool></property>
+           <property name="text"><string>Сохранить</string></property>
+          </widget></item>
+          <item><widget class="QPushButton" name="customizationUndoBtn">
+           <property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+           <property name="enabled"><bool>false</bool></property>
+           <property name="text"><string>Отменить изменения</string></property>
+          </widget></item>
+          <item><widget class="QLabel" name="customizationStyleStatus">
+           <property name="text"><string>Изменения видны в предпросмотре. Сохраните, чтобы применить.</string></property>
+           <property name="wordWrap"><bool>true</bool></property>
+          </widget></item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QWidget" name="customizationEditor">
+          <property name="visible"><bool>false</bool></property>
+          <layout class="QHBoxLayout" name="customizationEditorLayout">
+           <property name="spacing"><number>10</number></property>
+           <property name="leftMargin"><number>12</number></property>
+           <property name="topMargin"><number>8</number></property>
+           <property name="rightMargin"><number>12</number></property>
+           <property name="bottomMargin"><number>8</number></property>
+           <item><widget class="QPushButton" name="customizationLayersBtn">
+            <property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+            <property name="text"><string>К слоям</string></property>
+           </widget></item>
+           <item><widget class="QLabel" name="customizationSelectedLabel">
+            <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Preferred"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+            <property name="text"><string>Элемент</string></property>
+           </widget></item>
+           <item><widget class="QComboBox" name="customizationColorProperty"/></item>
+           <item><widget class="QPushButton" name="customizationColorBtn">
+            <property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+            <property name="text"><string>Выбрать цвет</string></property>
+           </widget></item>
+           <item><widget class="QLabel" name="customizationColorValue">
+            <property name="text"><string>#000000</string></property>
+           </widget></item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="customizationBodyLayout" stretch="1,0">
+          <property name="spacing"><number>16</number></property>
+          <item>
+           <widget class="QStackedWidget" name="customizationStackWidgets">
+            <property name="currentIndex"><number>0</number></property>
+            <widget class="QWidget" name="customizationAppPage">
+             <layout class="QVBoxLayout" name="customizationPreviewLayout">
+              <property name="spacing"><number>0</number></property>
+              <property name="leftMargin"><number>0</number></property>
+              <property name="topMargin"><number>0</number></property>
+              <property name="rightMargin"><number>0</number></property>
+              <property name="bottomMargin"><number>0</number></property>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="customizationLoadingPage">
+             <layout class="QVBoxLayout" name="customizationLoadingPreviewLayout">
+              <property name="spacing"><number>0</number></property>
+              <property name="leftMargin"><number>0</number></property>
+              <property name="topMargin"><number>0</number></property>
+              <property name="rightMargin"><number>0</number></property>
+              <property name="bottomMargin"><number>0</number></property>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="customizationRegistrationPage">
+             <layout class="QVBoxLayout" name="customizationRegistrationPreviewLayout">
+              <property name="spacing"><number>0</number></property>
+              <property name="leftMargin"><number>0</number></property>
+              <property name="topMargin"><number>0</number></property>
+              <property name="rightMargin"><number>0</number></property>
+              <property name="bottomMargin"><number>0</number></property>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="customizationLoginPage">
+             <layout class="QVBoxLayout" name="customizationLoginPreviewLayout">
+              <property name="spacing"><number>0</number></property>
+              <property name="leftMargin"><number>0</number></property>
+              <property name="topMargin"><number>0</number></property>
+              <property name="rightMargin"><number>0</number></property>
+              <property name="bottomMargin"><number>0</number></property>
+             </layout>
+            </widget>
+           </widget>
+          </item>
+          <item>
+           <widget class="QWidget" name="customizationColorPanel">
+            <property name="visible"><bool>false</bool></property>
+            <property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Expanding"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+            <layout class="QVBoxLayout" name="customizationColorPanelLayout">
+             <property name="spacing"><number>0</number></property>
+             <property name="leftMargin"><number>8</number></property>
+             <property name="topMargin"><number>8</number></property>
+             <property name="rightMargin"><number>8</number></property>
+             <property name="bottomMargin"><number>8</number></property>
+             <item>
+              <widget class="QScrollArea" name="customizationColorScrollArea">
+               <property name="frameShape"><enum>QFrame::NoFrame</enum></property>
+               <property name="widgetResizable"><bool>true</bool></property>
+               <widget class="QWidget" name="customizationColorContent">
+                <layout class="QVBoxLayout" name="customizationColorPickerLayout">
+                 <property name="spacing"><number>0</number></property>
+                 <property name="leftMargin"><number>0</number></property>
+                 <property name="topMargin"><number>0</number></property>
+                 <property name="rightMargin"><number>0</number></property>
+                 <property name="bottomMargin"><number>0</number></property>
+                </layout>
+               </widget>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QLabel" name="customizationHoveredLabel">
+          <property name="minimumSize"><size><width>0</width><height>24</height></size></property>
+          <property name="text"><string>Наведите курсор на элемент</string></property>
+          <property name="wordWrap"><bool>true</bool></property>
          </widget>
         </item>
        </layout>

@@ -111,7 +111,8 @@ std::vector<ParsedChatsListArrayObject> parseChatsListArray(const QJsonDocument 
 
 std::vector<ParsedChatMessagesArrayObject> parseChatMessagesArray(const QJsonDocument &doc)
 {
-    const QJsonArray messages = doc.array();
+    const QJsonObject object = doc.object();
+    const QJsonArray messages = object.value("messages").toArray();
     std::vector<ParsedChatMessagesArrayObject> parsedArrayObjects;
     parsedArrayObjects.reserve(messages.size());
 

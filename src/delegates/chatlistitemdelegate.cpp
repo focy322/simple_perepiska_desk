@@ -8,6 +8,9 @@
 #include <QDateTime>
 #include <QFontMetrics>
 #include <QPainter>
+#include <QLabel>
+#include <QStyle>
+#include <QStyleOption>
 
 int ChatListItemDelegate::avatarSizeForFont(const QFont &font)
 {
@@ -73,7 +76,13 @@ void ChatListItemDelegate::drawAvatar(QPainter *painter, const QRect &rect, cons
 ChatListItemDelegate::ChatListItemDelegate(QObject *parent)
     : QStyledItemDelegate(parent)
     , m_animationTimer(new QTimer(this))
+    , m_styleWidget(new QWidget(qobject_cast<QWidget *>(parent)))
+    , m_subtitleStyleWidget(new QLabel(qobject_cast<QWidget *>(parent)))
 {
+    m_styleWidget->setObjectName("chatListItem");
+    m_subtitleStyleWidget->setObjectName("chatListItemSubtitle");
+    m_styleWidget->hide();
+    m_subtitleStyleWidget->hide();
     m_animationTimer->setInterval(16);
     connect(m_animationTimer, &QTimer::timeout, this, [this]() {
         bool anyAnimating = false;
@@ -99,6 +108,12 @@ ChatListItemDelegate::ChatListItemDelegate(QObject *parent)
     });
 }
 
+ChatListItemDelegate::~ChatListItemDelegate()
+{
+    delete m_styleWidget.data();
+    delete m_subtitleStyleWidget.data();
+}
+
 void ChatListItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
     QStyleOptionViewItem opt = option;
@@ -109,6 +124,16 @@ void ChatListItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
 
     painter->save();
     painter->setClipRect(opt.rect, Qt::IntersectClip);
+
+    m_styleWidget->ensurePolished();
+    m_subtitleStyleWidget->ensurePolished();
+    QStyleOption background;
+    background.initFrom(m_styleWidget);
+    background.rect = QRect(QPoint(), opt.rect.size());
+    painter->save();
+    painter->translate(opt.rect.topLeft());
+    m_styleWidget->style()->drawPrimitive(QStyle::PE_Widget, &background, painter, m_styleWidget);
+    painter->restore();
 
     const QFontMetrics fm(opt.font);
     const int baseHeight = fm.height();
@@ -150,11 +175,11 @@ void ChatListItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
 
     const QColor titleColor = isSelected
         ? opt.palette.color(QPalette::HighlightedText)
-        : opt.palette.color(QPalette::Text);
+        : m_styleWidget->palette().color(QPalette::WindowText);
 
     const QColor subtitleColor = isSelected
         ? opt.palette.color(QPalette::HighlightedText)
-        : QColor(95, 95, 95);
+        : m_subtitleStyleWidget->palette().color(QPalette::WindowText);
 
     drawAvatar(painter, avatarRect, title, opt.font,
                index.data(ChatListModel::AvatarPixmapRole).value<QPixmap>());

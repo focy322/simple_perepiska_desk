@@ -1,0 +1,9 @@
+/* %1: animated background color; %2: animated text color. */
+QPushButton {
+    background-color: %1;
+    color: %2;
+    border: 1px solid #333333;
+    border-radius: 15px;
+    padding: 6px 10px;
+    outline: none;
+}

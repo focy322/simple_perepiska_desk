@@ -1,0 +1,40 @@
+{
+  "properties": {
+    "background": { "title": "Цвет фона", "css": "background-color", "value": "rgba(%1, %2, %3, %4)" },
+    "text": { "title": "Цвет текста", "css": "color", "value": "rgba(%1, %2, %3, %4);\n    placeholder-text-color: rgba(%1, %2, %3, %4)" },
+    "border": { "title": "Цвет рамки", "css": "border", "value": "2px solid rgba(%1, %2, %3, %4)" }
+  },
+  "targets": {
+    "messenger.MainWindow": { "selector": "QMainWindow[themeScreen=\"messenger\"], QMainWindow[themeScreen=\"messenger\"] QWidget#pageApp", "properties": ["background", "border"] },
+    "loading.MainWindow": { "selector": "QMainWindow[themeScreen=\"loading\"], QMainWindow[themeScreen=\"loading\"] QWidget#loadingPage, QMainWindow[themeScreen=\"loading\"] QWidget#loadingWidget", "properties": ["background", "border"] },
+    "registration.MainWindow": { "selector": "QMainWindow[themeScreen=\"registration\"], QMainWindow[themeScreen=\"registration\"] QWidget#pageAuth, QMainWindow[themeScreen=\"registration\"] QWidget#pageRegistration", "properties": ["background", "border"] },
+    "login.MainWindow": { "selector": "QMainWindow[themeScreen=\"login\"], QMainWindow[themeScreen=\"login\"] QWidget#pageAuth, QMainWindow[themeScreen=\"login\"] QWidget#pageLogIn", "properties": ["background", "border"] },
+    "titleBar": { "selector": "CustomTitleBar#titleBar", "properties": ["background", "border"] },
+    "narrowLeftPanel": { "selector": "QWidget#narrowLeftPanel", "properties": ["background", "border"] },
+    "messagesView": { "selector": "QListView#messagesView", "properties": ["background", "border"] },
+    "messageInput": { "selector": "QTextEdit#messageInput", "properties": ["background", "text", "border"] },
+    "sendMessageBtn": { "selector": "QPushButton#sendMessageBtn", "properties": ["background", "border"] },
+    "attachFileBtn": { "selector": "QPushButton#attachFileBtn", "properties": ["background", "border"] },
+    "appIcon": { "selector": "QLabel#appIcon, QLabel#appIconCrossfade", "properties": ["border", "background"] },
+    "searchInput": { "selector": "QLineEdit#searchInput", "properties": ["background", "text", "border"] },
+    "chatsView": { "selector": "QListView#chatsView", "properties": ["background", "border"] },
+    "currentUserAvatar": { "selector": "QLabel#currentUserAvatar", "properties": ["border", "background"] },
+    "settingsBtn": { "selector": "QPushButton#settingsBtn", "properties": ["background", "border"] },
+    "chatListItem": { "selector": "QWidget#chatListItem", "textSelector": "QWidget#chatListItem, QLabel#chatListItemSubtitle", "properties": ["background", "text", "border"] },
+    "loadingLabel": { "selector": "QLabel#loadingLabel", "properties": ["border", "background"] },
+    "registrationWidget": { "selector": "QWidget#registrationWidget", "properties": ["background", "border"] },
+    "registrationLogin": { "selector": "QLineEdit#registrationLogin", "properties": ["background", "text", "border"] },
+    "registrationPassword": { "selector": "QLineEdit#registrationPassword", "properties": ["background", "text", "border"] },
+    "registrationPasswordConfirm": { "selector": "QLineEdit#registrationPasswordConfirm", "properties": ["background", "text", "border"] },
+    "registrationBtn": { "selector": "QPushButton#registrationBtn", "properties": ["background", "text", "border"] },
+    "switchToLogInBtn": { "selector": "QPushButton#switchToLogInBtn", "properties": ["background", "text", "border"] },
+    "revealRegistrationPasswordBtn": { "selector": "QPushButton#revealRegistrationPasswordBtn", "properties": ["background", "border"] },
+    "revealRegistrationPasswordConfirmBtn": { "selector": "QPushButton#revealRegistrationPasswordConfirmBtn", "properties": ["background", "border"] },
+    "logInWidget": { "selector": "QWidget#logInWidget", "properties": ["background", "border"] },
+    "logInLogIn": { "selector": "QLineEdit#logInLogIn", "properties": ["background", "text", "border"] },
+    "logInPassword": { "selector": "QLineEdit#logInPassword", "properties": ["background", "text", "border"] },
+    "logInBtn": { "selector": "QPushButton#logInBtn", "properties": ["background", "text", "border"] },
+    "switchToRegistrationBtn": { "selector": "QPushButton#switchToRegistrationBtn", "properties": ["background", "text", "border"] },
+    "revealLogInPasswordBtn": { "selector": "QPushButton#revealLogInPasswordBtn", "properties": ["background", "border"] }
+  }
+}

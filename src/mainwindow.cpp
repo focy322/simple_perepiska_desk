@@ -3,7 +3,9 @@
 
 #include "delegates/chatlistitemdelegate.h"
 #include "delegates/searchitemdelegate.h"
+#include "delegates/settingsitemdelegate.h"
 #include "widgets/customtitlebar.h"
+#include "widgets/customizationpreview.h"
 #include "widgets/imageviewerwindow.h"
 #include "widgets/imagecropperdialog.h"
 #include "widgets/stagingimagelabel.h"
@@ -13,9 +15,10 @@
 #include "utils/avatarhelper.h"
 #include "utils/attachmenthelper.h"
 #include "utils/endpoints.h"
+#include "utils/stylehelper.h"
+#include "utils/stylemanager.h"
 
 #include <QMenu>
-#include <QFile>
 #include <QFileInfo>
 #include <QDebug>
 #include <QApplication>
@@ -55,6 +58,9 @@
 #include <QEvent>
 #include <functional>
 #include <QAbstractButton>
+#include <QShortcut>
+#include <QButtonGroup>
+#include <QColorDialog>
 
 #include <keychain.h>
 
@@ -65,6 +71,12 @@
 #include <windowsx.h>
 #endif
 
+
+static void setAuthStatus(QLabel *label, const QString &status)
+{
+    label->setProperty("status", status);
+    StyleHelper::repolish(label);
+}
 
 static void crossfadeAppIcon(QLabel *appIcon, const QString &iconPath)
 {
@@ -82,7 +94,7 @@ static void crossfadeAppIcon(QLabel *appIcon, const QString &iconPath)
     tempLabel->setPixmap(appIcon->pixmap(Qt::ReturnByValue));
     tempLabel->setScaledContents(appIcon->hasScaledContents());
     tempLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
-    tempLabel->setStyleSheet("background-color: transparent;");
+    tempLabel->setObjectName("appIconCrossfade");
     tempLabel->show();
 
     if (iconPath.endsWith(".svg")) {
@@ -101,11 +113,12 @@ static void crossfadeAppIcon(QLabel *appIcon, const QString &iconPath)
     anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
-MainWindow::MainWindow(QWidget *parent)
+MainWindow::MainWindow(QWidget *parent, const QString &styleFilePath)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , chatsListModel(new ChatListModel(this))
     , searchListModel(new SearchListModel(this))
+    , settingsListModel(new SettingsListModel(this))
     , messagesItemDelegate(new ChatMessagesItemDelegate())
     , messagesListModel(new ChatMessagesListModel(this))
     , chatMessages()
@@ -132,6 +145,8 @@ MainWindow::MainWindow(QWidget *parent)
     , chatListSortProxyModel(new ChatListSortProxyModel(this))
 {
     ui->setupUi(this);
+    styleManager = new StyleManager(styleFilePath, this);
+    setStyleSheet(styleManager->savedStyleSheet());
 
     ui->backBtn->setIcon(QIcon(":/icons/back.svg"));
     ui->attachFileBtn->setIcon(QIcon(":/icons/attach.svg"));
@@ -141,7 +156,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->sendMessageBtn->setIconSize(QSize(24, 24));
 
     editStatusLabel = new QLabel("Редактирование", this);
-    editStatusLabel->setStyleSheet("background-color: #141414; color: #E6E8EB; border: 1px solid #333333; border-radius: 12px; padding: 4px 15px; font-size: 11px;");
+    editStatusLabel->setObjectName("editStatusLabel");
     editStatusLabel->hide();
 
     QVBoxLayout *inputVBox = new QVBoxLayout();
@@ -157,14 +172,12 @@ MainWindow::MainWindow(QWidget *parent)
 
     stagingWidget = new QWidget(this);
     stagingWidget->setObjectName("stagingWidget");
-    stagingWidget->setStyleSheet("QWidget#stagingWidget { background-color: #141414; border: 1px solid #333333; border-radius: 12px; }");
     QVBoxLayout *stagingMainLayout = new QVBoxLayout(stagingWidget);
     stagingMainLayout->setContentsMargins(10, 10, 10, 10);
     stagingMainLayout->setSpacing(5);
 
     stagingContentWidget = new QWidget(stagingWidget);
     stagingContentWidget->setObjectName("stagingContentWidget");
-    stagingContentWidget->setStyleSheet("background: transparent; border: none;");
     QVBoxLayout *contentLayout = new QVBoxLayout(stagingContentWidget);
     contentLayout->setContentsMargins(0, 0, 0, 0);
     contentLayout->setSpacing(5);
@@ -223,7 +236,66 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowFlag(Qt::FramelessWindowHint);
 #endif
     CustomTitleBar *titleBar = new CustomTitleBar(this);
+    titleBar->setObjectName("titleBar");
     setMenuWidget(titleBar);
+
+    ui->customizationBackBtn->setIcon(QIcon(":/icons/back.svg"));
+    auto *customizationBackShortcut = new QShortcut(QKeySequence(Qt::Key_Escape), ui->customizationPage);
+    customizationBackShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+    connect(customizationBackShortcut, &QShortcut::activated, this, &MainWindow::on_customizationBackBtn_clicked);
+
+    auto *customizationScreenButtons = new QButtonGroup(this);
+    customizationScreenButtons->addButton(ui->customizationAppBtn, 0);
+    customizationScreenButtons->addButton(ui->customizationLoadingBtn, 1);
+    customizationScreenButtons->addButton(ui->customizationRegistrationBtn, 2);
+    customizationScreenButtons->addButton(ui->customizationLoginBtn, 3);
+    connect(customizationScreenButtons, &QButtonGroup::idClicked, this,
+            [this](int index) { showCustomizationPreview(index); });
+
+    ui->customizationEditor->hide();
+    ui->customizationColorPanel->hide();
+    ui->customizationStyleStatus->setToolTip(styleManager->filePath());
+    customizationRefreshTimer = new QTimer(this);
+    customizationRefreshTimer->setSingleShot(true);
+    customizationRefreshTimer->setInterval(16);
+    connect(customizationRefreshTimer, &QTimer::timeout, this, [this]() {
+        if (ui->windowPages->currentWidget() == ui->customizationPage)
+            showCustomizationPreview(ui->customizationStackWidgets->currentIndex(), true);
+    });
+    connect(styleManager, &StyleManager::draftChanged, this, [this]() {
+        ui->customizationSaveBtn->setEnabled(styleManager->hasChanges());
+        ui->customizationUndoBtn->setEnabled(styleManager->hasChanges());
+        ui->customizationStyleStatus->setText(styleManager->hasChanges()
+            ? tr("Изменения в предпросмотре. Сохраните, чтобы применить.") : tr("Нет несохранённых изменений."));
+        if (!customizationRefreshTimer->isActive())
+            customizationRefreshTimer->start();
+    });
+    connect(styleManager, &StyleManager::saved, this, [this]() {
+        setStyleSheet(styleManager->savedStyleSheet());
+        ui->customizationSaveBtn->setEnabled(false);
+        ui->customizationUndoBtn->setEnabled(false);
+        ui->customizationStyleStatus->setText(tr("Стиль сохранён и применён."));
+        if (!customizationRefreshTimer->isActive())
+            customizationRefreshTimer->start();
+    });
+    connect(ui->customizationSaveBtn, &QPushButton::clicked, this, [this]() {
+        QString error;
+        if (!styleManager->save(&error))
+            ui->customizationStyleStatus->setText(tr("Не удалось сохранить стиль: %1").arg(error));
+    });
+    connect(ui->customizationUndoBtn, &QPushButton::clicked, styleManager, &StyleManager::discard);
+    connect(ui->customizationLayersBtn, &QPushButton::clicked, this, [this]() {
+        if (auto *preview = activeCustomizationPreview())
+            preview->clearSelection();
+    });
+    connect(ui->customizationColorProperty, &QComboBox::currentIndexChanged, this,
+            [this]() { updateCustomizationColor(); });
+    connect(ui->customizationColorBtn, &QPushButton::clicked, this, &MainWindow::showCustomizationColorPicker);
+
+    connect(ui->windowPages, &QStackedWidget::currentChanged, this, &MainWindow::updateStyleScreen);
+    connect(ui->authAndAppWidgets, &QStackedWidget::currentChanged, this, &MainWindow::updateStyleScreen);
+    connect(ui->registrationAndLogInWidgets, &QStackedWidget::currentChanged, this, &MainWindow::updateStyleScreen);
+    updateStyleScreen();
 
     ui->appIcon->installEventFilter(this);
     QSizePolicy spAppIcon = ui->appIcon->sizePolicy();
@@ -237,7 +309,6 @@ MainWindow::MainWindow(QWidget *parent)
 
     windowBorderFrame = new QFrame(this);
     windowBorderFrame->setObjectName("windowBorderFrame");
-    windowBorderFrame->setStyleSheet("QFrame#windowBorderFrame { border: 1px solid #2A3037; background: transparent; }");
     windowBorderFrame->setAttribute(Qt::WA_TransparentForMouseEvents);
     windowBorderFrame->show();
 
@@ -251,6 +322,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->narrowLeftPanel->setMaximumWidth(280);
     ui->searchInput->show();
     ui->currentUserName->show();
+    ui->settingsBtn->show();
     connect(ui->searchInput, &QLineEdit::textChanged, this, &MainWindow::on_searchInput_textChanged);
     this->isLeftPanelExpanded = true;
 
@@ -265,7 +337,6 @@ MainWindow::MainWindow(QWidget *parent)
 
     QFrame *tooltipInnerFrame = new QFrame(chatTooltipWidget);
     tooltipInnerFrame->setObjectName("tooltipInnerFrame");
-    tooltipInnerFrame->setStyleSheet("QFrame#tooltipInnerFrame { background-color: #141414; border-radius: 15px; }");
 
     QVBoxLayout *mainLayout = new QVBoxLayout(chatTooltipWidget);
     mainLayout->setContentsMargins(0, 0, 0, 0);
@@ -283,13 +354,13 @@ MainWindow::MainWindow(QWidget *parent)
     titleFont.setPixelSize(14);
     titleFont.setBold(true);
     tooltipTitleLabel->setFont(titleFont);
-    tooltipTitleLabel->setStyleSheet("color: white; background-color: transparent;");
+    tooltipTitleLabel->setObjectName("tooltipTitleLabel");
 
     tooltipTimeLabel = new QLabel(tooltipInnerFrame);
     QFont timeFont = tooltipTimeLabel->font();
     timeFont.setPixelSize(11);
     tooltipTimeLabel->setFont(timeFont);
-    tooltipTimeLabel->setStyleSheet("color: #5f5f5f; background-color: transparent;");
+    tooltipTimeLabel->setObjectName("tooltipTimeLabel");
 
     tooltipTopLayout->addWidget(tooltipTitleLabel);
     tooltipTopLayout->addStretch();
@@ -302,14 +373,14 @@ MainWindow::MainWindow(QWidget *parent)
     QFont subFont = tooltipSubtitleLabel->font();
     subFont.setPixelSize(12);
     tooltipSubtitleLabel->setFont(subFont);
-    tooltipSubtitleLabel->setStyleSheet("color: #5f5f5f; background-color: transparent;");
+    tooltipSubtitleLabel->setObjectName("tooltipSubtitleLabel");
 
     tooltipBadgeLabel = new QLabel(tooltipInnerFrame);
     QFont badgeFont = tooltipBadgeLabel->font();
     badgeFont.setPixelSize(11);
     badgeFont.setBold(true);
     tooltipBadgeLabel->setFont(badgeFont);
-    tooltipBadgeLabel->setStyleSheet("background-color: #faf9f6; color: black; border-radius: 10px; padding: 2px 6px;");
+    tooltipBadgeLabel->setObjectName("tooltipBadgeLabel");
     tooltipBadgeLabel->setAlignment(Qt::AlignCenter);
 
     tooltipBottomLayout->addWidget(tooltipSubtitleLabel);
@@ -418,8 +489,11 @@ MainWindow::MainWindow(QWidget *parent)
     chatListSortProxyModel->setSourceModel(chatsListModel);
     chatListSortProxyModel->setDynamicSortFilter(true);
     chatListSortProxyModel->sort(0, Qt::DescendingOrder); // 0 — колонка, DescendingOrder — новые сверху (если дата больше свежее)
+    chatsItemDelegate = new ChatListItemDelegate(ui->chatsView);
+    searchItemDelegate = new SearchItemDelegate(ui->chatsView);
+    settingsItemDelegate = new SettingsItemDelegate(ui->chatsView);
     ui->chatsView->setModel(chatListSortProxyModel);
-    ui->chatsView->setItemDelegate(new ChatListItemDelegate(ui->chatsView));
+    ui->chatsView->setItemDelegate(chatsItemDelegate);
     ui->chatsView->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     ui->chatsView->verticalScrollBar()->setSingleStep(15);
     ui->chatsView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -453,7 +527,7 @@ MainWindow::MainWindow(QWidget *parent)
     btnShadow->setColor(QColor(0, 0, 0, 80));
     ui->sendMessageBtn->setGraphicsEffect(btnShadow);
 
-    ui->loadingAndContentWidgets->setCurrentWidget(ui->loadingPage);
+    ui->windowPages->setCurrentWidget(ui->loadingPage);
     ui->messageInput->installEventFilter(this);
     ui->messageInput->viewport()->installEventFilter(this);
 
@@ -489,6 +563,12 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    qApp->removeEventFilter(this);
+    for (auto *preview : customizationPreviews)
+        if (preview)
+            disconnect(preview, nullptr, this, nullptr);
+    if (customizationColorDialog)
+        disconnect(customizationColorDialog, nullptr, this, nullptr);
     delete ui;
 }
 
@@ -496,17 +576,19 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_searchInput_textChanged(const QString &arg1)
 {
+    if (ui->chatsView->model() == settingsListModel)
+        return;
+
     if (arg1.isEmpty()) {
         searchListModel->clear();
         ui->chatsView->setModel(chatListSortProxyModel);
-        //FixIt: можно хранить в классе а не постоянно аллоцировать
-        ui->chatsView->setItemDelegate(new ChatListItemDelegate(ui->chatsView));
+        ui->chatsView->setItemDelegate(chatsItemDelegate);
     }
     else
     {
         if (ui->chatsView->model() != searchListModel) {
             ui->chatsView->setModel(searchListModel);
-            ui->chatsView->setItemDelegate(new SearchItemDelegate(ui->chatsView));
+            ui->chatsView->setItemDelegate(searchItemDelegate);
         }
         userInfoController->requestFindUser(accessToken, arg1);
     }
@@ -514,6 +596,15 @@ void MainWindow::on_searchInput_textChanged(const QString &arg1)
 
 void MainWindow::on_chatsView_clicked(const QModelIndex &chatItem)
 {
+    if (ui->chatsView->model() == settingsListModel) {
+        if (chatItem.isValid() && chatItem.model() == settingsListModel
+            && chatItem.data(SettingsListModel::SettingIdRole).value<SettingsListModel::SettingId>()
+                == SettingsListModel::SettingId::Customization) {
+            showCustomizationPage();
+        }
+        return;
+    }
+
     if (chatItem.isValid())
     {
         if (isLeftPanelExpanded)
@@ -1000,7 +1091,7 @@ void MainWindow::switchPageWithFadeAnimation(QStackedWidget *stackedWidget, QWid
 
 void MainWindow::animateStartupTransition()
 {
-    if (ui->loadingAndContentWidgets->currentWidget() != ui->loadingPage) {
+    if (ui->windowPages->currentWidget() != ui->loadingPage) {
         return;
     }
 
@@ -1016,15 +1107,15 @@ void MainWindow::animateStartupTransition()
     // Скрыть оригинальное лого
     ui->loadingLabel->hide();
 
-    ui->loadingAndContentWidgets->setCurrentWidget(ui->contentPage);
-    ui->contentPage->setGeometry(ui->loadingAndContentWidgets->rect());
+    ui->windowPages->setCurrentWidget(ui->contentPage);
+    ui->contentPage->setGeometry(ui->windowPages->rect());
     ui->contentPage->layout()->activate();
 
     QPoint endPos = ui->appIcon->mapTo(this, QPoint(0, 0));
     QRect endGeometry(endPos, ui->appIcon->size());
 
     // Переключиться обратно
-    ui->loadingAndContentWidgets->setCurrentWidget(ui->loadingPage);
+    ui->windowPages->setCurrentWidget(ui->loadingPage);
 
     if (endGeometry.width() == 0) {
         endGeometry = QRect(10, 10, 40, 40);
@@ -1046,7 +1137,7 @@ void MainWindow::animateStartupTransition()
     flyAnim->setEasingCurve(QEasingCurve::InOutQuad);
 
     connect(fadeOut, &QPropertyAnimation::finished, this, [=, this]() {
-        ui->loadingAndContentWidgets->setCurrentWidget(ui->contentPage);
+        ui->windowPages->setCurrentWidget(ui->contentPage);
         ui->loadingPage->setGraphicsEffect(nullptr);
 
         auto *effect2 = new QGraphicsOpacityEffect(ui->contentPage);
@@ -1455,6 +1546,191 @@ void MainWindow::on_backBtn_clicked()
     closeCurrentChat();
 }
 
+void MainWindow::on_settingsBtn_clicked()
+{
+    setSettingsMenuVisible(isLeftPanelExpanded && ui->settingsBtn->isChecked());
+}
+
+void MainWindow::showCustomizationPage()
+{
+    tooltipHideTimer->stop();
+    tooltipOpacityAnim->stop();
+    chatTooltipWidget->hide();
+    hideInterlocutorAvatarPanel();
+    showCustomizationPreview(ui->customizationStackWidgets->currentIndex());
+    ui->windowPages->setCurrentWidget(ui->customizationPage);
+    ui->customizationBackBtn->setFocus(Qt::OtherFocusReason);
+}
+
+CustomizationPreview *MainWindow::activeCustomizationPreview() const
+{
+    const int index = ui->customizationStackWidgets->currentIndex();
+    return index >= 0 && index < static_cast<int>(customizationPreviews.size()) ? customizationPreviews[index] : nullptr;
+}
+
+void MainWindow::showCustomizationPreview(int index, bool preserveSelection)
+{
+    if (index < 0 || index >= static_cast<int>(customizationPreviews.size()))
+        return;
+
+    if (!preserveSelection) {
+        if (auto *current = activeCustomizationPreview())
+            current->clearSelection(false);
+        customizationSelectionChanged(QString(), QString());
+    }
+    ui->customizationStackWidgets->setCurrentIndex(index);
+    auto *&preview = customizationPreviews[index];
+    if (!preview) {
+        auto *page = ui->customizationStackWidgets->widget(index);
+        preview = new CustomizationPreview(page);
+        page->layout()->addWidget(preview);
+        connect(preview, &CustomizationPreview::hoveredElementChanged, this,
+                [this, preview](const QString &title) {
+            if (preview != activeCustomizationPreview() || preview->hasSelection())
+                return;
+            ui->customizationHoveredLabel->setText(title.isEmpty()
+                ? tr("Наведите курсор на элемент") : title);
+        });
+        connect(preview, &CustomizationPreview::selectionChanged, this,
+                [this, preview](const QString &title, const QString &objectName) {
+            if (preview == activeCustomizationPreview())
+                customizationSelectionChanged(title, objectName);
+        });
+    }
+    preview->setPreview(static_cast<CustomizationPreview::Screen>(index), size(),
+                        ui->currentUserAvatar->pixmap(Qt::ReturnByValue), chatListSortProxyModel,
+                        styleManager->styleSheet(), preserveSelection);
+    if (preserveSelection && preview->hasSelection())
+        updateCustomizationColor();
+}
+
+void MainWindow::customizationSelectionChanged(const QString &title, const QString &objectName)
+{
+    if (objectName.isEmpty()) {
+        customizationTarget.clear();
+        ui->customizationBackBtn->setToolTip(tr("Назад к настройкам (Esc). Несохранённые изменения отменяются."));
+        ui->customizationEditor->hide();
+        ui->customizationColorPanel->hide();
+        ui->customizationHoveredLabel->setText(tr("Наведите курсор на элемент"));
+        return;
+    }
+    const auto screen = static_cast<CustomizationPreview::Screen>(ui->customizationStackWidgets->currentIndex());
+    customizationTarget = styleManager->targetKey(CustomizationPreview::screenName(screen), objectName);
+    const QSignalBlocker blocker(ui->customizationColorProperty);
+    ui->customizationColorProperty->clear();
+    for (const auto &property : styleManager->properties(customizationTarget))
+        ui->customizationColorProperty->addItem(styleManager->propertyTitle(property), property);
+    ui->customizationSelectedLabel->setText(title);
+    ui->customizationBackBtn->setToolTip(tr("Вернуться к слоям (Esc)"));
+    ui->customizationHoveredLabel->setText(tr("Подберите цвет и нажмите «Сохранить». «К слоям» возвращает конструктор."));
+    ui->customizationEditor->show();
+    if (!customizationRefreshTimer->isActive())
+        customizationRefreshTimer->start();
+    updateCustomizationColor();
+    showCustomizationColorPicker();
+}
+
+void MainWindow::updateCustomizationColor()
+{
+    auto *preview = activeCustomizationPreview();
+    if (!preview || !preview->hasSelection() || customizationTarget.isEmpty())
+        return;
+    const QString property = ui->customizationColorProperty->currentData().toString();
+    QColor color = styleManager->color(customizationTarget, property, QColor());
+    if (!color.isValid()) {
+        color = preview->selectedColor(property);
+        // Первый выбранный цвет прозрачного базового фона должен быть видимым.
+        // Явно заданную пользователем прозрачность получаем из StyleManager выше.
+        if (property == "background" && color.alpha() == 0)
+            color.setAlpha(255);
+    }
+    ui->customizationColorValue->setText(color.name(color.alpha() == 255 ? QColor::HexRgb : QColor::HexArgb));
+    QPixmap swatch(20, 20);
+    swatch.fill(color);
+    ui->customizationColorBtn->setIcon(QIcon(swatch));
+    if (customizationColorDialog) {
+        const QSignalBlocker blocker(customizationColorDialog);
+        customizationColorDialog->setCurrentColor(color);
+    }
+}
+
+void MainWindow::showCustomizationColorPicker()
+{
+    if (customizationTarget.isEmpty())
+        return;
+    if (!customizationColorDialog) {
+        customizationColorDialog = new QColorDialog(ui->customizationColorContent);
+        customizationColorDialog->setObjectName("customizationColorDialog");
+        customizationColorDialog->setWindowFlags(Qt::Widget);
+        customizationColorDialog->setOptions(QColorDialog::DontUseNativeDialog | QColorDialog::NoButtons
+                                              | QColorDialog::ShowAlphaChannel | QColorDialog::NoEyeDropperButton);
+        ui->customizationColorPickerLayout->addWidget(customizationColorDialog);
+        ui->customizationColorPanel->setFixedWidth(customizationColorDialog->minimumSizeHint().width() + 18
+            + ui->customizationColorScrollArea->verticalScrollBar()->sizeHint().width());
+        connect(customizationColorDialog, &QColorDialog::currentColorChanged, this, [this](const QColor &color) {
+            if (!customizationTarget.isEmpty()) {
+                styleManager->setColor(customizationTarget, ui->customizationColorProperty->currentData().toString(), color);
+                ui->customizationColorValue->setText(color.name(color.alpha() == 255 ? QColor::HexRgb : QColor::HexArgb));
+            }
+        });
+    }
+    updateCustomizationColor();
+    ui->customizationColorPanel->show();
+    customizationColorDialog->show();
+}
+
+void MainWindow::updateStyleScreen()
+{
+    QString name;
+    if (ui->windowPages->currentWidget() == ui->loadingPage)
+        name = QStringLiteral("loading");
+    else if (ui->windowPages->currentWidget() == ui->customizationPage)
+        name = QStringLiteral("customization");
+    else if (ui->authAndAppWidgets->currentWidget() == ui->pageApp)
+        name = QStringLiteral("messenger");
+    else
+        name = ui->registrationAndLogInWidgets->currentWidget() == ui->pageRegistration
+            ? QStringLiteral("registration") : QStringLiteral("login");
+    if (property("themeScreen").toString() != name) {
+        setProperty("themeScreen", name);
+        setStyleSheet(styleManager->savedStyleSheet());
+    }
+}
+
+void MainWindow::on_customizationBackBtn_clicked()
+{
+    if (auto *preview = activeCustomizationPreview(); preview && preview->hasSelection()) {
+        preview->clearSelection();
+        return;
+    }
+    customizationRefreshTimer->stop();
+    styleManager->discard();
+    customizationRefreshTimer->stop();
+    ui->windowPages->setCurrentWidget(ui->contentPage);
+    ui->chatsView->setFocus(Qt::OtherFocusReason);
+}
+
+void MainWindow::setSettingsMenuVisible(bool visible)
+{
+    ui->settingsBtn->setChecked(visible);
+    ui->settingsBtn->setToolTip(visible ? tr("Вернуться к чатам") : tr("Настройки"));
+
+    if (visible) {
+        const QSignalBlocker blocker(ui->searchInput);
+        ui->searchInput->clear();
+        ui->searchInput->clearFocus();
+        searchListModel->clear();
+    }
+    ui->searchInput->setEnabled(!visible);
+    ui->searchInput->setPlaceholderText(visible ? tr("Настройки") : tr("Поиск..."));
+    ui->chatsView->setProperty("settingsMenu", visible);
+    StyleHelper::repolish(ui->chatsView);
+    ui->chatsView->setModel(visible ? static_cast<QAbstractItemModel *>(settingsListModel)
+                                  : static_cast<QAbstractItemModel *>(chatListSortProxyModel));
+    ui->chatsView->setItemDelegate(visible ? static_cast<QAbstractItemDelegate *>(settingsItemDelegate)
+                                         : static_cast<QAbstractItemDelegate *>(chatsItemDelegate));
+}
+
 void MainWindow::toggleLeftPanel()
 {
     if (chatTooltipWidget && !chatTooltipWidget->isHidden()) {
@@ -1465,6 +1741,10 @@ void MainWindow::toggleLeftPanel()
     }
 
     if (isLeftPanelExpanded) {
+        ui->settingsBtn->hide();
+        if (ui->chatsView->model() == settingsListModel)
+            setSettingsMenuVisible(false);
+
         QPropertyAnimation *anim = new QPropertyAnimation(ui->narrowLeftPanel, "minimumWidth");
         anim->setDuration(300);
         anim->setStartValue(ui->narrowLeftPanel->width());
@@ -1529,6 +1809,7 @@ void MainWindow::toggleLeftPanel()
         connect(group, &QParallelAnimationGroup::finished, this, [this]() {
             if (isLeftPanelExpanded) {
                 ui->searchInput->setMaximumWidth(16777215);
+                ui->settingsBtn->show();
             }
         });
 
@@ -1819,7 +2100,7 @@ void MainWindow::on_getMyChatsFinished(const NetworkResult &res, const std::vect
 #endif
     }
 
-    if (ui->loadingAndContentWidgets->currentWidget() == ui->loadingPage) {
+    if (ui->windowPages->currentWidget() == ui->loadingPage) {
         animateStartupTransition();
     }
 }
@@ -2067,7 +2348,7 @@ void MainWindow::on_registrationFinished(const NetworkResult &res, const QString
 {
     if (res.ok)
     {
-        ui->succesRegistrationLabel->setStyleSheet("color: green;");
+        setAuthStatus(ui->succesRegistrationLabel, "success");
         ui->succesRegistrationLabel->setText(res.message);
         ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
         ui->succesRegistrationLabel->clear();
@@ -2086,7 +2367,7 @@ void MainWindow::on_registrationFinished(const NetworkResult &res, const QString
         isAuthorized = false;
         accessToken = accToken;
         refreshToken = refToken;
-        ui->succesRegistrationLabel->setStyleSheet("color: red;");
+        setAuthStatus(ui->succesRegistrationLabel, "error");
         ui->succesRegistrationLabel->setText(res.message);
     }
     ui->registrationBtn->setEnabled(true);
@@ -2097,7 +2378,7 @@ void MainWindow::on_logInFinished(const NetworkResult &res, const QString &accTo
 {
     if (res.ok)
     {
-        ui->succesLogInLabel->setStyleSheet("color: green;");
+        setAuthStatus(ui->succesLogInLabel, "success");
         ui->succesLogInLabel->setText(res.message);
         ui->authAndAppWidgets->setCurrentWidget(ui->pageApp);
         ui->succesLogInLabel->clear();
@@ -2115,7 +2396,7 @@ void MainWindow::on_logInFinished(const NetworkResult &res, const QString &accTo
         isAuthorized = false;
         accessToken = accToken;
         refreshToken = refToken;
-        ui->succesLogInLabel->setStyleSheet("color: red;");
+        setAuthStatus(ui->succesLogInLabel, "error");
         ui->succesLogInLabel->setText(res.message);
         currentChatName = "";
     }
@@ -2136,6 +2417,7 @@ void MainWindow::on_logOutFinished(const NetworkResult &res)
     if (res.ok)
     {
         closeCurrentChat();
+        setSettingsMenuVisible(false);
         refreshAccessTokenTimer->stop();
         accessToken.clear();
         refreshToken.clear();
@@ -2155,7 +2437,7 @@ void MainWindow::on_logOutFinished(const NetworkResult &res)
         currentChatId = ULONG_LONG_MAX;
         myUserId = ULONG_LONG_MAX;
         ui->messageInput->clear();
-        switchPageWithFadeAnimation(ui->loadingAndContentWidgets, ui->contentPage);
+        switchPageWithFadeAnimation(ui->windowPages, ui->contentPage);
         ui->authAndAppWidgets->setCurrentWidget(ui->pageAuth);
         ui->registrationAndLogInWidgets->setCurrentWidget(ui->pageLogIn);
     }
@@ -2189,7 +2471,8 @@ void MainWindow::on_logInProgress()
             logInBtnAnimation->setKeyValueAt(0.5, QColor("#E6E8EB"));
             logInBtnAnimation->setKeyValueAt(1.0, QColor("#141414"));
 
-            connect(logInBtnAnimation, &QVariantAnimation::valueChanged, this, [this](const QVariant &value){
+            const QString animationStyleSheet = StyleHelper::load(":/styles/login-button-animation.qss");
+            connect(logInBtnAnimation, &QVariantAnimation::valueChanged, this, [this, animationStyleSheet](const QVariant &value){
                 QColor bgColor = value.value<QColor>();
 
                 qreal progress = qAbs(bgColor.red() - 20) / (qreal)(230 - 20);
@@ -2199,16 +2482,7 @@ void MainWindow::on_logInProgress()
                 int bFG = 235 - progress * (235 - 20);
                 QColor fgC(rFG, gFG, bFG);
 
-                ui->logInBtn->setStyleSheet(QString(
-                    "QPushButton { "
-                    "background-color: %1; "
-                    "color: %2; "
-                    "border: 1px solid #333333; "
-                    "border-radius: 15px; "
-                    "padding: 6px 10px; "
-                    "outline: none; "
-                    "}"
-                ).arg(bgColor.name(), fgC.name()));
+                ui->logInBtn->setStyleSheet(animationStyleSheet.arg(bgColor.name(), fgC.name()));
             });
         }
         logInBtnAnimation->start();
@@ -2510,7 +2784,7 @@ void MainWindow::updateStagingCloudsUI(unsigned long long chatId)
         } else
         {
             QLabel *lbl = new QLabel(filename);
-            lbl->setStyleSheet("background-color: #242A31; color: #E6E8EB; border-radius: 8px; padding: 4px 10px; font-size: 11px;");
+            lbl->setObjectName("stagingFileLabel");
             lbl->setFixedHeight(24);
             stagingFilesLayout->addWidget(lbl);
         }
@@ -2996,7 +3270,6 @@ void MainWindow::setupInterlocutorAvatarPanel()
 
     interlocutorAvatarPanel = new QFrame(this);
     interlocutorAvatarPanel->setObjectName("interlocutorAvatarPanel");
-    interlocutorAvatarPanel->setStyleSheet("#interlocutorAvatarPanel { background-color: #0A0A0A; border: 1px solid #2A3037; border-radius: 8px; }");
     interlocutorAvatarPanel->setFixedSize(170, 190);
     interlocutorAvatarPanel->hide();
 
@@ -3013,8 +3286,7 @@ void MainWindow::setupInterlocutorAvatarPanel()
 
     QPushButton* closeBtn = new QPushButton(interlocutorAvatarPanel);
     closeBtn->setFixedSize(12, 12);
-    closeBtn->setStyleSheet("QPushButton { background-color: #faf9f6; border-radius: 6px; border: none; }"
-                            "QPushButton:hover { background-color: #faf9f6; }");
+    closeBtn->setObjectName("interlocutorAvatarCloseBtn");
     closeBtn->setCursor(Qt::PointingHandCursor);
     connect(closeBtn, &QPushButton::clicked, this, &MainWindow::hideInterlocutorAvatarPanel);
 

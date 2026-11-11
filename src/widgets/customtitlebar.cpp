@@ -38,9 +38,6 @@ CustomTitleBar::CustomTitleBar(QWidget *parent)
 
     // Поддержка QSS для кастомного QWidget
     setAttribute(Qt::WA_StyledBackground, true);
-
-    // Стиль полоски
-    setStyleSheet("CustomTitleBar { background-color: #0A0A0A; border-top-left-radius: 0px; border-top-right-radius: 0px; }");
 }
 
 #ifdef Q_OS_LINUX
