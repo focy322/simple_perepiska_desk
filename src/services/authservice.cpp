@@ -207,7 +207,7 @@ void AuthService::logOut(const QString &accToken, const QString &refToken)
             reply->deleteLater();
             return;
         }
-        if (httpCode == 200 || httpCode == 201)
+        if ( httpCode == 200 || httpCode == 201 || httpCode == 204 )
         {
             NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
             emit logOutFinished(res);

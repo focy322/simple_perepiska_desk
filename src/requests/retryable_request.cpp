@@ -6,13 +6,13 @@
 
 #include <QRandomGenerator>
 
-uint calculateRequestDelay(int retryCount)
+uint calculateRequestDelay( const int retryCount )
 {
     static uint baseDelay = 1000;
     static uint maxDelay = 30000;
-    uint delay = baseDelay * (1u << retryCount);
-    int jitter = QRandomGenerator::global()->bounded(1000);
-    delay = std::min(delay + jitter, maxDelay);
+    uint delay = baseDelay * ( 1u << retryCount );
+    int jitter = QRandomGenerator::global()->bounded( 1000 );
+    delay = std::min( delay + jitter, maxDelay + jitter );
 
     return delay;
 }

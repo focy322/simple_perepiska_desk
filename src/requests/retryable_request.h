@@ -11,14 +11,14 @@
 struct RetryableRequest
 {
     RequestType type;
-    std::function<void(RetryableRequest)> requestFunction;
+    std::function< void ( RetryableRequest ) > requestFunction;
     int retryCount = 0;
     uint delay = 1000; // ms
-    std::chrono::time_point<std::chrono::system_clock> creationTime = std::chrono::system_clock::now();
+    std::chrono::time_point< std::chrono::system_clock > creationTime = std::chrono::system_clock::now();
     bool isReplaceable = true; // Если true, то при добавлении нового запроса того же типа, старый будет удален
-    static inline int maxRetryCount = 5; // Максимальное количество повторных попыток
+    static inline int maxRetryCount = 5; // Максимальное количество повторных попыток (можно как будто статик убрать и для каждого своё кол-во ошибок поставить)
 };
 
-uint calculateRequestDelay(int retryCount);
+uint calculateRequestDelay( const int retryCount );
 
 #endif //VENT_RETRYABLE_REQUEST_H
