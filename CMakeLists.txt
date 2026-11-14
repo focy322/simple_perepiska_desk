@@ -1,143 +1,142 @@
-cmake_minimum_required(VERSION 3.16)
-project(vent VERSION 1.0 LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.19)
+project(vent VERSION 0.0.1 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON)
-set(CMAKE_AUTOUIC ON)
-
-# Настройка Qt6
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Network WebSockets Multimedia MultimediaWidgets Widgets)
-
-
-# --- Управление зависимостями ---
-include(FetchContent)
-FetchContent_Declare(
-    qtkeychain
-    GIT_REPOSITORY https://github.com/frankosterfeld/qtkeychain.git
-    GIT_TAG        0.14.2
-)
-# Настройка qtkeychain для динамической сборки и без лишних компонентов
-set(BUILD_WITH_QT6 ON CACHE BOOL "Сборка с Qt 6" FORCE)
-set(BUILD_TRANSLATIONS OFF CACHE BOOL "Сборка переводов" FORCE)
-set(BUILD_TEST_APPLICATION OFF CACHE BOOL "Сборка тестового приложения" FORCE)
-
-# Собираем как динамическую библиотеку
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "Сборка qtkeychain как динамической библиотеки" FORCE)
-
-FetchContent_MakeAvailable(qtkeychain)
-
-# Автоматически находим все файлы в нужных папках                                                                                                                                                    
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp")                                                                                                                                             
-file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS "src/*.h")                                                                                                                                               
-file(GLOB_RECURSE FORMS CONFIGURE_DEPENDS "src/*.ui")                                                                                                                                                
-file(GLOB_RECURSE RESOURCES CONFIGURE_DEPENDS "resources/*.qrc") 
-
+option(VENT_STATIC_BUILD "Build with static Qt and runtime on Windows with MinGW" ON)
 option(VENT_WINDOWS_CONSOLE "Build Windows app with console window" ON)
 
-if(WIN32)
-    set(APP_ICON_RESOURCE_WINDOWS "resources/enot_windows.rc")
-    if(VENT_WINDOWS_CONSOLE)
-        qt_add_executable(vent
-                ${SOURCES}
-                ${HEADERS}
-                ${FORMS}
-                ${RESOURCES}
-                ${APP_ICON_RESOURCE_WINDOWS}
-        )
-    else()
-        qt_add_executable(vent WIN32
-                ${SOURCES}
-                ${HEADERS}
-                ${FORMS}
-                ${RESOURCES}
-                ${APP_ICON_RESOURCE_WINDOWS}
-        )
-    endif()
-else()
-    qt_add_executable(vent
-            ${SOURCES}
-            ${HEADERS}
-            ${FORMS}
-            ${RESOURCES}
+if(WIN32 AND MINGW AND VENT_STATIC_BUILD)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+endif()
+
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Network WebSockets Multimedia MultimediaWidgets Widgets)
+get_target_property(vent_qt_type Qt6::Core TYPE)
+
+if(WIN32 AND MINGW AND VENT_STATIC_BUILD AND NOT vent_qt_type STREQUAL "STATIC_LIBRARY")
+    message(FATAL_ERROR
+            "VENT_STATIC_BUILD=ON requires a static Qt kit. "
+            "Select a static Qt kit or set VENT_STATIC_BUILD=OFF.")
+endif()
+
+include(FetchContent)
+FetchContent_Declare(
+        qtkeychain
+        GIT_REPOSITORY https://github.com/frankosterfeld/qtkeychain.git
+        GIT_TAG        0.14.2
+)
+
+function(vent_add_keychain)
+    set(BUILD_WITH_QT6 ON)
+    set(BUILD_TRANSLATIONS OFF)
+    set(BUILD_TEST_APPLICATION OFF)
+    set(BUILD_SHARED_LIBS OFF)
+    FetchContent_MakeAvailable(qtkeychain)
+
+    # В установщик приложения не входят архив и заголовки qtkeychain.
+    set_property(DIRECTORY "${qtkeychain_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL TRUE)
+    target_include_directories(qt6keychain INTERFACE
+            "$<BUILD_INTERFACE:${qtkeychain_SOURCE_DIR}>"
+            "$<BUILD_INTERFACE:${qtkeychain_BINARY_DIR}>"
     )
+endfunction()
+
+vent_add_keychain()
+
+file(GLOB_RECURSE vent_sources CONFIGURE_DEPENDS
+        "src/*.cpp"
+        "src/*.h"
+        "src/*.ui"
+        "resources/*.qrc"
+)
+
+qt_add_executable(vent ${vent_sources})
+target_compile_features(vent PRIVATE cxx_std_20)
+set_target_properties(vent PROPERTIES
+        AUTOMOC ON
+        AUTORCC ON
+        AUTOUIC ON
+        # Предпросмотр в src/widgets использует общую форму главного окна.
+        AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/src"
+)
+
+if(WIN32)
+    target_sources(vent PRIVATE resources/enot_windows.rc)
+    set_property(SOURCE resources/enot_windows.rc APPEND PROPERTY OBJECT_DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/resources/enot_windows.ico")
+    if(NOT VENT_WINDOWS_CONSOLE)
+        set_target_properties(vent PROPERTIES WIN32_EXECUTABLE ON)
+    endif()
 endif()
 
-# Предпросмотр в src/widgets использует общую форму главного окна.
-set_property(TARGET vent PROPERTY AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/src")
-
-# Линковка библиотеки Qt6 и qtkeychain
+target_include_directories(vent PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(vent PRIVATE
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Network
-    Qt6::WebSockets
-    Qt6::Multimedia
-    Qt6::MultimediaWidgets
-    Qt6::Widgets
-    qt6keychain
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Network
+        Qt6::WebSockets
+        Qt6::Multimedia
+        Qt6::MultimediaWidgets
+        Qt6::Widgets
+        qt6keychain
 )
 
-if(WIN32)
-    target_link_libraries(vent PRIVATE dwmapi)
+if(WIN32 AND MINGW AND VENT_STATIC_BUILD)
+    find_package(PkgConfig REQUIRED)
+
+    if(TARGET TIFF::TIFF)
+        # Плагин Qt подтягивает TIFF::TIFF, поэтому кодеки должны идти за архивом libtiff.
+        pkg_check_modules(VENT_TIFF REQUIRED libtiff-4)
+        list(REMOVE_ITEM VENT_TIFF_STATIC_LIBRARIES tiff)
+        target_link_directories(TIFF::TIFF INTERFACE ${VENT_TIFF_STATIC_LIBRARY_DIRS})
+        target_link_libraries(TIFF::TIFF INTERFACE ${VENT_TIFF_STATIC_LIBRARIES})
+        target_link_options(TIFF::TIFF INTERFACE ${VENT_TIFF_STATIC_LDFLAGS_OTHER})
+    endif()
+
+    # FreeType и HarfBuzz могут ссылаться друг на друга.
+    pkg_check_modules(VENT_RUNTIME REQUIRED freetype2 openssl)
+    target_link_libraries(vent PRIVATE
+            -Wl,--start-group
+            ${VENT_RUNTIME_STATIC_LDFLAGS}
+            -Wl,--end-group
+            ws2_32
+            crypt32
+    )
+    target_link_options(vent PRIVATE -static)
 endif()
 
-# Подключение всех папок
-target_include_directories(vent PRIVATE 
-    ${qtkeychain_SOURCE_DIR} 
-    ${qtkeychain_BINARY_DIR} 
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
+install(TARGETS vent RUNTIME DESTINATION .)
 
-
-# --- Установка и генерация инсталлера ---
-# Установка самого .exe файла в корень директории установки
-install(TARGETS vent DESTINATION .)
-
-# Подтягивание .dll библиотек Qt
-if(WIN32)
-    # Путь к windeployqt
-    get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
-    get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
-    find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${_qt_bin_dir}")
-
-    # Запуск windeployqt
+if(WIN32 AND vent_qt_type STREQUAL "SHARED_LIBRARY")
     install(CODE "
-        message(STATUS \"Running windeployqt to resolve dependencies...\")
         execute_process(
-            COMMAND \"${WINDEPLOYQT_EXECUTABLE}\" \"\${CMAKE_INSTALL_PREFIX}/vent.exe\"
+            COMMAND \"$<TARGET_FILE:Qt6::windeployqt>\"
+                    \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/$<TARGET_FILE_NAME:vent>\"
+            COMMAND_ERROR_IS_FATAL ANY
         )
     ")
 endif()
 
-# Настройка CPack для кроссплатформенного создания инсталлеров
 set(CPACK_PACKAGE_NAME "Vent")
 set(CPACK_PACKAGE_VENDOR "Vent")
-set(CPACK_PACKAGE_VERSION "0.0.1")
-set(CPACK_PACKAGE_FILE_NAME "Vent-Installer-${CPACK_PACKAGE_VERSION}")
+set(CPACK_PACKAGE_FILE_NAME "Vent-Installer-${PROJECT_VERSION}")
 
 if(WIN32)
-    # Специфичные настройки NSIS для Windows
     set(CPACK_GENERATOR "NSIS;ZIP")
-    set(CPACK_PACKAGE_INSTALL_DIRECTORY "Vent")        # Имя папки в Program Files
-    set(CPACK_NSIS_MUI_FINISHPAGE_RUN "vent.exe")      # Файл для запуска по завершении
-    set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON) # Удалять старую версию перед новой
+    set(CPACK_PACKAGE_INSTALL_DIRECTORY "Vent")
+    set(CPACK_NSIS_MUI_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/enot_windows.ico")
+    set(CPACK_NSIS_MUI_UNIICON "${CPACK_NSIS_MUI_ICON}")
+    set(CPACK_NSIS_MUI_FINISHPAGE_RUN "vent.exe")
+    set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
     set(CPACK_NSIS_EXECUTABLES_DIRECTORY ".")
     set(CPACK_PACKAGE_EXECUTABLES "vent" "Vent")
+    if(MINGW AND VENT_STATIC_BUILD AND CMAKE_BUILD_TYPE STREQUAL "Release")
+        set(CPACK_STRIP_FILES ON)
+    endif()
 elseif(APPLE)
-    # Настройки для macOS (дай бог когда-нибудь протестирую)
     set(CPACK_GENERATOR "DragNDrop")
-elseif(UNIX AND NOT APPLE)
-    # Настройки для Linux (DEB, RPM и .tar.gz)
+elseif(UNIX)
     set(CPACK_GENERATOR "DEB;RPM;TGZ")
-    
-    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Vent") # Обязательно для DEB
-    set(CPACK_RPM_PACKAGE_LICENSE "Unknown")    # Желательно для RPM (может ругаться в некоторых ситуациях)
-    
-    # Установка в /opt/
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Vent")
+    set(CPACK_RPM_PACKAGE_LICENSE "Unknown")
     set(CPACK_PACKAGING_INSTALL_PREFIX "/opt/Vent")
 endif()
 
