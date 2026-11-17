@@ -2,6 +2,7 @@
 
 QString generateMessageForError(ERROR_TYPES error)
 {
+    // TODO: может в какой то массив/хещ-таблицу загнать все строки и по индексу брать
     switch (error)
     {
     case ERROR_TYPES::NO_ERROR:               return "Успех!"; break;

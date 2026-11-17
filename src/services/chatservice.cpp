@@ -55,7 +55,8 @@ void ChatService::getMyChats(const QString &accToken, RetryableRequest retryable
 
 }
 
-void ChatService::getChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest retryableReq, quint64 lastMsgId)
+void ChatService::getChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest retryableReq, const quint64 myUserId, const
+                                  quint64 lastMsgId)
 {
     emit getChatMessagesInProgress();
     QUrlQuery query;
@@ -70,7 +71,7 @@ void ChatService::getChatMessages(const unsigned long long &chatId, const QStrin
     req.setRawHeader("Authorization", "Bearer " + accToken.toUtf8());
 
     QNetworkReply * reply = network->get(req);
-    connect(reply, &QNetworkReply::finished, this, [this, chatId, reply, retryableReq](){
+    connect(reply, &QNetworkReply::finished, this, [this, chatId, reply, retryableReq, myUserId](){
         auto httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() != QNetworkReply::NoError && httpCode == 0)
         {
@@ -82,7 +83,7 @@ void ChatService::getChatMessages(const unsigned long long &chatId, const QStrin
         QByteArray raw = reply->readAll();
         QJsonParseError pe;
         QJsonDocument doc = QJsonDocument::fromJson(raw, &pe);
-        if (pe.error || !doc.isArray())
+        if (pe.error || !doc.isObject())
         {
             NetworkResult res{false, ERROR_TYPES::UNKNOWN_ERROR, generateMessageForError(ERROR_TYPES::UNKNOWN_ERROR)};
             emit getChatMessagesFinished(res, retryableReq);
@@ -91,7 +92,7 @@ void ChatService::getChatMessages(const unsigned long long &chatId, const QStrin
         }
         if (httpCode == 200)
         {
-            const auto parsedArrayObjects = parseChatMessagesArray(doc);
+            const auto parsedArrayObjects = parseChatMessagesArray(doc, myUserId);
             NetworkResult res{true, ERROR_TYPES::NO_ERROR, generateMessageForError(ERROR_TYPES::NO_ERROR)};
             emit getChatMessagesFinished(res, retryableReq, chatId, parsedArrayObjects);
             reply->deleteLater();

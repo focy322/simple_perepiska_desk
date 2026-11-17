@@ -102,13 +102,13 @@ struct ParsedChatMessagesArrayObject
     QString                         editedAt;                          //!< Временная метка редактирования
     std::vector<Attachment>         attachments;                       //!< Массив вложений
     bool                            isEdited = false;                  //!< Флаг редактирования
-    bool                            isRead = false;                    //!< Флаг прочтения
 
     // Локальные поля
     QString                         clientMessageId;                   //!< Временный идентификатор на клиенте(uuid)
     uint                            attachmentsCount = 0;              //!< Количество вложений
     bool                            isPending = false;                 //!< Флаг ожидания отправки
     bool                            hasAttachments = false;            //!< Флаг наличия вложений
+    bool                            isRead = false;                    //!< Флаг прочтения
 };
 
 struct FileMeta
@@ -180,9 +180,10 @@ std::vector<ParsedChatsListArrayObject> parseChatsListArray(const QJsonDocument 
 /**
  * Разбирает JSON-документ с истории сообщений в вектор структур ParsedChatMessagesArrayObject.
  * \param doc JSON документ от API
+ * \param myUserId
  * \return список сообщений
  */
-std::vector<ParsedChatMessagesArrayObject> parseChatMessagesArray(const QJsonDocument &doc);
+std::vector<ParsedChatMessagesArrayObject> parseChatMessagesArray(const QJsonDocument &doc, quint64 myUserId);
 
 /**
  * Разбирает JSON-документ с информацией о конкретном сообщении в структуру ParsedChatMessagesArrayObject.

@@ -20,9 +20,10 @@ void ChatsController::requestMyChats(const QString &accToken, RetryableRequest r
     chatService->getMyChats(accToken, req);
 }
 
-void ChatsController::requestChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest req, quint64 lastMsgId)
+void ChatsController::requestChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest req, const quint64 myUserId, const quint64
+                                          lastMsgId)
 {
-    chatService->getChatMessages(chatId, accToken, req, lastMsgId);
+    chatService->getChatMessages(chatId, accToken, req, myUserId, lastMsgId);
 }
 
 void ChatsController::requestCreateDirectChat(const unsigned long long &userId, const QString &accToken)

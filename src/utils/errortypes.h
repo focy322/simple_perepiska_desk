@@ -19,7 +19,6 @@ enum ERROR_TYPES
     LOGIN_ALREADY_EXISTS,   //!< Логин уже занят
     VALIDATION_ERROR = 422,       //!< Неверный токен
     UNAUTHORIZED = 401,    //!< Неавторизованный доступ
-    ERRORS_COUNTS,          //!< Кол-во ошибок
     // TODO: Дополнить
 
 };

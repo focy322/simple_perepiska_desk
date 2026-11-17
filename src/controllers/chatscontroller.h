@@ -27,9 +27,12 @@ public:
      * \param chatId идентификатор чата
      * \param accToken токен доступа (Access Token) для авторизации запроса
      * \param req
+     * \param myUserId
+     * \param myUserId
      * \param lastMsgId идентификатор последнего сообщения, которое уже загружено
      */
-    void requestChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest req, quint64 lastMsgId = 0);
+    void requestChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest req, quint64 myUserId, quint64 lastMsgId =
+                                 0);
 
     /**
      * Создает новый личный чат с указанным пользователем.

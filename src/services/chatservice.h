@@ -35,11 +35,13 @@ public:
      * \param chatId идентификатор чата
      * \param accToken токен доступа (Access Token)
      * \param retryableReq
+     * \param myUserId
      * \param lastMsgId
      * \param lastMsgId
      * \param retryableReq
      */
-    void getChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest retryableReq, quint64 lastMsgId = 0);
+    void getChatMessages(const unsigned long long &chatId, const QString &accToken, RetryableRequest retryableReq, quint64 myUserId, quint64
+                         lastMsgId = 0);
 
     /**
      * Выполняет сетевой запрос на создание нового личного чата.

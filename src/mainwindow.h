@@ -52,6 +52,7 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
     void showAndActivate();
+    inline static constexpr int ACCESS_TOKEN_REFRESH_INTERVAL = 28 * 60 * 1000; //!< Интервал обновления access токена (28 минут)
 
 protected:
     /**
@@ -612,7 +613,7 @@ private:
     bool isAuthorized;                                                   //!< Флаг авторизации пользователя
     bool isFirstOpen;                                                    //!< Флаг первого открытия приложения для попытки авто-авторизации
     QString currentUsername;                                             //!< Имя текущего пользователя
-    unsigned long long myUserId;                                         //!< Идентификатор текущего пользователя
+    quint64 myUserId;                                                    //!< Идентификатор текущего пользователя
     QString currentAvatarUrl;                                            //!< Ссылка на текущий аватар пользователя
     QString accessToken;                                                 //!< Токен доступа (Access Token) для API
     QString refreshToken;                                                //!< Токен обновления (Refresh Token) для API
@@ -626,7 +627,6 @@ private:
 
     RetryableRequestErrorHandler *retryableRequestErrorHandler;          //!< Обработчик ошибок сетевых запросов и повторных попыток
 
-    const int accessTokenRefreshInterval = 28 * 60 * 1000;               //!< Интервал обновления access токена (28 минут)
     QTimer *refreshAccessTokenTimer;                                     //!< Таймер для периодического обновления access токена
 
     /**

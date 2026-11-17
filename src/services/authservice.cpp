@@ -145,13 +145,9 @@ void AuthService::logIn(const QString &login, const QString &password)
             reply->deleteLater();
             return;
         }
-        // TODO: ошибки от 400 до 499
-        if (httpCode == 422)
+        if (httpCode == ERROR_TYPES::UNAUTHORIZED)
         {
-#ifdef QT_DEBUG
-            qDebug() << doc;
-#endif
-            NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), generateMessageForError(static_cast<ERROR_TYPES>(httpCode))};
+            NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), "Неверный логин или пароль"};
             emit logInFinished(res);
             reply->deleteLater();
             return;
@@ -167,13 +163,13 @@ void AuthService::logIn(const QString &login, const QString &password)
             reply->deleteLater();
             return;
         }
-        NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), generateMessageForError(static_cast<ERROR_TYPES>(httpCode))};
 #ifdef QT_DEBUG
-        qDebug() << doc;
+        qDebug() << httpCode << doc;
 #endif
+        NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), generateMessageForError(static_cast<ERROR_TYPES>(httpCode))};
         emit logInFinished(res);
         reply->deleteLater();
-        return;
+
     } );
 }
 
@@ -193,9 +189,6 @@ void AuthService::logOut(const QString &accToken, const QString &refToken)
         };
 
     QByteArray body = QJsonDocument(obj).toJson(QJsonDocument::Compact);
-#ifdef QT_DEBUG
-    qDebug() << "RefreshToken" << body;
-#endif
 
     QNetworkReply * reply = network->post(req, body);
     connect(reply, &QNetworkReply::finished, this, [this, reply](){
@@ -215,9 +208,6 @@ void AuthService::logOut(const QString &accToken, const QString &refToken)
             return;
         }
         NetworkResult res{false, static_cast<ERROR_TYPES>(httpCode), generateMessageForError(static_cast<ERROR_TYPES>(httpCode))};
-#ifdef QT_DEBUG
-        qDebug() << "logOutError code: " << httpCode;
-#endif
         emit logOutFinished(res);
         reply->deleteLater();
     });
@@ -239,9 +229,6 @@ void AuthService::refreshAccessToken(const QString &refToken, RetryableRequest r
     };
 
     QByteArray body = QJsonDocument(obj).toJson(QJsonDocument::Compact);
-#ifdef QT_DEBUG
-    qDebug() << "RefreshToken" << body;
-#endif
 
     QNetworkReply * reply = network->post(req, body);
     connect(reply, &QNetworkReply::finished, this, [this, reply, retryableReq]()

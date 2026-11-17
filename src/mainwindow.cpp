@@ -477,13 +477,14 @@ MainWindow::MainWindow(QWidget *parent)
     // Сюда добавлять новые контроллеры
     retryableRequestErrorHandler->getReady({authController, chatsController, filesController, userInfoController, websocketController}, requestsStatusManager);
 
-    refreshAccessTokenTimer->setInterval(accessTokenRefreshInterval);
+    refreshAccessTokenTimer->setInterval(ACCESS_TOKEN_REFRESH_INTERVAL);
     refreshAccessTokenTimer->setSingleShot(true);
     connect(refreshAccessTokenTimer, &QTimer::timeout, this, [this]()
     {
         on_needRefreshToken();
     });
-    // Эта хуйня должна быть самой последней паосле всех приготовлений
+
+    // Эта хуйня должна быть самой последней после всех приготовлений
     tryAuthorize();
 }
 
@@ -852,11 +853,11 @@ void MainWindow::getChatMessages(const unsigned long long &chatId)
         .type = RequestType::REQUEST_CHAT_MESSAGES,
         .requestFunction = [this, chatId](RetryableRequest req)
         {
-            chatsController->requestChatMessages(chatId, accessToken, req);
+            chatsController->requestChatMessages(chatId, accessToken, req, myUserId);
         },
         .isReplaceable = false,
     };
-    chatsController->requestChatMessages(chatId, accessToken, req);
+    chatsController->requestChatMessages(chatId, accessToken, req, myUserId);
 }
 
 void MainWindow::createDirectChat(const unsigned long long &userId)
@@ -2746,11 +2747,11 @@ void MainWindow::on_needLoadMoreMessages(quint64 chatId)
                 .type = RequestType::REQUEST_CHAT_MESSAGES,
                 .requestFunction = [this, chatId, lastMessageId](RetryableRequest req)
                 {
-                    chatsController->requestChatMessages(chatId, accessToken, req, lastMessageId);
+                    chatsController->requestChatMessages(chatId, accessToken, req, myUserId, lastMessageId);
                 },
                 .isReplaceable = false,
             };
-            chatsController->requestChatMessages(chatId, accessToken, req, lastMessageId);
+            chatsController->requestChatMessages(chatId, accessToken, req, myUserId, lastMessageId);
         }
     }
 }

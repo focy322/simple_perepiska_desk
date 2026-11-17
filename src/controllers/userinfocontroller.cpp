@@ -52,13 +52,16 @@ void UserInfoController::on_GetUserInfoFinished(const NetworkResult& res, Retrya
 
 void UserInfoController::on_UploadAvatarFinished(const NetworkResult& res, RetryableRequest reReq, const QString& avatarUrl)
 {
-    if (!res.ok)
-    {
-        static int errorCount = 0;
-        ++errorCount;
-        reReq.retryCount = errorCount;
-        emit errorOccurred(res, reReq);
-    }
+    // Как будто бы не нужно ретраить
+    //
+    // if (!res.ok)
+    // {
+    //     static int errorCount = 0;
+    //     ++errorCount;
+    //     reReq.retryCount = errorCount;
+    //     emit errorOccurred(res, reReq);
+    // }
+
     emit uploadAvatarFinished(res, avatarUrl);
 }
 

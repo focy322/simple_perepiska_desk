@@ -109,9 +109,12 @@ std::vector<ParsedChatsListArrayObject> parseChatsListArray(const QJsonDocument 
     return parsedArrayObjects;
 }
 
-std::vector<ParsedChatMessagesArrayObject> parseChatMessagesArray(const QJsonDocument &doc)
+std::vector<ParsedChatMessagesArrayObject> parseChatMessagesArray(const QJsonDocument &doc, const quint64 myUserId)
 {
-    const QJsonArray messages = doc.array();
+    const QJsonObject obj = doc.object();
+    const qint64 myLastReadMsgId = obj.value("my_last_read_message_id").toInteger(-1);
+    const qint64 interlocutorLastReadMsgId = obj.value("interlocutor_last_read_message_id").toInteger(-1);
+    const QJsonArray messages = obj.value("messages").toArray();
     std::vector<ParsedChatMessagesArrayObject> parsedArrayObjects;
     parsedArrayObjects.reserve(messages.size());
 
@@ -128,7 +131,7 @@ std::vector<ParsedChatMessagesArrayObject> parseChatMessagesArray(const QJsonDoc
         paObj.chatId = ConvertToUnsignedLongLong(messageObject.value("chat_id"));
         paObj.message = messageObject.value("message").toString();
         paObj.timestamp = messageObject.value("timestamp").toString();
-        paObj.isRead = messageObject.value("read").toBool(false);
+        paObj.isRead = paObj.senderId == myUserId ? paObj.messageId <= myLastReadMsgId : paObj.messageId <= interlocutorLastReadMsgId;
         paObj.readAt = messageObject.value("read_at").toString();
         paObj.isEdited = messageObject.value("edited").toBool(false);
         paObj.editedAt = messageObject.value("edited_at").toString();
@@ -155,9 +158,9 @@ ParsedChatMessagesArrayObject parseChatMessageObject(const QJsonObject& messageO
     newMessage.chatId    = ConvertToUnsignedLongLong(messageObject.value("chat_id"), 0);
     newMessage.message   = messageObject.value("message").toString();
     newMessage.timestamp = messageObject.value("timestamp").toString();
-    newMessage.isRead      = messageObject.value("read").toBool(false);
+    newMessage.isRead    = false;
     newMessage.readAt    = messageObject.value("read_at").toString();
-    newMessage.isEdited    = messageObject.value("edited").toBool(false);
+    newMessage.isEdited  = messageObject.value("edited").toBool(false);
     newMessage.editedAt  = messageObject.value("edited_at").toString();
     if (messageObject.value("attachments").isArray())
     {
